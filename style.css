@@ -183,7 +183,7 @@ h2 {
   aspect-ratio: 4 / 5; clip-path: var(--cut); position: relative;
   border: 1px solid var(--mag); box-shadow: inset 0 0 0 1px var(--mag);
 }
-.portrait-frame > * { position: absolute; inset: 0; }
+.portrait-frame > * { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 55% 40%; }
 .portrait-frame::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(to top, rgb(255 42 109 / .25), transparent 40%);

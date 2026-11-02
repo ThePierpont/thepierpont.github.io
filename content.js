@@ -22,11 +22,11 @@ window.SITE = {
   name: "Tyler",
   tagline: "I take photos, buy too many jackets, and keep a running log of whatever I'm into.",
   status: "Probably out shooting film",
-  location: "Your City",
+  location: "Washington, DC",
   // Your time zone, for the live clock. Find yours at https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
   timezone: "America/New_York",
   updated: "2026-11-01",
-  portrait: "", // e.g. "images/me.jpg"
+  portrait: "images/me.jpg",
 
   about: [
     "Hey, I'm Tyler. This is my corner of the internet: the photos I take, the clothes I'm wearing, the music on repeat, and whatever I'm watching.",
@@ -39,15 +39,22 @@ window.SITE = {
     { k: "Always down for", v: "Late-night food" },
   ],
 
-  // Newest first. Set `ratio` (like "3/2" or "4/5") to shape placeholders; real photos use their own shape.
+  // Newest first. The first one shows as "Latest photo" at the top.
+  // Set `ratio` (like "3/2" or "4/5") only for placeholders; real photos use their own shape.
   photos: [
-    { src: "", caption: "Downtown at night", place: "City", date: "2026-10-12", ratio: "4/5" },
-    { src: "", caption: "Window light", place: "Home", date: "2026-10-03", ratio: "1/1" },
-    { src: "", caption: "Rain on glass", place: "City", date: "2026-09-28", ratio: "3/4" },
-    { src: "", caption: "Parking garage, level 4", place: "City", date: "2026-09-20", ratio: "3/2" },
-    { src: "", caption: "Sunset drive", place: "Highway", date: "2026-09-02", ratio: "4/5" },
-    { src: "", caption: "Friends, late", place: "Somewhere", date: "2026-08-30", ratio: "3/2" },
-    { src: "", caption: "Neon sign", place: "Somewhere", date: "2026-08-14", ratio: "2/3" },
+    { src: "images/archives-fountain.jpg", caption: "Fountain at the Archives", place: "Washington, DC", date: "2026-11-01" },
+    { src: "images/old-post-office-tower.jpg", caption: "Old Post Office, last light", place: "Washington, DC", date: "2026-11-01" },
+    { src: "images/penn-ave-fall.jpg", caption: "Fall on Pennsylvania Ave", place: "Washington, DC", date: "2026-11-01" },
+    { src: "images/blue-hour-concrete.jpg", caption: "Brutalism and blue sky", place: "Washington, DC", date: "2026-11-01" },
+    { src: "images/bar-crowd.jpg", caption: "Halloween crowd", place: "Washington, DC", date: "2026-10-31" },
+    { src: "images/steeple-night.jpg", caption: "Steeple, overcast night", place: "Washington, DC", date: "2026-10-29" },
+    { src: "images/before-doors.jpg", caption: "Lighting candles before doors", place: "", date: "2026-09-22" },
+    { src: "images/behind-the-mic.jpg", caption: "Behind the mic", place: "", date: "2026-09-12" },
+    { src: "images/cactus-nap.jpg", caption: "Nap with the cactus", place: "Home", date: "2026-09-11" },
+    { src: "images/wedding-us.jpg", caption: "Wedding guests", place: "", date: "2026-09-05" },
+    { src: "images/wedding-mom.jpg", caption: "Suited up", place: "", date: "2026-09-05" },
+    { src: "images/yawn.jpg", caption: "Mid-yawn", place: "Home", date: "2026-07-27" },
+    { src: "images/movie-night.jpg", caption: "Projector movie night", place: "Home", date: "2026-06-15" },
   ],
 
   // Newest first.
