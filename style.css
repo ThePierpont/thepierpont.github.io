@@ -441,18 +441,8 @@ a.t-btc:hover { border-color: rgb(249 240 2 / .55); }
 .shelf-tip span { color: var(--muted); font-size: .85rem; }
 .shelf-tip a { margin-top: 6px; color: var(--cyan); font-weight: 600; }
 .shelf-fallback { display: none; }
-/* Pulled-out case: its title pinned to the bottom of the shelf view. Clicks pass through to the shelf
-   (clicking around the case puts it back). */
-.case-ui {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; gap: 6px; justify-items: center;
-  padding: 18px 16px 14px; text-align: center; background: linear-gradient(transparent, rgb(10 10 18 / .92) 35%);
-  pointer-events: none; opacity: 0; transform: translateY(8px); transition: opacity .35s, transform .35s;
-}
-.shelf3d.case-open .case-ui { opacity: 1; transform: none; }
-.case-info { display: grid; gap: 2px; }
-.case-title { font: 700 clamp(1.3rem, 3vw, 1.8rem)/1.1 var(--display); color: var(--white); text-shadow: 0 0 14px rgb(255 42 109 / .45); }
-.case-sub { color: var(--muted); font-size: .9rem; }
-.case-hint { margin: 0; font: .78rem var(--mono); color: var(--muted); }
+/* Pulled-out case: its title and how-to are for screen readers only, so the case gets the whole view. */
+.case-ui { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; pointer-events: none; }
 .shelf3d.case-open .shelf-hint, .shelf3d.case-open .shelf-bar { opacity: 0; pointer-events: none; }
 .shelf-bar, .shelf-hint { transition: opacity .25s; }
 /* Without WebGL: hide the canvas and show the plain list instead. */

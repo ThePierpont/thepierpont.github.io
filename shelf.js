@@ -554,7 +554,7 @@ function init() {
     pivot.add(group);
     // Start where the spine was on the shelf, spine facing you; end centered, front turned toward you.
     const dist = 4, [vw, vh] = viewSize(dist);
-    const scale = Math.min((vh * 0.55) / dims.h, (vw * 0.68) / dims.w);
+    const scale = Math.min((vh * 0.8) / dims.h, (vw * 0.8) / dims.w); // nearly fills the view: no caption under it
     const from = camera.worldToLocal(h.point.clone());
     viewer = { group, it, t0: performance.now(), from, to: new THREE.Vector3(0, 0, -dist), s0: scale * 0.25, s1: scale,
       r0: Math.PI / 2, r1: -0.45, opening: true, spinY: -0.45, spinX: 0.08 };
@@ -562,7 +562,7 @@ function init() {
     clearPick();
     ui.querySelector(".case-title").textContent = it.t;
     ui.querySelector(".case-sub").textContent = [it.y, it.d].filter(Boolean).join(", ");
-    ui.querySelector(".case-hint").textContent = `${touch ? "Swipe" : "Drag"} to turn it · ${touch ? "tap" : "click"} the review on the back · ${touch ? "tap" : "click"} the shelf to put it back`;
+    ui.querySelector(".case-hint").textContent = `${touch ? "Swipe" : "Drag"} to turn it. ${touch ? "Tap" : "Click"} the review on the back, or press Enter, to read it. ${touch ? "Tap" : "Click"} the shelf or press Escape to put it back.`;
     box.classList.add("case-open");
     controls.enabled = false;
     if (reduce) { viewer.t0 = -1e9; }
