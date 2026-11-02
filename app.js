@@ -636,14 +636,37 @@
     if (live) applyStatus(live);
 
     // Kind 1 = regular posts, kind 20 = picture posts (Olas and other photo apps).
-    const posts = await pool.querySync(relays, { kinds: [1, 20], authors: [pubkey], limit: 100 }, { maxWait: 4000 });
+    // Relays drop older posts, so Primal's archive is asked too. Its events are still checked
+    // against your signature below, so nothing it returns can be faked.
+    const [fromRelays, fromPrimal] = await Promise.all([
+      pool.querySync(relays, { kinds: [1, 20], authors: [pubkey], limit: 100 }, { maxWait: 4000 }),
+      primalAuthored(pubkey, 50).catch(() => []),
+    ]);
     const seen = new Set();
-    const mine = posts
+    const mine = fromRelays.concat(fromPrimal.filter((e) => e.kind === 1 || e.kind === 20))
       .filter((e) => e.pubkey === pubkey && !e.tags.some((t) => t[0] === "e") && !seen.has(e.id) && seen.add(e.id) && NT.verifyEvent(e))
       .sort((a, b) => b.created_at - a.created_at);
     renderNotes(mine.filter((e) => e.kind === 1));
-    addNostrPhotos(mine.flatMap(nostrPhotos));
+    // Only posts from `photosSince` on go to the photo wall; older ones still show in Notes.
+    const since = Date.parse((N.photosSince || "1970-01-01") + "T00:00:00") / 1000;
+    addNostrPhotos(mine.filter((e) => e.created_at >= since).flatMap(nostrPhotos));
   };
+
+  // Your posts from Primal's archive (the same request Primal's profile page makes).
+  const primalAuthored = (pk, limit) => new Promise((resolve, reject) => {
+    const ws = new WebSocket("wss://cache2.primal.net/v1");
+    const sub = "site" + Math.random().toString(36).slice(2, 8), out = [];
+    const done = () => { clearTimeout(timer); try { ws.close(); } catch {} resolve(out); };
+    const timer = setTimeout(done, 6000);
+    ws.onopen = () => ws.send(JSON.stringify(["REQ", sub, { cache: ["feed", { pubkey: pk, notes: "authored", limit }] }]));
+    ws.onmessage = (m) => {
+      const d = JSON.parse(m.data);
+      if (d[1] !== sub) return;
+      if (d[0] === "EVENT" && d[2]?.pubkey === pk) out.push(d[2]);
+      if (d[0] === "EOSE") done();
+    };
+    ws.onerror = () => { clearTimeout(timer); reject(new Error("Primal archive unreachable")); };
+  });
 
   // Every image in a post becomes its own photo on the wall, captioned with the post's text.
   const nostrPhotos = (ev) => {

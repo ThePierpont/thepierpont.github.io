@@ -123,6 +123,9 @@ window.SITE = {
     npub: "npub1nqvuy0k8vk8yt8sm549gehsuukjevqw3pjvem29yncvj94l82t7s5ddrp8",
     // Your own relays first (purplepag.es holds your profile), then two big public ones.
     relays: ["wss://relay.primal.net", "wss://purplepag.es", "wss://relay.damus.io", "wss://nos.lol"],
+    // Images in Nostr posts from this date on are added to the photo wall automatically.
+    // Older posts (memes, screenshots) still show in Notes but stay off the wall.
+    photosSince: "2026-11-01",
   },
 
   contact: {
