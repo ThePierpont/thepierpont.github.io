@@ -856,7 +856,12 @@
   window.addEventListener("DOMContentLoaded", () => initNostr().catch((e) => console.warn("nostr:", e)));
 
   const say = (t, err) => { smsg.textContent = t; smsg.className = "form-status" + (err ? " err" : ""); };
-  $("#status-edit-open").addEventListener("click", () => { sform.status.value = statusEl.textContent; say(""); dlg.showModal(); });
+  const openStatus = () => { sform.status.value = statusEl.textContent; say(""); dlg.showModal(); };
+  $("#status-edit-open").addEventListener("click", openStatus);
+  // Owner shortcut: pierpont.blog/#status opens the editor directly (bookmark it on your phone).
+  const statusFromHash = () => { if (location.hash === "#status") { openStatus(); history.replaceState(null, "", location.pathname + location.search); } };
+  window.addEventListener("hashchange", statusFromHash);
+  statusFromHash();
   $("#status-cancel").addEventListener("click", () => dlg.close());
   sform.addEventListener("submit", async (e) => {
     e.preventDefault();
