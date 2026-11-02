@@ -342,6 +342,18 @@ a.t-btc:hover { border-color: rgb(249 240 2 / .55); }
 }
 .shot .cap span:last-child { color: var(--muted); font: .8rem var(--mono); padding-top: 3px; white-space: nowrap; }
 
+/* ---------- "See all" folding (photos, Letterboxd) ---------- */
+.folded > .extra { display: none; }
+.more {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 18px;
+  padding: 14px 20px; cursor: pointer; background: transparent; color: var(--white);
+  border: 1px solid var(--line); clip-path: var(--cut-s);
+  font: 600 1.05rem var(--display); letter-spacing: .04em; transition: border-color .2s, color .2s, box-shadow .2s;
+}
+.more::after { content: "▾"; color: var(--mag); transition: transform .2s; }
+.more[aria-expanded="true"]::after { transform: rotate(180deg); }
+.more:hover { border-color: var(--mag); color: var(--mag); box-shadow: 0 0 12px rgb(255 42 109 / .25); }
+
 /* ---------- closet rail ---------- */
 .rail {
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 280px); gap: 16px;

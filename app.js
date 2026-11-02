@@ -185,11 +185,35 @@
   $("#about-body").innerHTML = (S.about || []).map((p) => `<p>${esc(p)}</p>`).join("");
   $("#facts").innerHTML = (S.facts || []).map((f) => `<div><dt>${esc(f.k)}</dt><dd>${esc(f.v)}</dd></div>`).join("");
 
+  // ---- "See all" folding: show the first few items, expand on request.
+  // Re-run the returned function after the list re-renders.
+  const fold = (box, btn, { wide, narrow, noun }) => {
+    const mq = matchMedia("(max-width: 560px)");
+    let open = false;
+    const apply = () => {
+      const kids = [...box.children], limit = mq.matches ? narrow : wide;
+      kids.forEach((k, i) => k.classList.toggle("extra", i >= limit));
+      box.classList.toggle("folded", !open);
+      btn.hidden = kids.length <= limit;
+      btn.textContent = open ? "Show fewer" : `See all ${kids.length} ${noun}`;
+      btn.setAttribute("aria-expanded", open);
+    };
+    btn.addEventListener("click", () => {
+      open = !open;
+      apply();
+      if (!open) box.scrollIntoView({ block: "start" }); // collapsing: jump back to the top of the list
+    });
+    mq.addEventListener("change", apply);
+    return apply;
+  };
+
   // ---- photos + lightbox
   // `gallery` starts as the photos in content.js; photos posted on Nostr get merged in by date.
   let gallery = photos.map((p) => ({ ...p, ts: Date.parse((p.date || "1970-01-01") + "T12:00:00") }));
   if (!photos.length && !S.nostr?.npub) hide("photos");
+  const foldGallery = fold($("#gallery"), $("#gallery-more"), { wide: 9, narrow: 6, noun: "photos" });
   const renderGallery = () => {
+    gallery = gallery.filter((p) => !p.broken);
     $("#photos").hidden = !gallery.length;
     $("#photos-count").textContent = `${gallery.length} ${gallery.length === 1 ? "shot" : "shots"}`;
     $("#gallery").innerHTML = gallery.map((p, i) => `
@@ -197,7 +221,15 @@
       <div class="media">${media(p.src, p.caption || p.src, p.caption || "Photo", p.ratio)}</div>
       <div class="cap"><span>${esc(p.caption)}</span><span>${fmtDate(p.date, { month: "short", year: "numeric" })}</span></div>
     </button>`).join("");
+    foldGallery();
   };
+  // Old Nostr images sometimes vanish from their hosts; drop any that fail to load.
+  $("#gallery").addEventListener("error", (e) => {
+    const shot = e.target.closest?.(".shot");
+    if (!shot) return;
+    gallery[+shot.dataset.open].broken = true;
+    renderGallery();
+  }, true);
   renderGallery();
   const addNostrPhotos = (list) => {
     if (!list.length) return;
@@ -505,6 +537,7 @@
         <p>Watched ${fmtDate(d.watched, { month: "short", day: "numeric" })}</p>
         ${d.review ? `<p class="review">“${esc(d.review)}”</p>` : ""}
       </article>`).join("");
+    fold($("#lb-diary"), $("#lb-more"), { wide: 5, narrow: 4, noun: "films" })();
     $("#lb-lists-head").hidden = !lists.length;
     $("#lb-lists").innerHTML = lists.map((l) => `
       <a class="list-card" href="${esc(l.link)}" target="_blank" rel="noopener">
@@ -640,25 +673,25 @@
     // against your signature below, so nothing it returns can be faked.
     const [fromRelays, fromPrimal] = await Promise.all([
       pool.querySync(relays, { kinds: [1, 20], authors: [pubkey], limit: 100 }, { maxWait: 4000 }),
-      primalAuthored(pubkey, 50).catch(() => []),
+      primalHistory(pubkey).catch(() => []),
     ]);
     const seen = new Set();
     const mine = fromRelays.concat(fromPrimal.filter((e) => e.kind === 1 || e.kind === 20))
       .filter((e) => e.pubkey === pubkey && !e.tags.some((t) => t[0] === "e") && !seen.has(e.id) && seen.add(e.id) && NT.verifyEvent(e))
       .sort((a, b) => b.created_at - a.created_at);
     renderNotes(mine.filter((e) => e.kind === 1));
-    // Only posts from `photosSince` on go to the photo wall; older ones still show in Notes.
-    const since = Date.parse((N.photosSince || "1970-01-01") + "T00:00:00") / 1000;
+    // Optional `photosSince` (YYYY-MM-DD) keeps older posts' images off the wall; empty = all of them.
+    const since = N.photosSince ? Date.parse(N.photosSince + "T00:00:00") / 1000 : 0;
     addNostrPhotos(mine.filter((e) => e.created_at >= since).flatMap(nostrPhotos));
   };
 
   // Your posts from Primal's archive (the same request Primal's profile page makes).
-  const primalAuthored = (pk, limit) => new Promise((resolve, reject) => {
+  const primalAuthored = (pk, limit, until) => new Promise((resolve, reject) => {
     const ws = new WebSocket("wss://cache2.primal.net/v1");
     const sub = "site" + Math.random().toString(36).slice(2, 8), out = [];
     const done = () => { clearTimeout(timer); try { ws.close(); } catch {} resolve(out); };
     const timer = setTimeout(done, 6000);
-    ws.onopen = () => ws.send(JSON.stringify(["REQ", sub, { cache: ["feed", { pubkey: pk, notes: "authored", limit }] }]));
+    ws.onopen = () => ws.send(JSON.stringify(["REQ", sub, { cache: ["feed", { pubkey: pk, notes: "authored", limit, ...(until ? { until } : {}) }] }]));
     ws.onmessage = (m) => {
       const d = JSON.parse(m.data);
       if (d[1] !== sub) return;
@@ -667,6 +700,19 @@
     };
     ws.onerror = () => { clearTimeout(timer); reject(new Error("Primal archive unreachable")); };
   });
+
+  // Your whole posting history, 100 posts per page, newest first (up to 500 posts).
+  const primalHistory = async (pk) => {
+    const all = new Map();
+    let until;
+    for (let i = 0; i < 5; i++) {
+      const page = (await primalAuthored(pk, 100, until)).filter((e) => (e.kind === 1 || e.kind === 20) && !all.has(e.id));
+      page.forEach((e) => all.set(e.id, e));
+      if (page.length < 100) break;
+      until = Math.min(...page.map((e) => e.created_at)) - 1;
+    }
+    return [...all.values()];
+  };
 
   // Every image in a post becomes its own photo on the wall, captioned with the post's text.
   const nostrPhotos = (ev) => {

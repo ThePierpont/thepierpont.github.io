@@ -23,7 +23,7 @@ OUT = ROOT / "data" / "feeds.json"
 UA = "Mozilla/5.0 (personal-site feed fetcher)"
 NS = {"letterboxd": "https://letterboxd.com", "tmdb": "https://themoviedb.org"}
 
-MAX_DIARY = 12
+MAX_DIARY = 50  # everything in the feed; the site shows a few and folds the rest
 MAX_LISTS = 6
 
 
