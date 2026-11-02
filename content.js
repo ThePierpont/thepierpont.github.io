@@ -169,6 +169,11 @@ window.SITE = {
     goodreads: "200617598", // the number in your Goodreads profile URL
   },
 
+  // "Play me" button under your name: challenges you to a game on Chess.com.
+  chess: {
+    username: "yepzia",
+  },
+
   // Other places to find you, shown under your name and in Say hi. Example:
   // { label: "Letterboxd", value: "@ThePierpont", url: "https://letterboxd.com/ThePierpont/" }
   links: [],

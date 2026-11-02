@@ -32,7 +32,12 @@
   // ---- hero
   $("#portrait").innerHTML = media(S.portrait, S.name + "portrait", `Portrait of ${S.name}`);
   $("#socials").innerHTML = links.map((l) => `<li><a href="${esc(l.url)}"${ext(l.url)}>${esc(l.label)}</a></li>`).join("");
-  $("#socials").hidden = !links.length;
+  // "Play me": opens Chess.com's new-game screen with you already picked as the opponent.
+  // It goes last; the Nostr and Zap me buttons are added in front of it once your profile loads.
+  if (S.chess?.username) $("#socials").insertAdjacentHTML("beforeend", `
+    <li><a class="chess-link" href="https://www.chess.com/play/online/new?opponent=${encodeURIComponent(S.chess.username)}" target="_blank" rel="noopener">
+      <svg class="king" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 1h2v2.5h2.5v2H13V8h-2V5.5H8.5v-2H11z"/><path d="M6.5 9.5h11l-2 7.5h-7z"/><path d="M6 18h12v2H6zM4.5 21h15v2h-15z"/></svg>Play me</a></li>`);
+  $("#socials").hidden = !$("#socials").children.length;
 
   // ---- live clock
   const clockFmt = (() => {
@@ -637,7 +642,7 @@
       ${profile?.picture ? `<img class="avatar" src="${esc(profile.picture)}" alt="">` : `<span class="avatar ph" style="--h:${hue(npub)}"></span>`}
       <div class="who">${esc(name)}</div>
       <div class="npub">${npub.slice(0, 18)}…${npub.slice(-8)}</div>
-      <div class="actions"><a class="btn btn-violet" href="${href}" target="_blank" rel="noopener">Find me on Primal</a>${profile?.lud16 ? '<button class="btn btn-zap open-zap" type="button">⚡ Zap</button>' : ""}<button class="btn copy-npub" type="button">Copy npub</button></div>`;
+      <div class="actions"><a class="btn btn-violet" href="${href}" target="_blank" rel="noopener">Find me on Primal</a>${profile?.lud16 ? '<button class="btn btn-zap open-zap" type="button">⚡ Zap me</button>' : ""}<button class="btn copy-npub" type="button">Copy npub</button></div>`;
     card.querySelector(".copy-npub").addEventListener("click", async (e) => {
       try { await navigator.clipboard.writeText(npub); e.target.textContent = "Copied"; }
       catch { e.target.textContent = "Couldn't copy"; }
@@ -647,7 +652,7 @@
     if (!soc.querySelector(".nostr-link")) soc.insertAdjacentHTML("afterbegin", `<li><a class="nostr-link" target="_blank" rel="noopener">Nostr</a></li>`);
     soc.querySelector(".nostr-link").href = href;
     const notesSrc = $("#notes-source"); if (!notesSrc.hidden) notesSrc.href = href;
-    if (profile?.lud16 && !soc.querySelector(".open-zap")) soc.querySelector(".nostr-link").parentElement.insertAdjacentHTML("afterend", '<li><a class="open-zap" href="#">⚡ Zap</a></li>');
+    if (profile?.lud16 && !soc.querySelector(".open-zap")) soc.querySelector(".nostr-link").parentElement.insertAdjacentHTML("afterend", '<li><a class="open-zap" href="#">⚡ Zap me</a></li>');
     soc.hidden = false;
     profileMeta = profile;
   };

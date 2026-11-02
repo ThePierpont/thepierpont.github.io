@@ -137,10 +137,12 @@ button.pulse::after { content: ""; position: absolute; inset: -10px; }
 .lede { max-width: 34ch; margin: 28px 0 28px; font-size: clamp(1.15rem, 1.8vw, 1.35rem); line-height: 1.5; color: var(--text); }
 .socials { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .socials a {
-  display: inline-block; padding: 7px 14px; text-decoration: none; font-size: .92rem;
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; text-decoration: none; font-size: .92rem;
   border: 1px solid var(--line); background: rgb(20 20 43 / .6); transition: border-color .2s, color .2s;
 }
 .socials a:hover { border-color: var(--mag); color: var(--white); }
+.socials .king { width: 15px; height: 15px; fill: currentColor; flex: none; }
+.socials .chess-link:hover .king { fill: var(--mag); filter: drop-shadow(0 0 4px rgb(255 42 109 / .6)); }
 
 .portrait { margin: 0; justify-self: end; width: 100%; max-width: 380px; }
 .portrait-frame {
