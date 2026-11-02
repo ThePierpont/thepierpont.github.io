@@ -656,7 +656,8 @@ function init() {
     const r = canvas.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    return ray.intersectObject(viewer.group, true).length > 0;
+    // The case's body only: its neon outline (a child) would count clicks well outside the case.
+    return ray.intersectObject(viewer.group.children[0], false).length > 0;
   };
   // On the review stretch of the back cover? (back = face 5; the review sits between the two rules)
   const reviewHit = (e) => {
