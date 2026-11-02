@@ -28,7 +28,7 @@ window.SITE = {
   // Your time zone, for the live clock. Find yours at https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
   timezone: "America/New_York",
   updated: "2026-11-01",
-  portrait: "images/me.jpg",
+  portrait: "images/portrait.jpg",
 
   // Optional intro sentences above the facts. Empty = facts only.
   about: [],
