@@ -29,10 +29,14 @@ Letterboxd's public feed covers your last 50 or so diary entries, reviews, and l
 
 Run `python3 -m http.server` in this folder and open http://localhost:8000. Double-clicking `index.html` also works, but connector data won't load that way, because browsers block local files from reading other files.
 
-## Put it online (free)
+## Where it lives
 
-Any static host works. The simplest options:
+The site is live at **https://thepierpont.github.io**, hosted free on GitHub Pages from the repo github.com/ThePierpont/thepierpont.github.io.
 
-- **Netlify Drop:** go to app.netlify.com/drop and drag this folder onto the page.
-- **GitHub Pages:** push the folder to a repo, then Settings → Pages → deploy from the main branch.
-- **Firebase Hosting:** same steps as the chore board, in a separate Firebase project.
+**Publishing edits:** after changing `content.js` or adding photos, open Terminal in this folder and run:
+
+```sh
+sh publish.sh
+```
+
+It uploads your changes, and the live site updates about a minute later. It also pulls in the hourly Letterboxd updates first, so the two never clash.
