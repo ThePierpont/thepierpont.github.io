@@ -73,7 +73,7 @@ window.SITE = {
   ],
 
   // Live music from Last.fm: the "Now playing" tile shows what you're playing right now
-  // (or last played), and "On repeat" lists your most-played tracks this week.
+  // (or last played), and "Recently played" lists your latest songs.
   // The API key is read-only and safe to be public. Get one at https://www.last.fm/api/account/create
   lastfm: {
     user: "thepierpont",

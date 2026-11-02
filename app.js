@@ -332,7 +332,7 @@
     $(".music").classList.add("solo");
   }
 
-  // ---- last.fm: live "Now playing" tile (checked every 30s) + top tracks for "On repeat"
+  // ---- last.fm: live "Now playing" tile + "Recently played" list (both checked every 30s)
   if (hasLastfm) {
     const lfm = (method, params = "") =>
       fetch(`https://ws.audioscrobbler.com/2.0/?method=${method}&user=${encodeURIComponent(LF.user)}&api_key=${encodeURIComponent(LF.apiKey)}&format=json${params}`)
@@ -362,40 +362,41 @@
           <p class="sub">${esc(t.artist["#text"])}</p>
         </div>`;
     };
-    const pollRecent = async (limit) => {
-      const list = [].concat((await lfm("user.getrecenttracks", `&limit=${limit}`)).recenttracks.track || []);
-      list.forEach((t) => { const u = art(t.image); if (u) artCache.set(key(t.artist["#text"], t.name), u); });
-      if (list[0]) renderNowPlaying(list[0]);
-    };
-    const loadTop = async () => {
-      // Fall back to longer periods while there isn't much history yet.
-      let top = [], period;
-      for (period of ["7day", "1month", "overall"]) {
-        top = [].concat((await lfm("user.gettoptracks", `&period=${period}&limit=8`)).toptracks.track || []);
-        if (top.length >= 5) break;
+    // "Recently played": your latest songs, newest first, each song once.
+    const renderRecent = async (list) => {
+      const seen = new Set(), recent = [];
+      for (const t of list) {
+        const k = key(t.artist["#text"], t.name);
+        if (!seen.has(k)) { seen.add(k); recent.push(t); }
+        if (recent.length === 8) break;
       }
-      if (!top.length) return;
-      await Promise.all(top.map(async (t) => {
-        const k = key(t.artist.name, t.name);
+      if (!recent.length) return;
+      await Promise.all(recent.map(async (t) => {
+        const k = key(t.artist["#text"], t.name);
         if (artCache.has(k)) return;
+        artCache.set(k, ""); // look each song up once
         try {
-          const info = await lfm("track.getInfo", `&artist=${encodeURIComponent(t.artist.name)}&track=${encodeURIComponent(t.name)}&autocorrect=1`);
+          const info = await lfm("track.getInfo", `&artist=${encodeURIComponent(t.artist["#text"])}&track=${encodeURIComponent(t.name)}&autocorrect=1`);
           const u = art(info.track?.album?.image);
           if (u) artCache.set(k, u);
         } catch {}
       }));
-      const when = { "7day": "this week", "1month": "this month", overall: "all time" }[period];
-      renderTracks(top.map((t) => ({
-        src: artCache.get(key(t.artist.name, t.name)) || "",
-        title: t.name, artist: t.artist.name, link: t.url,
-        note: `${t.playcount} ${+t.playcount === 1 ? "play" : "plays"} ${when}`,
+      renderTracks(recent.map((t) => ({
+        src: artCache.get(key(t.artist["#text"], t.name)) || "",
+        title: t.name, artist: t.artist["#text"], link: t.url,
       })), "↗", "Open on Last.fm:");
       const src = $("#music-source");
-      src.textContent = `Most played ${when}, via Last.fm ↗`; src.href = profile; src.hidden = false;
+      src.textContent = "via Last.fm ↗"; src.href = profile; src.hidden = false;
+    };
+    const pollRecent = async (limit) => {
+      const list = [].concat((await lfm("user.getrecenttracks", `&limit=${limit}`)).recenttracks.track || []);
+      list.forEach((t) => { const u = art(t.image); if (u) artCache.set(key(t.artist["#text"], t.name), u); });
+      if (list[0]) renderNowPlaying(list[0]);
+      await renderRecent(list);
     };
 
-    pollRecent(200).then(loadTop).catch((e) => console.warn("last.fm:", e.message));
-    setInterval(() => { if (!document.hidden) pollRecent(1).catch(() => {}); }, 30000);
+    pollRecent(50).catch((e) => console.warn("last.fm:", e.message));
+    setInterval(() => { if (!document.hidden) pollRecent(50).catch(() => {}); }, 30000);
   }
 
   // ---- watching
