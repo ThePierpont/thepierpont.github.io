@@ -440,35 +440,72 @@ function init() {
     if (fm === "a24") { const [r, g, b] = avgColor(spine, 0.2, 0.6); return new THREE.MeshStandardMaterial({ color: new THREE.Color(r / 255, g / 255, b / 255).convertSRGBToLinear(), roughness: 0.6 }); }
     return new THREE.MeshStandardMaterial({ color: isBluray(it, spine) ? 0x1c4fb0 : 0x111114, roughness: 0.35, metalness: 0.1 }); // blue Blu-ray, black 4K
   };
-  // The back cover: my rating and review, styled like the site.
-  const backCanvas = (it) => {
+  // The back cover, laid out like my sketch: title and year, two stills, my review, then the stars.
+  const stillCache = new Map();
+  const stillImgs = (it, onReady) => (it.st || []).map((src) => {
+    let img = stillCache.get(src);
+    if (!img) { img = new Image(); img.src = src; stillCache.set(src, img); }
+    if (!img.complete && onReady) img.addEventListener("load", onReady, { once: true });
+    return img.complete && img.naturalWidth ? img : null;
+  });
+  // Draw an image into a box like CSS object-fit: cover, centered on `fx` (0..1) across.
+  const coverInto = (x, img, bx, by, bw, bh, fx = 0.5) => {
+    const iw = img.naturalWidth, ih = img.naturalHeight, s = Math.max(bw / iw, bh / ih), sw = bw / s, sh = bh / s;
+    x.drawImage(img, Math.min(iw - sw, Math.max(0, iw * fx - sw / 2)), (ih - sh) / 2, sw, sh, bx, by, bw, bh);
+  };
+  const backCanvas = (it, stills = []) => {
     const c = document.createElement("canvas"); c.width = 600; c.height = 760;
-    const x = c.getContext("2d");
+    const x = c.getContext("2d"), M = 36;
     const g = x.createLinearGradient(0, 0, 0, 760); g.addColorStop(0, "#1c1c3a"); g.addColorStop(1, "#0a0a12");
     x.fillStyle = g; x.fillRect(0, 0, 600, 760);
-    x.strokeStyle = "rgba(5,217,232,.08)"; x.lineWidth = 1;
+    x.strokeStyle = "rgba(5,217,232,.07)"; x.lineWidth = 1;
     for (let i = 0; i < 600; i += 30) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 760); x.stroke(); }
     for (let i = 0; i < 760; i += 30) { x.beginPath(); x.moveTo(0, i); x.lineTo(600, i); x.stroke(); }
-    x.fillStyle = "#ff2a6d"; x.fillRect(40, 48, 80, 4);
-    const wrap = (text, font, lh, maxLines, y, color) => {
-      x.font = font; x.fillStyle = color;
-      const words = text.split(/\s+/); let line = "", n = 0;
-      for (const w of words) {
-        const t = line ? line + " " + w : w;
-        if (x.measureText(t).width > 520 && line) { x.fillText(line, 40, y); y += lh; line = w; if (++n >= maxLines - 1) { line += "…"; break; } }
-        else line = t;
-      }
-      if (line) { x.fillText(line, 40, y); y += lh; }
-      return y;
+
+    // title (shrunk to fit one line) and year
+    const year = String(it.y || "");
+    x.font = "26px 'JetBrains Mono', monospace"; const yw = year ? x.measureText(year).width + 18 : 0;
+    let size = 44; x.font = `700 ${size}px Rajdhani, sans-serif`;
+    while (x.measureText(it.t).width > 528 - yw && size > 24) x.font = `700 ${--size}px Rajdhani, sans-serif`;
+    let title = it.t; while (x.measureText(title).width > 528 - yw && title.length > 4) title = title.slice(0, -2) + "…";
+    x.textBaseline = "alphabetic"; x.fillStyle = "#f4f3ff"; x.shadowColor = "rgba(255,42,109,.55)"; x.shadowBlur = 12;
+    x.fillText(title, M, 74); x.shadowBlur = 0;
+    if (year) { x.font = "26px 'JetBrains Mono', monospace"; x.fillStyle = "#05d9e8"; x.textAlign = "right"; x.fillText(year, 600 - M, 74); x.textAlign = "left"; }
+
+    // two stills: a tall one on the left, a wide one on the right (just one still → one wide photo)
+    const two = (it.st || []).length > 1;
+    const boxes = two ? [[M, 100, 196, 262], [M + 214, 100, 600 - 2 * M - 214, 262]] : [[M, 100, 600 - 2 * M, 262]];
+    boxes.forEach(([bx, by, bw, bh], i) => {
+      x.fillStyle = "#14142b"; x.fillRect(bx, by, bw, bh);
+      const img = stills[i];
+      if (img) coverInto(x, img, bx, by, bw, bh);
+      x.strokeStyle = "rgba(5,217,232,.7)"; x.lineWidth = 2; x.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
+    });
+
+    const rule = (yy) => { x.fillStyle = "#ff2a6d"; x.shadowColor = "rgba(255,42,109,.7)"; x.shadowBlur = 8; x.fillRect(M, yy, 600 - 2 * M, 2); x.shadowBlur = 0; };
+    rule(392);
+
+    // my review, as big as it fits between the rules
+    const text = it.rv ? `“${it.rv}”` : it.m ? "Rated on Letterboxd, no review yet." : "Not on my Letterboxd yet.";
+    const lines = (font) => {
+      x.font = font; const out = []; let line = "";
+      for (const w of text.split(/\s+/)) { const t = line ? line + " " + w : w; if (x.measureText(t).width > 600 - 2 * M && line) { out.push(line); line = w; } else line = t; }
+      if (line) out.push(line); return out;
     };
-    let y = wrap(it.t, "700 52px Rajdhani, sans-serif", 54, 3, 110, "#f4f3ff");
-    x.font = "22px 'JetBrains Mono', monospace"; x.fillStyle = "#9d9dc0";
-    x.fillText([it.y, it.d].filter(Boolean).join("  /  ").slice(0, 44), 40, y + 6); y += 70;
-    if (it.s) { x.font = "48px sans-serif"; x.fillStyle = "#f9f002"; x.shadowColor = "rgba(249,240,2,.6)"; x.shadowBlur = 14; x.fillText(it.s, 40, y); x.shadowBlur = 0; y += 60; }
-    if (it.rv) wrap(`“${it.rv}”`, "italic 26px Inter, sans-serif", 38, 7, y + 10, "#d6d6e7");
-    else wrap(it.m ? "Rated on Letterboxd, no review yet." : "Not on my Letterboxd yet.", "26px Inter, sans-serif", 38, 2, y + 10, "#9d9dc0");
-    for (let i = 0; i < 46; i++) { x.fillStyle = "#f4f3ff"; x.fillRect(40 + i * 5, 650, (i * 7) % 3 + 1, 56); } // decorative barcode
-    x.font = "18px 'JetBrains Mono', monospace"; x.fillStyle = "#ff2a6d"; x.fillText("PIERPONT.BLOG", 330, 700);
+    let fs = 30, ls;
+    while ((ls = lines(`${it.rv ? "italic " : ""}${fs}px Inter, sans-serif`)).length * fs * 1.4 > 196 && fs > 17) fs -= 1;
+    x.fillStyle = it.rv ? "#d6d6e7" : "#9d9dc0"; x.textBaseline = "middle";
+    const top = 506 - (ls.length * fs * 1.4) / 2 + (fs * 1.4) / 2;
+    ls.slice(0, 7).forEach((l, n) => x.fillText(l, M, top + n * fs * 1.4));
+
+    rule(620);
+    // the star rating, in its own box
+    x.strokeStyle = "rgba(249,240,2,.8)"; x.lineWidth = 2; x.shadowColor = "rgba(249,240,2,.5)"; x.shadowBlur = 10;
+    x.strokeRect(M + 40, 644, 600 - 2 * M - 80, 84); x.shadowBlur = 0;
+    x.textAlign = "center";
+    if (it.s) { x.font = "52px sans-serif"; x.fillStyle = "#f9f002"; x.shadowColor = "rgba(249,240,2,.6)"; x.shadowBlur = 14; x.fillText(it.s, 300, 688); x.shadowBlur = 0; }
+    else { x.font = "22px 'JetBrains Mono', monospace"; x.fillStyle = "#9d9dc0"; x.fillText("NO RATING YET", 300, 688); }
+    x.textAlign = "left";
     return c;
   };
   const coverTexture = (it, onReady) => {
@@ -495,7 +532,10 @@ function init() {
       spineTex.image = designSpine(it, spine, dims, spineArt(it)); spineTex.needsUpdate = true;
     }))); spineTex.colorSpace = THREE.SRGBColorSpace;
     spineTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    const backTex = new THREE.CanvasTexture(backCanvas(it)); backTex.colorSpace = THREE.SRGBColorSpace;
+    const backTex = new THREE.CanvasTexture(backCanvas(it, stillImgs(it, () => {
+      backTex.image = backCanvas(it, stillImgs(it)); backTex.needsUpdate = true;
+    }))); backTex.colorSpace = THREE.SRGBColorSpace;
+    backTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     const side = sideMaterial(it, spine);
     const aspect = dims.w / dims.h;
     const front = new THREE.MeshStandardMaterial({ color: 0x222233, roughness: it.fm === "steel" ? 0.35 : 0.45, metalness: it.fm === "steel" ? 0.5 : 0 });
@@ -564,6 +604,14 @@ function init() {
       out.style.cssText = "position:fixed;left:0;top:0;z-index:9999;max-width:100vw;background:#222";
       document.body.appendChild(out);
       return items.length;
+    },
+    // a case's back, flat over the page: __shelf.back("Aftersun")
+    async back(title) {
+      const it = targets.flatMap((t) => t.row.items).find((x) => x.t === title); if (!it) return false;
+      await Promise.all((it.st || []).map(() => new Promise((ok) => { if (stillImgs(it, ok).every(Boolean)) ok(); })));
+      const c = backCanvas(it, stillImgs(it));
+      c.style.cssText = "position:fixed;left:8px;top:8px;z-index:9999;height:94vh"; document.body.appendChild(c);
+      return c;
     },
     // open a case by title, for checking designs: __shelf.open("Barry Lyndon")
     open(title) {
