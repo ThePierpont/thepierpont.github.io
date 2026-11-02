@@ -75,6 +75,8 @@
       <div class="t-thumb"><div class="media">${media(show.src, show.title, show.title)}</div>
       <div><h3>${esc(show.title)}</h3><p class="sub">${esc(show.note || show.year || "")}</p></div></div>
     </a>`);
+  else if (S.trakt?.user || S.connectors?.letterboxd) tiles.push(`
+    <a class="tile t-watch" href="#watching"><p class="label">Watching</p><h3>Checking…</h3></a>`);
   if (fit) tiles.push(`
     <a class="tile t-fit" href="#closet">
       <p class="label">Newest pickup</p>
@@ -107,20 +109,37 @@
   $("#facts").innerHTML = (S.facts || []).map((f) => `<div><dt>${esc(f.k)}</dt><dd>${esc(f.v)}</dd></div>`).join("");
 
   // ---- photos + lightbox
-  if (!photos.length) hide("photos");
-  $("#photos-count").textContent = `${photos.length} ${photos.length === 1 ? "shot" : "shots"}`;
-  $("#gallery").innerHTML = photos.map((p, i) => `
-    <button class="shot" data-open="${i}" aria-label="Open photo: ${esc(p.caption)}">
-      <div class="media">${media(p.src, p.caption, p.caption, p.ratio)}</div>
+  // `gallery` starts as the photos in content.js; photos posted on Nostr get merged in by date.
+  let gallery = photos.map((p) => ({ ...p, ts: Date.parse((p.date || "1970-01-01") + "T12:00:00") }));
+  if (!photos.length && !S.nostr?.npub) hide("photos");
+  const renderGallery = () => {
+    $("#photos").hidden = !gallery.length;
+    $("#photos-count").textContent = `${gallery.length} ${gallery.length === 1 ? "shot" : "shots"}`;
+    $("#gallery").innerHTML = gallery.map((p, i) => `
+    <button class="shot" data-open="${i}" aria-label="Open photo: ${esc(p.caption || "photo")}">
+      <div class="media">${media(p.src, p.caption || p.src, p.caption || "Photo", p.ratio)}</div>
       <div class="cap"><span>${esc(p.caption)}</span><span>${fmtDate(p.date, { month: "short", year: "numeric" })}</span></div>
     </button>`).join("");
+  };
+  renderGallery();
+  const addNostrPhotos = (list) => {
+    if (!list.length) return;
+    const known = new Set(gallery.map((p) => p.src));
+    gallery = gallery.concat(list.filter((p) => !known.has(p.src))).sort((a, b) => b.ts - a.ts);
+    renderGallery();
+    const p = gallery[0], tile = $(".t-photo");
+    if (tile && p.nostr) tile.innerHTML = `
+      <div class="media">${media(p.src, p.caption, p.caption || "Latest photo")}</div>
+      <div class="cap"><p class="label">Latest photo</p><h3>${esc(p.caption || "New on Nostr")}</h3><p class="sub">${fmtDate(p.date, { month: "short", day: "numeric" })}</p></div>`;
+  };
   const lb = $("#lightbox");
   let cur = 0;
   const show_ = (i) => {
-    cur = (i + photos.length) % photos.length;
-    const p = photos[cur];
-    $("#lb-img").innerHTML = media(p.src, p.caption, p.caption, p.ratio);
-    $("#lb-cap").textContent = [p.caption, p.place, fmtDate(p.date)].filter(Boolean).join(", ");
+    cur = (i + gallery.length) % gallery.length;
+    const p = gallery[cur];
+    $("#lb-img").innerHTML = media(p.src, p.caption || p.src, p.caption || "Photo", p.ratio);
+    $("#lb-cap").innerHTML = esc([p.caption, p.place, fmtDate(p.date)].filter(Boolean).join(", ")) +
+      (p.link ? ` <a href="${esc(p.link)}" target="_blank" rel="noopener">View on Nostr ↗</a>` : "");
   };
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-open]"); if (!b) return;
@@ -228,22 +247,96 @@
   }
 
   // ---- watching
-  if (!screen.length) hide("watching");
-  const statusText = { watching: "Watching", finished: "Finished", dropped: "Dropped", next: "Up next" };
-  const renderScreen = (filter) => {
-    $("#screen").innerHTML = screen.filter((s) => filter === "all" || s.type === filter).map((s) => `
+  // `screenItems` starts as the hand-entered list; Trakt adds your TV shows on top.
+  let screenItems = [...screen], screenFilter = "all";
+  if (!screen.length && !S.trakt?.user && !S.connectors?.letterboxd) hide("watching");
+  const statusText = { watching: "Watching", finished: "Finished", dropped: "Dropped", next: "Up next", watched: "Watched" };
+  const renderScreen = () => {
+    const types = new Set(screenItems.map((s) => s.type));
+    $(".seg").hidden = types.size < 2; // filter only matters with both movies and shows
+    $("#screen").hidden = $("#screen-head").hidden = !screenItems.length;
+    $("#screen-head h3").textContent = types.size === 1 && types.has("show") ? "TV" : "On screen";
+    $("#screen").innerHTML = screenItems.filter((s) => screenFilter === "all" || s.type === screenFilter).map((s) => {
+      const pill = s.status ? `<span class="pill ${esc(s.status)}">${esc(statusText[s.status] || s.status)}</span>` : "";
+      const art = `${media(s.src, s.title, `${s.title} poster`)}${pill}`;
+      return `
       <article class="poster">
-        <div class="media">${media(s.src, s.title, `${s.title} poster`)}${s.status ? `<span class="pill ${esc(s.status)}">${esc(statusText[s.status] || s.status)}</span>` : ""}</div>
+        ${s.link ? `<a class="media" href="${esc(s.link)}" target="_blank" rel="noopener">${art}</a>` : `<div class="media">${art}</div>`}
         <h3>${esc(s.title)}</h3>
-        <div class="meta"><span>${s.type === "show" ? "Show" : "Film"}, ${esc(s.year || "")}</span>${rating(s.rating)}</div>
+        <div class="meta"><span>${s.type === "show" ? "Show" : "Film"}${s.year ? `, ${esc(s.year)}` : ""}</span>${rating(s.rating)}</div>
         ${s.note ? `<p>${esc(s.note)}</p>` : ""}
-      </article>`).join("");
+      </article>`;
+    }).join("");
   };
-  renderScreen("all");
+  renderScreen();
   document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
     document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
-    renderScreen(b.dataset.filter);
+    screenFilter = b.dataset.filter;
+    renderScreen();
   }));
+
+  // ---- trakt: TV shows from your Trakt history, what's on right now, and your watchlist.
+  // The Client ID is read-only and safe to be public. Your Trakt profile must be public.
+  const TR = S.trakt || {};
+  if (TR.user && TR.clientId) {
+    const tr = (path) => fetch(`https://api.trakt.tv${path}`, {
+      headers: { "Content-Type": "application/json", "trakt-api-version": "2", "trakt-api-key": TR.clientId },
+    }).then((r) => {
+      if (r.status === 204) return null; // nothing playing
+      if (!r.ok) throw new Error(`Trakt answered ${r.status}`);
+      return r.json();
+    });
+    const user = encodeURIComponent(TR.user);
+    const poster = (show) => { const p = show.images?.poster?.[0]; return p ? (p.startsWith("http") ? p : `https://${p}`) : ""; };
+    const ep = (e) => e ? `Season ${e.season}, episode ${e.number}` : "";
+    const since = (iso) => {
+      const days = (Date.now() - Date.parse(iso)) / 86400000;
+      return days < 1 ? "today" : days < 2 ? "yesterday" : new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    };
+    Promise.all([
+      tr(`/users/${user}/watching?extended=images`).catch(() => null),
+      tr(`/users/${user}/history/shows?limit=100&extended=images`),
+      tr(`/users/${user}/watchlist/shows?extended=images`).catch(() => []),
+    ]).then(([now, history, watchlist]) => {
+      // History is newest first, so the first entry per show is the latest episode watched.
+      const shows = new Map();
+      for (const h of history || []) {
+        const id = h.show.ids.trakt;
+        if (!shows.has(id)) shows.set(id, { show: h.show, last: h.episode, at: h.watched_at });
+      }
+      const live = now?.type === "episode" ? now : null;
+      const items = [...shows.values()].slice(0, 10).map(({ show, last, at }) => {
+        const playing = live && live.show.ids.trakt === show.ids.trakt;
+        const recent = Date.now() - Date.parse(at) < 30 * 86400000;
+        return {
+          src: poster(show), title: show.title, type: "show", year: show.year,
+          status: playing || recent ? "watching" : "watched",
+          note: playing ? `On now: ${ep(live.episode)}` : `${ep(last)}, ${since(at)}`,
+          link: `https://trakt.tv/shows/${show.ids.slug}`,
+        };
+      });
+      const watched = new Set(shows.keys());
+      (watchlist || []).filter((w) => w.show && !watched.has(w.show.ids.trakt)).slice(0, 4).forEach((w) => items.push({
+        src: poster(w.show), title: w.show.title, type: "show", year: w.show.year, status: "next",
+        note: "On the watchlist", link: `https://trakt.tv/shows/${w.show.ids.slug}`,
+      }));
+      screenItems = items.concat(screen.filter((s) => s.type !== "show"));
+      $("#watching").hidden = false;
+      renderScreen();
+      const src = $("#screen-source");
+      src.href = `https://trakt.tv/users/${user}`; src.hidden = false;
+
+      // Something on right now takes over the "Watching" tile.
+      const tile = $(".t-watch");
+      if (live && tile) {
+        tile.href = `https://trakt.tv/shows/${live.show.ids.slug}`; tile.target = "_blank"; tile.rel = "noopener";
+        tile.innerHTML = `
+          <p class="label live"><span class="pulse" aria-hidden="true"></span>Watching now</p>
+          <div class="t-thumb"><div class="media">${media(poster(live.show), live.show.title, `${live.show.title} poster`)}</div>
+          <div><h3>${esc(live.show.title)}</h3><p class="sub">${esc(ep(live.episode))}</p></div></div>`;
+      }
+    }).catch((e) => console.warn("trakt:", e.message));
+  }
 
   // ---- reading + notes
   const bookState = { reading: "Reading now", finished: "Finished", next: "Up next" };
@@ -430,11 +523,26 @@
     if (profile) { try { renderNostrCard(JSON.parse(profile.content)); } catch {} }
     if (live) applyStatus(live);
 
-    const posts = await pool.querySync(relays, { kinds: [1], authors: [pubkey], limit: 30 }, { maxWait: 4000 });
+    // Kind 1 = regular posts, kind 20 = picture posts (Olas and other photo apps).
+    const posts = await pool.querySync(relays, { kinds: [1, 20], authors: [pubkey], limit: 100 }, { maxWait: 4000 });
     const seen = new Set();
-    renderNotes(posts
+    const mine = posts
       .filter((e) => e.pubkey === pubkey && !e.tags.some((t) => t[0] === "e") && !seen.has(e.id) && seen.add(e.id) && NT.verifyEvent(e))
-      .sort((a, b) => b.created_at - a.created_at));
+      .sort((a, b) => b.created_at - a.created_at);
+    renderNotes(mine.filter((e) => e.kind === 1));
+    addNostrPhotos(mine.flatMap(nostrPhotos));
+  };
+
+  // Every image in a post becomes its own photo on the wall, captioned with the post's text.
+  const nostrPhotos = (ev) => {
+    const imeta = ev.tags.filter((t) => t[0] === "imeta").map((t) => Object.fromEntries(t.slice(1).map((x) => [x.slice(0, x.indexOf(" ")), x.slice(x.indexOf(" ") + 1)])));
+    const urls = new Set(imeta.filter((m) => m.url && (!m.m || m.m.startsWith("image/"))).map((m) => m.url));
+    (ev.content.match(/https?:\/\/[^\s]+/g) || []).filter((u) => IMG.test(u)).forEach((u) => urls.add(u));
+    if (!urls.size) return [];
+    const caption = ev.content.replace(/https?:\/\/\S+/g, "").replace(/nostr:\S+/g, "").trim().split("\n")[0].slice(0, 80);
+    const date = new Date(ev.created_at * 1000).toISOString().slice(0, 10);
+    const link = `https://njump.me/${NT.nip19.neventEncode({ id: ev.id, author: ev.pubkey })}`;
+    return [...urls].map((src) => ({ src, caption, date, ts: ev.created_at * 1000, link, nostr: true }));
   };
   window.addEventListener("DOMContentLoaded", () => initNostr().catch((e) => console.warn("nostr:", e)));
 

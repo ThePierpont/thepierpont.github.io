@@ -85,14 +85,18 @@ window.SITE = {
     tracks: [],
   },
 
+  // TV from Trakt: shows you've watched (latest episode), what's on right now, and your
+  // watchlist. Make your Trakt profile public, then add your username and Client ID.
+  // The Client ID is read-only and safe to be public. Get one at https://trakt.tv/oauth/applications/new
+  trakt: {
+    user: "",
+    clientId: "",
+  },
+
+  // Optional hand-entered titles, shown alongside Trakt and Letterboxd.
   // type: "movie" or "show". status: "watching", "finished", "dropped" or "next".
-  screen: [
-    { src: "", title: "A Prestige Drama", type: "show", year: 2025, status: "watching", rating: 4, note: "Season 2, episode 5." },
-    { src: "", title: "A Sci-Fi Movie", type: "movie", year: 2026, status: "finished", rating: 5, note: "Saw it twice in theaters." },
-    { src: "", title: "An Old Favorite", type: "movie", year: 1982, status: "finished", rating: 5, note: "Rewatch every fall." },
-    { src: "", title: "A Comedy Series", type: "show", year: 2024, status: "next", note: "Everyone keeps telling me to watch this." },
-    { src: "", title: "An Indie Film", type: "movie", year: 2026, status: "finished", rating: 3, note: "Great score, slow middle." },
-  ],
+  // { src: "", title: "Severance", type: "show", year: 2022, status: "watching", rating: 5, note: "Season 2." }
+  screen: [],
 
   // status: "reading", "finished" or "next".
   reading: [
