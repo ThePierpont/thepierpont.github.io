@@ -33,6 +33,7 @@
   // ---- hero
   $("#portrait").innerHTML = media(S.portrait, S.name + "portrait", `Portrait of ${S.name}`);
   $("#socials").innerHTML = links.map((l) => `<li><a href="${esc(l.url)}"${ext(l.url)}>${esc(l.label)}</a></li>`).join("");
+  $("#socials").hidden = !links.length;
 
   // ---- live clock
   const clockFmt = (() => {
@@ -188,6 +189,7 @@
     <li><a href="${esc(l.url)}"${ext(l.url)}><span class="k">${esc(l.label)}</span><span class="v">${esc(l.value)}</span></a></li>`).join("");
 
   const form = $("#contact-form"), status = $("#form-status");
+  if (!C.email && !C.formEndpoint) { form.hidden = true; $(".contact").classList.add("solo"); }
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     status.className = "form-status";
@@ -255,6 +257,82 @@
       }
     })
     .catch(() => {}); // no feeds file (or opened as a local file): the site works without it
+
+  // ---- nostr: profile link + live status (NIP-38 "general" status, kind 30315)
+  // Anyone can open the editor, but an update only goes through when it's signed by the
+  // npub in content.js, and visitors only ever display events with a valid signature from it.
+  const N = S.nostr || {};
+  const relays = N.relays?.length ? N.relays : ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
+  const statusEl = $("#status-text"), dlg = $("#status-dialog"), sform = $("#status-form"), smsg = $("#status-msg");
+  let NT = null, pool = null, pubkey = null;
+
+  const applyStatus = (ev) => {
+    const exp = ev.tags.find((t) => t[0] === "expiration");
+    if (exp && +exp[1] < Date.now() / 1000) return;
+    statusEl.textContent = ev.content.trim() || S.status || "";
+  };
+  const renderNostrCard = (profile) => {
+    const npub = NT.nip19.npubEncode(pubkey);
+    const name = profile?.display_name || profile?.name || S.name || "Me";
+    const href = `https://njump.me/${npub}`;
+    const card = $("#nostr-card");
+    card.hidden = false;
+    card.innerHTML = `
+      ${profile?.picture ? `<img class="avatar" src="${esc(profile.picture)}" alt="">` : `<span class="avatar ph" style="--h:${hue(npub)}"></span>`}
+      <div class="who">${esc(name)}</div>
+      <div class="npub">${npub.slice(0, 18)}…${npub.slice(-8)}</div>
+      <div class="actions"><a class="btn btn-violet" href="${href}" target="_blank" rel="noopener">Find me on Nostr</a><button class="btn copy-npub" type="button">Copy npub</button></div>`;
+    card.querySelector(".copy-npub").addEventListener("click", async (e) => {
+      try { await navigator.clipboard.writeText(npub); e.target.textContent = "Copied"; }
+      catch { e.target.textContent = "Couldn't copy"; }
+      setTimeout(() => (e.target.textContent = "Copy npub"), 2000);
+    });
+    const soc = $("#socials");
+    if (!soc.querySelector(".nostr-link")) soc.insertAdjacentHTML("afterbegin", `<li><a class="nostr-link" href="${href}" target="_blank" rel="noopener">Nostr</a></li>`);
+    soc.hidden = false;
+  };
+  const initNostr = async () => {
+    NT = window.NostrTools;
+    if (!N.npub || !NT) return;
+    try {
+      const d = NT.nip19.decode(N.npub.trim());
+      if (d.type !== "npub") throw new Error();
+      pubkey = d.data;
+    } catch { console.warn("content.js: nostr.npub isn't a valid npub"); return; }
+    pool = new NT.SimplePool();
+    renderNostrCard(null);
+    const events = await pool.querySync(relays, { kinds: [0, 30315], authors: [pubkey] }, { maxWait: 4000 });
+    const valid = events.filter((e) => e.pubkey === pubkey && NT.verifyEvent(e));
+    const newest = (pred) => valid.filter(pred).sort((a, b) => b.created_at - a.created_at)[0];
+    const profile = newest((e) => e.kind === 0);
+    const live = newest((e) => e.kind === 30315 && e.tags.some((t) => t[0] === "d" && t[1] === "general"));
+    if (profile) { try { renderNostrCard(JSON.parse(profile.content)); } catch {} }
+    if (live) applyStatus(live);
+  };
+  window.addEventListener("DOMContentLoaded", () => initNostr().catch((e) => console.warn("nostr:", e)));
+
+  const say = (t, err) => { smsg.textContent = t; smsg.className = "form-status" + (err ? " err" : ""); };
+  $("#status-edit-open").addEventListener("click", () => { sform.status.value = statusEl.textContent; say(""); dlg.showModal(); });
+  $("#status-cancel").addEventListener("click", () => dlg.close());
+  sform.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = sform.status.value.trim();
+    if (!text) return say("Type a status first.", true);
+    if (!pubkey) return say("Add your npub to content.js first.", true);
+    if (!window.nostr) return say("No Nostr signer found in this browser. Use a signer extension (Alby or nos2x, or Nostore in Safari on iPhone), or set your status in a Nostr app like Damus, Amethyst, or Nostrudel.", true);
+    try {
+      if ((await window.nostr.getPublicKey()) !== pubkey) return say("That signer isn't the Nostr account linked to this site.", true);
+      say("Approve the request in your signer…");
+      const signed = await window.nostr.signEvent({ kind: 30315, created_at: Math.floor(Date.now() / 1000), tags: [["d", "general"]], content: text });
+      if (signed.pubkey !== pubkey || !NT.verifyEvent(signed)) throw new Error("the signature didn't check out");
+      say("Publishing…");
+      const results = await Promise.allSettled(pool.publish(relays, signed));
+      if (!results.some((r) => r.status === "fulfilled")) throw new Error("no relay accepted it, try again");
+      applyStatus(signed);
+      say("Status updated.");
+      setTimeout(() => dlg.close(), 900);
+    } catch (err) { say(`Status didn't update: ${err.message || err}`, true); }
+  });
 
   // ---- nav: mobile menu + current section
   const toggle = $(".menu"), list = $("#nav-list");

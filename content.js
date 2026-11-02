@@ -19,24 +19,26 @@
 */
 
 window.SITE = {
-  name: "Tyler",
-  tagline: "I take photos, buy too many jackets, and keep a running log of whatever I'm into.",
-  status: "Probably out shooting film",
-  location: "Washington, DC",
+  name: "Pierpont",
+  tagline: "How am I doing? Scroll to find out",
+  // Shown until you set a live status. To change it from the site itself, click the
+  // blue dot next to your status (your Nostr signer is the password; see `nostr` below).
+  status: "Work",
+  location: "DC",
   // Your time zone, for the live clock. Find yours at https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
   timezone: "America/New_York",
   updated: "2026-11-01",
   portrait: "images/me.jpg",
 
   about: [
-    "Hey, I'm Tyler. This is my corner of the internet: the photos I take, the clothes I'm wearing, the music on repeat, and whatever I'm watching.",
-    "Write a couple of sentences here about what you do, where you're based, and what you'd want someone to know about you.",
+    "A Mainer, Bitcoiner, movie lover, photo taker, and drink maker.",
   ],
   facts: [
-    { k: "Based in", v: "Your City" },
-    { k: "Camera", v: "Your camera" },
-    { k: "Coffee order", v: "Your order" },
-    { k: "Always down for", v: "Late-night food" },
+    { k: "From", v: "Maine" },
+    { k: "Based in", v: "DC" },
+    { k: "Stacking", v: "Bitcoin" },
+    { k: "Shooting on", v: "iPhone 17 Pro + film camera" },
+    { k: "Making", v: "Drinks" },
   ],
 
   // Newest first. The first one shows as "Latest photo" at the top.
@@ -102,8 +104,18 @@ window.SITE = {
     { date: "2026-10-18", title: "Film roll developed", body: "Half of them are blurry. The other half are the best I've taken." },
   ],
 
+  // Your Nostr account. Paste your npub (starts with "npub1"). This adds a "Find me on
+  // Nostr" link with your profile picture and name, and turns on the live status:
+  // only someone who can sign as this npub (you, with a Nostr signer extension or app)
+  // can change it. Statuses also sync with Nostr apps that show them (Damus, Amethyst, Nostrudel).
+  nostr: {
+    npub: "",
+    relays: ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"],
+  },
+
   contact: {
-    email: "you@example.com",
+    // Leave empty to hide the email link and message form (Nostr becomes the way to reach you).
+    email: "",
     // Optional: create a free form at https://formspree.io and paste its URL here
     // (looks like https://formspree.io/f/abcdwxyz). Messages then land in your inbox.
     // Leave empty and the form opens the visitor's email app instead.
@@ -118,11 +130,7 @@ window.SITE = {
     letterboxd: "ThePierpont", // your Letterboxd username, e.g. "tyler" from letterboxd.com/tyler/
   },
 
-  // Socials and other places to find you. Remove any you don't use.
-  links: [
-    { label: "Instagram", value: "@yourhandle", url: "https://instagram.com/" },
-    { label: "Spotify", value: "Your profile", url: "https://open.spotify.com/" },
-    { label: "Letterboxd", value: "@ThePierpont", url: "https://letterboxd.com/ThePierpont/" },
-    { label: "TikTok", value: "@yourhandle", url: "https://tiktok.com/" },
-  ],
+  // Other places to find you, shown under your name and in Say hi. Example:
+  // { label: "Letterboxd", value: "@ThePierpont", url: "https://letterboxd.com/ThePierpont/" }
+  links: [],
 };

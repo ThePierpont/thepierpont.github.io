@@ -33,7 +33,7 @@
   <section class="hero" id="top">
     <div class="hero-floor" aria-hidden="true"></div>
     <div class="hero-copy">
-      <p class="status"><span class="pulse" aria-hidden="true"></span><span data-bind="status"></span></p>
+      <p class="status"><button class="pulse" id="status-edit-open" aria-label="Update status"></button><span id="status-text" data-bind="status"></span></p>
       <h1 class="name" data-bind="name" data-text="Tyler">Tyler</h1>
       <p class="lede" data-bind="tagline"></p>
       <ul class="socials" id="socials"></ul>
@@ -114,7 +114,8 @@
   <section class="contact" id="contact" aria-labelledby="contact-h">
     <div class="contact-intro">
       <h2 id="contact-h" class="big">Say hi</h2>
-      <p>Questions about a photo, where a jacket's from, or a song I should hear? Send it.</p>
+      <p>Questions about a photo, a movie I should see, or a drink I should make? Send it.</p>
+      <div class="nostr-card" id="nostr-card" hidden></div>
       <div class="email-row" id="email-row"></div>
       <ul class="link-list" id="links"></ul>
     </div>
@@ -145,7 +146,23 @@
   </div>
 </dialog>
 
+<dialog id="status-dialog" aria-labelledby="status-dialog-h">
+  <form method="dialog" class="status-form" id="status-form">
+    <h2 id="status-dialog-h">Update status</h2>
+    <label>What are you up to?
+      <input name="status" maxlength="80" autocomplete="off" required>
+    </label>
+    <p class="hint">Your Nostr signer asks you to approve. Only your account can change this.</p>
+    <div class="row">
+      <button type="submit" class="btn btn-hot" value="save">Sign and update</button>
+      <button type="button" class="btn" id="status-cancel">Cancel</button>
+    </div>
+    <p class="form-status" id="status-msg" role="status"></p>
+  </form>
+</dialog>
+
 <div class="crt" aria-hidden="true"></div>
+<script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.js" integrity="sha384-YUdjSvJQpzJUf1TiIR0LmkbTEGWdiZTiXN67W157lg3vEmBHg+LEkaJ5J0AI9BG7" crossorigin="anonymous" defer></script>
 <script src="content.js"></script>
 <script src="app.js"></script>
 </body>
