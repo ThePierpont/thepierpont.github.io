@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-02T02:23:39+00:00",
+  "updated": "2026-11-02T03:30:21+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
@@ -329,6 +329,51 @@
             "link": "https://letterboxd.com/film/it-follows/"
           }
         ]
+      }
+    ]
+  },
+  "goodreads": {
+    "profile": "https://www.goodreads.com/review/list/200617598-tyler-pierpont",
+    "books": [
+      {
+        "title": "Kitchen Confidential: Adventures in the Culinary Underbelly",
+        "author": "Anthony Bourdain",
+        "rating": 4,
+        "review": "Relatable, enjoyable, and honest way to look at your life.",
+        "cover": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/books/1433739086l/33313.jpg",
+        "link": "https://www.goodreads.com/review/show/8934632030"
+      },
+      {
+        "title": "The Curious Incident of the Dog in the Night-Time",
+        "author": "Mark Haddon",
+        "rating": 3,
+        "review": "",
+        "cover": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/books/1479863624l/1618.jpg",
+        "link": "https://www.goodreads.com/review/show/8620367908"
+      },
+      {
+        "title": "Fight Club",
+        "author": "Chuck Palahniuk",
+        "rating": 4,
+        "review": "He did what to her mom?",
+        "cover": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/books/1558216416l/36236124.jpg",
+        "link": "https://www.goodreads.com/review/show/8559356499"
+      },
+      {
+        "title": "Elon Musk: Tesla, SpaceX, and the Quest for a Fantastic Future",
+        "author": "Ashlee Vance",
+        "rating": 3,
+        "review": "",
+        "cover": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/books/1518291452l/25541028.jpg",
+        "link": "https://www.goodreads.com/review/show/8554706990"
+      },
+      {
+        "title": "Inferno",
+        "author": "Dan Brown",
+        "rating": 4,
+        "review": "",
+        "cover": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/books/1534070896l/17212231.jpg",
+        "link": "https://www.goodreads.com/review/show/8554590027"
       }
     ]
   }

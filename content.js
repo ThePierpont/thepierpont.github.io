@@ -105,12 +105,10 @@ window.SITE = {
   // { src: "", title: "Severance", type: "show", year: 2022, status: "watching", rating: 5, note: "Season 2." }
   screen: [],
 
-  // status: "reading", "finished" or "next".
-  reading: [
-    { title: "A Novel", author: "Author Name", status: "reading", note: "About a third in." },
-    { title: "A Nonfiction Book", author: "Author Name", status: "finished", rating: 4, note: "" },
-    { title: "Next on the List", author: "Author Name", status: "next", note: "" },
-  ],
+  // Your Goodreads books fill this in automatically (see `connectors` below). Hand-entered
+  // books show only if Goodreads isn't set up. status: "reading", "finished" or "next".
+  // { title: "Kitchen Confidential", author: "Anthony Bourdain", status: "reading", note: "" }
+  reading: [],
 
   // Your latest Nostr posts fill the Notes section automatically (replies are skipped).
   // Anything added here shows only if Nostr can't be reached. Newest first:
@@ -140,8 +138,11 @@ window.SITE = {
   // `python3 connectors/fetch_feeds.py` (or let the GitHub Action do it hourly).
   // Letterboxd: your diary entries and lists show up in the Watching section,
   // and your latest log takes over the "Watching" tile at the top.
+  // Goodreads: your recent books fill the Reading section. It uses Goodreads' official
+  // widget, so which shelf and how many books come from your widget settings on Goodreads.
   connectors: {
     letterboxd: "ThePierpont", // your Letterboxd username, e.g. "tyler" from letterboxd.com/tyler/
+    goodreads: "200617598", // the number in your Goodreads profile URL
   },
 
   // Other places to find you, shown under your name and in Say hi. Example:

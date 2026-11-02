@@ -110,6 +110,38 @@ def letterboxd(username):
     return {"username": username, "profile": f"https://letterboxd.com/{username}/", "diary": diary, "lists": lists}
 
 
+def goodreads(user_id):
+    """Recent books from Goodreads' official embed widget. Goodreads decides which shelf and
+    how many books from the widget settings saved on your account (goodreads.com/widgets)."""
+    js = get(f"https://www.goodreads.com/review/custom_widget/{user_id}").decode("utf-8", "replace")
+    m = re.search(r"var widget_code = '(.*?)'\s*var widget_div", js, re.S)
+    if not m:
+        raise ValueError("unexpected widget format")
+    page = m.group(1)
+    for a, b in (('\\"', '"'), ("\\n", "\n"), ("\\/", "/"), ("\\'", "'")):
+        page = page.replace(a, b)
+
+    def field(block, cls):
+        f = re.search(rf'class="{cls}">\s*(.*?)\s*</div>', block, re.S)
+        return f.group(1) if f else ""
+
+    books = []
+    for block in page.split('class="gr_custom_each_container_"')[1:]:
+        cover = re.search(r'<img alt="[^"]*" border="0" src="([^"]+)"', block)
+        link = re.search(r'<a [^>]*href="([^"]+)"', field(block, "gr_custom_title_"))
+        books.append({
+            "title": " ".join(text_of(field(block, "gr_custom_title_")).split()),
+            "author": " ".join(text_of(field(block, "gr_custom_author_")).removeprefix("by ").split()),
+            "rating": block.count("gr_flat_red_star_active"),
+            "review": text_of(field(block, "gr_custom_review_")),
+            # Drop the thumbnail size suffix (e.g. "._SY75_") to get the full cover.
+            "cover": re.sub(r"\._S[XY]\d+_(?=\.\w+$)", "", cover.group(1)) if cover else "",
+            "link": link.group(1).split("?")[0] if link else "",
+        })
+    shelf = re.search(r'href="([^"]*review/list/[^"]*)"', page)
+    return {"profile": shelf.group(1).split("&")[0].split("?")[0] if shelf else f"https://www.goodreads.com/user/show/{user_id}", "books": books}
+
+
 def main():
     old = json.loads(OUT.read_text()) if OUT.exists() else {}
     out = {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds")}
@@ -128,6 +160,19 @@ def main():
                 out["letterboxd"] = old["letterboxd"]
     else:
         print("letterboxd: no username set in content.js, skipping")
+
+    user_id = setting("goodreads")
+    if user_id:
+        try:
+            out["goodreads"] = goodreads(user_id)
+            print(f"goodreads: {len(out['goodreads']['books'])} books")
+        except Exception as e:
+            failed = True
+            print(f"goodreads: fetch failed ({e}); keeping previous data", file=sys.stderr)
+            if "goodreads" in old:
+                out["goodreads"] = old["goodreads"]
+    else:
+        print("goodreads: no user ID set in content.js, skipping")
 
     # Only rewrite the file when the content changed, so the hourly job doesn't commit for nothing.
     if {k: v for k, v in old.items() if k != "updated"} == {k: v for k, v in out.items() if k != "updated"}:

@@ -88,6 +88,8 @@
       <p class="label">${book.status === "reading" ? "Reading" : "Last read"}</p>
       <h3>${esc(book.title)}</h3><p class="sub">${esc(book.author)}</p>
     </a>`);
+  else if (S.connectors?.goodreads) tiles.push(`
+    <a class="tile t-read" href="#notes"><p class="label">Reading</p><h3>Checking Goodreads…</h3></a>`);
   if (note) tiles.push(`
     <a class="tile t-note" href="#notes">
       <p class="label">Latest note, ${fmtDate(note.date, { month: "short", day: "numeric" })}</p>
@@ -415,16 +417,43 @@
 
   // ---- reading + notes
   const bookState = { reading: "Reading now", finished: "Finished", next: "Up next" };
-  $("#books").innerHTML = books.map((b) => `
-    <li class="${esc(b.status || "")}">
-      <div class="top"><span class="t">${esc(b.title)}</span><span class="state">${esc(bookState[b.status] || b.status || "")}</span></div>
-      <div class="top"><span class="a">${esc(b.author)}</span>${rating(b.rating)}</div>
-      ${b.note ? `<p>${esc(b.note)}</p>` : ""}
-    </li>`).join("");
+  const renderBooks = (list) => {
+    $("#reading-col").hidden = !list.length;
+    $("#books").innerHTML = list.map((b) => {
+      const title = b.link ? `<a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.title)}</a>` : esc(b.title);
+      return `
+    <li class="${esc(b.status || "")}${b.src ? " has-cover" : ""}">
+      ${b.src ? `<img class="cover" src="${esc(b.src)}" alt="" loading="lazy">` : ""}
+      <div class="info">
+        <div class="top"><span class="t">${title}</span><span class="state">${esc(bookState[b.status] || b.status || "")}</span></div>
+        <div class="top"><span class="a">${esc(b.author)}</span>${rating(b.rating)}</div>
+        ${b.note ? `<p>“${esc(b.note)}”</p>` : ""}
+      </div>
+    </li>`;
+    }).join("");
+  };
+  renderBooks(books);
+  // Goodreads (via data/feeds.json, written by connectors/fetch_feeds.py) replaces the hand-entered list.
+  const renderGoodreads = (g) => {
+    const list = (g.books || []).map((b) => ({ title: b.title, author: b.author, status: "finished", rating: b.rating, note: b.review, src: b.cover, link: b.link }));
+    if (!list.length) return;
+    renderBooks(list);
+    $("#notes").hidden = false;
+    const src = $("#reading-source"); src.href = g.profile; src.hidden = false;
+    const b = list[0], tile = $(".t-read");
+    if (tile) {
+      tile.href = b.link || "#notes";
+      if (b.link) { tile.target = "_blank"; tile.rel = "noopener"; }
+      tile.innerHTML = `
+        <p class="label">Last read</p>
+        <div class="t-thumb">${b.src ? `<div class="media"><img src="${esc(b.src)}" alt=""></div>` : ""}
+        <div><h3>${esc(b.title.split(":")[0])}</h3><p class="sub">${esc(b.author)} ${rating(b.rating)}</p></div></div>`;
+    }
+  };
   $("#log").innerHTML = log.map((n) => `
     <article class="entry"><time datetime="${esc(n.date)}">${fmtDate(n.date, { month: "short", day: "numeric", year: "numeric" })}</time><div><h3>${esc(n.title)}</h3><p>${esc(n.body)}</p></div></article>`).join("");
   if (!log.length) $("#notes-col").hidden = true; // Nostr posts may fill it in once they load
-  if (!books.length && !log.length && !S.nostr?.npub) hide("notes");
+  if (!books.length && !log.length && !S.nostr?.npub && !S.connectors?.goodreads) hide("notes");
 
   // ---- contact
   if (C.email) {
@@ -500,6 +529,7 @@
     .then((feeds) => {
       if (!feeds) return;
       if (feeds.letterboxd) renderLetterboxd(feeds.letterboxd);
+      if (feeds.goodreads) renderGoodreads(feeds.goodreads);
       const day = (feeds.updated || "").slice(0, 10);
       if (day > (S.updated || "")) {
         const el = $("[data-bind-date=updated]");
