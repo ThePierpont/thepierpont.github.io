@@ -231,10 +231,20 @@
     renderGallery();
   }, true);
   renderGallery();
+  // Media hosts (Blossom, nostr.build) name files by their SHA-256, so the same file
+  // re-posted, or mirrored on another host, shares that 64-character code.
+  const fileKey = (src) => (src.match(/[0-9a-f]{64}/i)?.[0] || src).toLowerCase();
+  const hidden = new Set((S.nostr?.hidePhotos || []).map(fileKey));
   const addNostrPhotos = (list) => {
     if (!list.length) return;
-    const known = new Set(gallery.map((p) => p.src));
-    gallery = gallery.concat(list.filter((p) => !known.has(p.src))).sort((a, b) => b.ts - a.ts);
+    const known = new Set(gallery.map((p) => fileKey(p.src)));
+    const fresh = list.filter((p) => {
+      const k = fileKey(p.src);
+      if (hidden.has(k) || known.has(k)) return false;
+      known.add(k);
+      return true;
+    });
+    gallery = gallery.concat(fresh).sort((a, b) => b.ts - a.ts);
     renderGallery();
     const p = gallery[0], tile = $(".t-photo");
     if (tile && p.nostr) tile.innerHTML = `

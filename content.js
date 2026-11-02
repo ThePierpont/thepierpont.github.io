@@ -122,6 +122,14 @@ window.SITE = {
     // Every image you've posted on Nostr goes on the photo wall. To keep older ones off,
     // set a start date here, e.g. "2026-11-01". Empty = your whole history.
     photosSince: "",
+    // Nostr images to leave off the photo wall, e.g. copies of photos already in `photos` above.
+    // Paste the image address (or just the long code in it). Copies of the same file are skipped automatically.
+    hidePhotos: [
+      "25f104d6bad39c9ca2d59dd333caf838cb34bfb2c13f9880edad30dbb2b771b0", // = Old Post Office, last light
+      "beada64ba8b0c9a5898aec0eeb455265a72d004df0ff95b4bbb297bf290687e9", // = Brutalism and blue sky
+      "ccb36b7cf4e81df627fbb104bcb1eaba7a0b1a2319149fc35c7043df29d13655", // = Fall on Pennsylvania Ave
+      "20a0173c0ebcea9b0f282da087f1f951442adec00679a08d6949f2b088991f34", // = Fountain at the Archives
+    ],
   },
 
   contact: {
