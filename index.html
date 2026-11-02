@@ -26,7 +26,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="style.css?v=1793661899">
+<link rel="stylesheet" href="style.css?v=1793662916">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -102,13 +102,9 @@
       </div>
       <p class="shelf-hint"></p>
       <div class="shelf-tip" hidden></div>
-      <div class="case-ui" hidden>
+      <div class="case-ui" aria-live="polite">
         <div class="case-info"><strong class="case-title"></strong><span class="case-sub"></span></div>
-        <div class="case-btns">
-          <a class="btn btn-hot case-link" target="_blank" rel="noopener"></a>
-          <button type="button" class="btn case-close">Put it back</button>
-        </div>
-        <p class="case-hint">Drag to turn the case</p>
+        <p class="case-hint"></p>
       </div>
       <p class="shelf-fallback">The 3D shelf needs WebGL. Here's the list instead.</p>
     </div>
@@ -251,11 +247,11 @@
 <div class="crt" aria-hidden="true"></div>
 <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.js" integrity="sha384-YUdjSvJQpzJUf1TiIR0LmkbTEGWdiZTiXN67W157lg3vEmBHg+LEkaJ5J0AI9BG7" crossorigin="anonymous" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous" defer></script>
-<script src="content.js?v=1793661899"></script>
-<script src="shelf-data.js?v=1793661899"></script>
-<script src="app.js?v=1793661899"></script>
+<script src="content.js?v=1793662916"></script>
+<script src="shelf-data.js?v=1793662916"></script>
+<script src="app.js?v=1793662916"></script>
 <!-- 3D shelf: Three.js (pinned), built from shelf-data.js -->
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
-<script type="module" src="shelf.js?v=1793661899"></script>
+<script type="module" src="shelf.js?v=1793662916"></script>
 </body>
 </html>

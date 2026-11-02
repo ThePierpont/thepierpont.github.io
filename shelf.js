@@ -493,10 +493,13 @@ function init() {
       if (line) out.push(line); return out;
     };
     let fs = 30, ls;
-    while ((ls = lines(`${it.rv ? "italic " : ""}${fs}px Inter, sans-serif`)).length * fs * 1.4 > 196 && fs > 17) fs -= 1;
+    while ((ls = lines(`${it.rv ? "italic " : ""}${fs}px Inter, sans-serif`)).length * fs * 1.4 > 168 && fs > 16) fs -= 1;
     x.fillStyle = it.rv ? "#d6d6e7" : "#9d9dc0"; x.textBaseline = "middle";
-    const top = 506 - (ls.length * fs * 1.4) / 2 + (fs * 1.4) / 2;
+    const top = 494 - (ls.length * fs * 1.4) / 2 + (fs * 1.4) / 2;
     ls.slice(0, 7).forEach((l, n) => x.fillText(l, M, top + n * fs * 1.4));
+    // this whole stretch is a link (see reviewHit)
+    x.font = "17px 'JetBrains Mono', monospace"; x.fillStyle = "#05d9e8"; x.textBaseline = "alphabetic";
+    x.fillText(it.r ? "CLICK TO READ ON LETTERBOXD ↗" : "CLICK TO OPEN ON LETTERBOXD ↗", M, 606);
 
     rule(620);
     // the star rating, in its own box
@@ -553,15 +556,13 @@ function init() {
     const dist = 4, [vw, vh] = viewSize(dist);
     const scale = Math.min((vh * 0.55) / dims.h, (vw * 0.68) / dims.w);
     const from = camera.worldToLocal(h.point.clone());
-    viewer = { group, it, t0: performance.now(), from, to: new THREE.Vector3(0, vh * 0.11, -dist), s0: scale * 0.25, s1: scale,
+    viewer = { group, it, t0: performance.now(), from, to: new THREE.Vector3(0, 0, -dist), s0: scale * 0.25, s1: scale,
       r0: Math.PI / 2, r1: -0.45, opening: true, spinY: -0.45, spinX: 0.08 };
     group.position.copy(from); group.scale.setScalar(viewer.s0); group.rotation.set(0, viewer.r0, 0);
     clearPick();
-    ui.hidden = false;
     ui.querySelector(".case-title").textContent = it.t;
     ui.querySelector(".case-sub").textContent = [it.y, it.d].filter(Boolean).join(", ");
-    const link = ui.querySelector(".case-link");
-    link.href = it.u; link.textContent = it.r ? `Read my ${it.s} review ↗` : it.m ? `My ${it.s} rating ↗` : "Open on Letterboxd ↗";
+    ui.querySelector(".case-hint").textContent = `${touch ? "Swipe" : "Drag"} to turn it · ${touch ? "tap" : "click"} the review on the back · ${touch ? "tap" : "click"} the shelf to put it back`;
     box.classList.add("case-open");
     controls.enabled = false;
     if (reduce) { viewer.t0 = -1e9; }
@@ -574,12 +575,11 @@ function init() {
       // Free this case's geometry, materials and spine/back textures; posters stay cached for next time.
       v.group.traverse((o) => { o.geometry?.dispose(); [].concat(o.material || []).forEach((m) => { if (m.map?.isCanvasTexture) m.map.dispose(); m.dispose(); }); });
     };
-    ui.hidden = true; box.classList.remove("case-open");
+    box.classList.remove("case-open");
     controls.enabled = true;
     if (instant || reduce) { done(); viewer = null; dimmer.material.opacity = 0; caseLight.intensity = 0; return; }
     v.closing = performance.now(); v.done = done;
   };
-  ui.querySelector(".case-close").addEventListener("click", () => closeCase());
   if (location.search.includes("shelfdebug")) window.__shelf = { scene, camera, dimmer, pivot, get viewer() { return viewer; },
     // colors read from one spine photo, in bands down its length: __shelf.probe("criterion", 0)
     probe(rowId, k) {
@@ -627,16 +627,22 @@ function init() {
   const stepViewer = (now) => {
     const v = viewer; if (!v) return;
     if (v.closing) {
-      const k = Math.min(1, (now - v.closing) / 450), s = ease(k);
+      if (v.homeY === undefined) { // turn back the short way, however far it was spun
+        const turns = Math.round((v.spinY - Math.PI / 2) / (2 * Math.PI));
+        v.homeY = Math.PI / 2 + turns * 2 * Math.PI; v.fromX = v.spinX; v.fromY = v.spinY;
+      }
+      const k = Math.min(1, (now - v.closing) / 900), s = smooth(k);
       v.group.position.lerpVectors(v.to, v.from, s);
+      v.group.position.z += Math.sin(Math.PI * s) * 0.6; // a gentle arc out toward you on the way back
       v.group.scale.setScalar(THREE.MathUtils.lerp(v.s1, v.s0, s));
-      v.group.rotation.y = THREE.MathUtils.lerp(v.spinY, Math.PI / 2, s);
+      v.group.rotation.set(THREE.MathUtils.lerp(v.fromX, 0, s), THREE.MathUtils.lerp(v.fromY, v.homeY, s), 0);
       dimmer.material.opacity = 0.82 * (1 - s); caseLight.intensity = 18 * (1 - s);
       if (k === 1) { v.done(); viewer = null; }
       return;
     }
-    const k = Math.min(1, (now - v.t0) / 800), s = ease(k);
+    const k = Math.min(1, (now - v.t0) / 900), s = smooth(k);
     v.group.position.lerpVectors(v.from, v.to, s);
+    if (v.opening) v.group.position.z += Math.sin(Math.PI * s) * 0.6;
     v.group.scale.setScalar(THREE.MathUtils.lerp(v.s0, v.s1, s));
     dimmer.material.opacity = 0.82 * s; caseLight.intensity = 18 * s;
     if (v.opening) { v.group.rotation.y = THREE.MathUtils.lerp(v.r0, v.r1, s); if (k === 1) v.opening = false; }
@@ -652,6 +658,13 @@ function init() {
     ray.setFromCamera(ndc, camera);
     return ray.intersectObject(viewer.group, true).length > 0;
   };
+  // On the review stretch of the back cover? (back = face 5; the review sits between the two rules)
+  const reviewHit = (e) => {
+    if (!viewer || viewer.opening || viewer.closing || !viewer.it.u) return false;
+    const h = caseHit(e) && ray.intersectObject(viewer.group.children[0], false)[0];
+    return !!h && h.face.materialIndex === 5 && h.uv.y > 1 - 620 / 760 && h.uv.y < 1 - 392 / 760;
+  };
+  const openReview = () => window.open(viewer.it.u, "_blank", "noopener");
 
   let down = null;
   canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY }; lastInteract = performance.now(); });
@@ -664,7 +677,8 @@ function init() {
         viewer.spinX = THREE.MathUtils.clamp(viewer.spinX + (e.clientY - down.lastY) * 0.008, -0.6, 0.6);
         down.lastX = e.clientX; down.lastY = e.clientY;
       }
-      canvas.style.cursor = down ? "grabbing" : caseHit(e) ? "grab" : "default";
+      const onCase = !down && caseHit(e);
+      canvas.style.cursor = down ? "grabbing" : onCase && reviewHit(e) ? "pointer" : onCase ? "grab" : "zoom-out";
       return;
     }
     if (down && panMode && focus >= 0) {
@@ -680,13 +694,17 @@ function init() {
   });
   canvas.addEventListener("pointerup", (e) => {
     const still = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6;
-    if (viewer) { viewer.dragging = false; if (still && !caseHit(e)) closeCase(); } // click off the case: put it back
+    if (viewer) { // click the review on the back: read it; click the shelf around the case: put it back
+      viewer.dragging = false;
+      if (still) { if (!caseHit(e)) closeCase(); else if (reviewHit(e)) openReview(); }
+    }
     else if (still) tap(e);
     down = null;
   });
   canvas.addEventListener("pointerleave", () => { if (!selected) clearPick(); });
   box.addEventListener("keydown", (e) => {
     if (e.key === "Escape") { if (viewer) closeCase(); else setFocus(-1); return; }
+    if (viewer && e.key === "Enter" && viewer.it.u) { openReview(); return; }
     if (viewer) return;
     if (e.key === "ArrowUp" && focus > 0) { e.preventDefault(); setFocus(focus - 1); }
     if (e.key === "ArrowDown" && focus < targets.length - 1) { e.preventDefault(); setFocus(focus + 1); }
@@ -704,6 +722,7 @@ function init() {
   let visible = true;
   new IntersectionObserver(([en]) => (visible = en.isIntersecting)).observe(box);
   const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+  const smooth = (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2); // softer start and landing for the case
   renderer.setAnimationLoop((now) => {
     if (!visible) return;
     if (anim) {
