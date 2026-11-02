@@ -321,7 +321,7 @@ function init() {
     return blue / n > 0.5;
   };
   // Title running down the spine (top to bottom, the US convention), sized to fit.
-  const spineText = (x, text, W, from, to, font, color, track = 0) => {
+  const spineText = (x, text, W, from, to, font, color, track = 0, atTop = false) => {
     const len = to - from, size0 = 100;
     x.font = font.replace("{s}", size0);
     const w0 = x.measureText(text).width + track * text.length * size0;
@@ -329,10 +329,29 @@ function init() {
     x.save();
     x.font = font.replace("{s}", size); x.fillStyle = color; x.textBaseline = "middle"; x.textAlign = "center";
     if ("letterSpacing" in x) x.letterSpacing = `${track * size}px`;
-    x.translate(W / 2, from + len / 2); x.rotate(Math.PI / 2); x.fillText(text, 0, 0);
+    const tw = Math.min(len, (x.measureText(text).width || 0));
+    x.translate(W / 2, atTop ? from + tw / 2 : from + len / 2); x.rotate(Math.PI / 2); x.fillText(text, 0, 0);
     x.restore();
   };
-  const designSpine = (it, photo, dims) => {
+  // Official spine art (A24 ships theirs blank in the shop photos): loaded once, shared.
+  const artCache = new Map();
+  const spineArt = (it, onReady) => {
+    if (!it.sp) return null;
+    let img = artCache.get(it.sp);
+    if (!img) { img = new Image(); img.src = it.sp; artCache.set(it.sp, img); }
+    if (!img.complete && onReady) img.addEventListener("load", onReady, { once: true });
+    return img.complete && img.naturalWidth ? img : null;
+  };
+  // The first near-white row going down (or up) from a point: where a colored section ends.
+  const whiteRow = (c, from, step) => {
+    const g = c.getContext("2d"), xm = Math.floor(c.width / 2);
+    for (let y = Math.floor(c.height * from); y > 0 && y < c.height; y += step) {
+      const [r, gg, b] = g.getImageData(xm, y, 1, 1).data;
+      if (r > 215 && gg > 215 && b > 215) return y;
+    }
+    return Math.floor(c.height * (step > 0 ? 0.6 : 0.85));
+  };
+  const designSpine = (it, photo, dims, art) => {
     const H = 1600, W = Math.max(64, Math.round(H * dims.d / dims.h));
     const c = document.createElement("canvas"); c.width = W; c.height = H;
     const x = c.getContext("2d"), fill = (col, y0, y1) => { x.fillStyle = col; x.fillRect(0, H * y0, W, H * (y1 - y0)); };
@@ -364,6 +383,13 @@ function init() {
       x.fillStyle = blue ? "#1c4fb0" : "#f4f3ff"; x.fillRect(W * 0.12, H * 0.045, W * 0.76, H * 0.095);
       spineText(x, blue ? "BLU-RAY" : "4K ULTRA HD", W, H * 0.05, H * 0.135, "700 {s}px Inter, sans-serif", blue ? "#f4f3ff" : "#111114", 0.06);
       spineText(x, title.toUpperCase(), W, H * 0.2, H * 0.92, "700 {s}px Rajdhani, sans-serif", ink(body), 0.03);
+    } else if (it.fm === "a24" && art) {
+      // A24's own spine: their colors, bands and barcode, with the title and logo set where they print them.
+      x.drawImage(art, 0, 0, W, H);
+      const body = sample(c, 0.05, 0.3), titleEnd = whiteRow(c, 0.2, 2), footTop = whiteRow(c, 0.97, -2);
+      spineText(x, title, W, H * 0.035, titleEnd - H * 0.04, "700 {s}px Inter, sans-serif", ink(body), 0, true);
+      const foot = sample(c, footTop / H + 0.02, 0.97);
+      spineText(x, "A24", W, footTop + (H - footTop) * 0.25, H - (H - footTop) * 0.25, "800 {s}px Inter, sans-serif", ink(foot), 0.02);
     } else if (it.fm === "a24") {
       const body = sample(photo, 0.12, 0.5), foot = sample(photo, 0.88, 0.97);
       fill(css(body), 0, 1);
@@ -439,7 +465,9 @@ function init() {
     if (viewer) closeCase(true);
     const it = p.it, dims = CASES[it.fm] || CASES.keep;
     const spine = spineCanvas(h.tg.row, it, p.zone); // the real spine from the photo: used for its colors
-    const spineTex = new THREE.CanvasTexture(designSpine(it, spine, dims)); spineTex.colorSpace = THREE.SRGBColorSpace;
+    const spineTex = new THREE.CanvasTexture(designSpine(it, spine, dims, spineArt(it, () => {
+      spineTex.image = designSpine(it, spine, dims, spineArt(it)); spineTex.needsUpdate = true;
+    }))); spineTex.colorSpace = THREE.SRGBColorSpace;
     spineTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     const backTex = new THREE.CanvasTexture(backCanvas(it)); backTex.colorSpace = THREE.SRGBColorSpace;
     const side = sideMaterial(it, spine);
@@ -496,14 +524,15 @@ function init() {
       return { title: it.t, w: ph.width, h: ph.height, bands: out };
     },
     // every designed spine of a row side by side over the page, for checking: __shelf.sheet("criterion")
-    sheet(rowId) {
+    async sheet(rowId) {
       const tg = targets.find((t) => t.row.id === rowId), R = tg.row, out = document.createElement("canvas");
       const items = columns(R).map((cc, k) => ({ it: cc.it, k })).filter(({ it }) => it.u);
+      await Promise.all(items.map(({ it }) => new Promise((ok) => { if (!it.sp || spineArt(it, ok)) ok(); })));
       const S = 0.32; out.width = items.length * 50; out.height = 1600 * S + 30;
       const g = out.getContext("2d"); g.fillStyle = "#222"; g.fillRect(0, 0, out.width, out.height);
       items.forEach(({ it, k }, n) => {
         const [l, r] = bounds(R, k), zone = [lean(R, l, R.v[0]), lean(R, r, R.v[0]), lean(R, r, R.v[1]), lean(R, l, R.v[1])];
-        const d = designSpine(it, spineCanvas(R, it, zone), CASES[it.fm] || CASES.keep);
+        const d = designSpine(it, spineCanvas(R, it, zone), CASES[it.fm] || CASES.keep, spineArt(it));
         g.drawImage(d, n * 50 + 4, 4, 42, 1600 * S);
       });
       out.style.cssText = "position:fixed;left:0;top:0;z-index:9999;max-width:100vw;background:#222";
