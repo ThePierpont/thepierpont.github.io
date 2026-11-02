@@ -108,11 +108,18 @@ h2 {
   mask-image: linear-gradient(to top, #000, transparent 85%);
   -webkit-mask-image: linear-gradient(to top, #000, transparent 85%);
 }
-.status { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; color: var(--muted); }
-.pulse { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); animation: pulse 2.2s infinite; }
-/* The status dot doubles as the owner's hidden edit button: a bigger invisible hit area, no visible hint. */
-button.pulse { position: relative; cursor: default; }
-button.pulse::after { content: ""; position: absolute; inset: -10px; }
+.status-line { margin: 0 0 18px; }
+/* The whole status is a button: tap it, edit, approve with your Nostr signer. */
+.status {
+  display: inline-flex; align-items: center; gap: 10px; padding: 4px 10px 4px 0; margin-left: 0;
+  font: inherit; color: var(--muted); background: none; border: 0; border-bottom: 1px dashed transparent; cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+.status:hover, .status:focus-visible { color: var(--white); border-bottom-color: rgb(5 217 232 / .5); }
+.status-edit { font-size: .9em; color: var(--cyan); opacity: 0; transition: opacity .2s; }
+.status:hover .status-edit, .status:focus-visible .status-edit { opacity: 1; }
+@media (hover: none) { .status-edit { opacity: .6; } } /* touch screens have no hover, so keep the pencil visible */
+.pulse { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); animation: pulse 2.2s infinite; }
 @keyframes pulse { 50% { opacity: .35; } }
 
 .name {
@@ -653,7 +660,7 @@ a.aside:hover { color: var(--white); }
 /* ---------- page-load sequence (the one orchestrated motion moment) ---------- */
 @media (prefers-reduced-motion: no-preference) {
   .hero-copy > *, .portrait, .tile { animation: rise .8s var(--ease) both; }
-  .status { animation-delay: .05s !important; }
+  .status-line { animation-delay: .05s !important; }
   .name { animation-delay: .12s !important; }
   .lede { animation-delay: .24s !important; }
   .socials { animation-delay: .32s !important; }
