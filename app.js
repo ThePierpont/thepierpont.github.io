@@ -59,6 +59,11 @@
         <p class="sub">${esc(song.artist)}</p>
       </div>
     </article>`);
+  else if (S.lastfm?.user) tiles.push(`
+    <article class="tile t-play">
+      <div class="art media">${media("", "lastfm", "")}</div>
+      <div class="info"><p class="label idle"><span class="eq idle" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Now playing</p><h3>Checking Last.fm…</h3></div>
+    </article>`);
   if (shot) tiles.push(`
     <a class="tile t-photo" href="#photos" data-open="0">
       <div class="media">${media(shot.src, shot.caption, shot.caption)}</div>
@@ -137,16 +142,90 @@
     </article>`).join("");
 
   // ---- music
-  if (!tracks.length && !M.playlistEmbed) hide("music");
-  $("#tracks").innerHTML = tracks.map((t) => `
+  const LF = S.lastfm || {};
+  const hasLastfm = !!(LF.user && LF.apiKey);
+  if (!tracks.length && !M.playlistEmbed && !hasLastfm) hide("music");
+  const renderTracks = (list, icon = "▶", verb = "Play") => {
+    $("#tracks").innerHTML = list.map((t) => `
     <li>
       <div class="media">${media(t.src, t.title + t.artist, `${t.title} cover art`)}</div>
       <div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}</div>${t.note ? `<div class="n">${esc(t.note)}</div>` : ""}</div>
-      ${t.link ? `<a class="play" href="${esc(t.link)}"${ext(t.link)} aria-label="Play ${esc(t.title)}">▶</a>` : "<span></span>"}
+      ${t.link ? `<a class="play" href="${esc(t.link)}"${ext(t.link)} aria-label="${verb} ${esc(t.title)}">${icon}</a>` : "<span></span>"}
     </li>`).join("");
-  $("#player").innerHTML = M.playlistEmbed
-    ? `<iframe src="${esc(M.playlistEmbed)}" title="Playlist" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>`
-    : `<div class="empty"><h3>Playlist goes here</h3><p>Paste a Spotify or Apple Music embed link into <code>music.playlistEmbed</code> in content.js and a player appears in this spot.</p></div>`;
+  };
+  renderTracks(tracks);
+  if (M.playlistEmbed) {
+    $("#player").innerHTML = `<iframe src="${esc(M.playlistEmbed)}" title="Playlist" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>`;
+  } else {
+    $("#player").hidden = true;
+    $(".music").classList.add("solo");
+  }
+
+  // ---- last.fm: live "Now playing" tile (checked every 30s) + top tracks for "On repeat"
+  if (hasLastfm) {
+    const lfm = (method, params = "") =>
+      fetch(`https://ws.audioscrobbler.com/2.0/?method=${method}&user=${encodeURIComponent(LF.user)}&api_key=${encodeURIComponent(LF.apiKey)}&format=json${params}`)
+        .then((r) => r.json())
+        .then((d) => { if (d.error) throw new Error(d.message); return d; });
+    // Last.fm serves this grey star when it has no art; treat it as missing.
+    const art = (imgs) => { const u = (imgs || []).slice(-1)[0]?.["#text"] || ""; return u.includes("2a96cbd8b46e442fc41c2b86b821562f") ? "" : u; };
+    const artCache = new Map();
+    const key = (artist, name) => `${artist}|${name}`.toLowerCase();
+    const ago = (uts) => {
+      const s = Date.now() / 1000 - uts;
+      if (s < 3600) return `${Math.max(1, Math.round(s / 60))} min ago`;
+      if (s < 86400) return `${Math.round(s / 3600)} hr ago`;
+      return new Date(uts * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    };
+    const profile = `https://www.last.fm/user/${encodeURIComponent(LF.user)}`;
+
+    const renderNowPlaying = (t) => {
+      const tile = $(".t-play");
+      if (!tile) return;
+      const live = t["@attr"]?.nowplaying === "true";
+      tile.innerHTML = `
+        <div class="art media">${media(art(t.image), t.name + t.artist["#text"], `${t.name} cover art`)}</div>
+        <div class="info">
+          <p class="label${live ? "" : " idle"}"><span class="eq${live ? "" : " idle"}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>${live ? "Now playing" : `Last played, ${ago(+t.date.uts)}`}</p>
+          <h3><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.name)}</a></h3>
+          <p class="sub">${esc(t.artist["#text"])}</p>
+        </div>`;
+    };
+    const pollRecent = async (limit) => {
+      const list = [].concat((await lfm("user.getrecenttracks", `&limit=${limit}`)).recenttracks.track || []);
+      list.forEach((t) => { const u = art(t.image); if (u) artCache.set(key(t.artist["#text"], t.name), u); });
+      if (list[0]) renderNowPlaying(list[0]);
+    };
+    const loadTop = async () => {
+      // Fall back to longer periods while there isn't much history yet.
+      let top = [], period;
+      for (period of ["7day", "1month", "overall"]) {
+        top = [].concat((await lfm("user.gettoptracks", `&period=${period}&limit=8`)).toptracks.track || []);
+        if (top.length >= 5) break;
+      }
+      if (!top.length) return;
+      await Promise.all(top.map(async (t) => {
+        const k = key(t.artist.name, t.name);
+        if (artCache.has(k)) return;
+        try {
+          const info = await lfm("track.getInfo", `&artist=${encodeURIComponent(t.artist.name)}&track=${encodeURIComponent(t.name)}&autocorrect=1`);
+          const u = art(info.track?.album?.image);
+          if (u) artCache.set(k, u);
+        } catch {}
+      }));
+      const when = { "7day": "this week", "1month": "this month", overall: "all time" }[period];
+      renderTracks(top.map((t) => ({
+        src: artCache.get(key(t.artist.name, t.name)) || "",
+        title: t.name, artist: t.artist.name, link: t.url,
+        note: `${t.playcount} ${+t.playcount === 1 ? "play" : "plays"} ${when}`,
+      })), "↗", "Open on Last.fm:");
+      const src = $("#music-source");
+      src.textContent = `Most played ${when}, via Last.fm ↗`; src.href = profile; src.hidden = false;
+    };
+
+    pollRecent(200).then(loadTop).catch((e) => console.warn("last.fm:", e.message));
+    setInterval(() => { if (!document.hidden) pollRecent(1).catch(() => {}); }, 30000);
+  }
 
   // ---- watching
   if (!screen.length) hide("watching");

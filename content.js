@@ -68,18 +68,21 @@ window.SITE = {
     { src: "", item: "Silver chain", brand: "Brand Name", date: "2026-08-10", tag: "Jewelry", note: "", link: "" },
   ],
 
+  // Live music from Last.fm: the "Now playing" tile shows what you're playing right now
+  // (or last played), and "On repeat" lists your most-played tracks this week.
+  // The API key is read-only and safe to be public. Get one at https://www.last.fm/api/account/create
+  lastfm: {
+    user: "thepierpont",
+    apiKey: "22364379ea9bb333e26406a14d03c7ab",
+  },
+
   music: {
-    // Paste a Spotify or Apple Music embed URL to show a player.
+    // Optional: paste a Spotify or Apple Music embed URL to show a player next to your top tracks.
     // Spotify: open the playlist → Share → Embed playlist → copy the src="..." URL.
     playlistEmbed: "",
-    // The first song shows as "Now playing" at the top of the site.
-    tracks: [
-      { src: "", title: "Sample Song One", artist: "Artist Name", note: "On repeat all week.", link: "" },
-      { src: "", title: "Sample Song Two", artist: "Artist Name", note: "Night-drive song.", link: "" },
-      { src: "", title: "Sample Song Three", artist: "Artist Name", note: "", link: "" },
-      { src: "", title: "Sample Song Four", artist: "Artist Name", note: "Found it in a café.", link: "" },
-      { src: "", title: "Sample Song Five", artist: "Artist Name", note: "", link: "" },
-    ],
+    // Used only if Last.fm isn't set up. The first song shows as "Now playing".
+    // { src: "", title: "Song", artist: "Artist", note: "", link: "" }
+    tracks: [],
   },
 
   // type: "movie" or "show". status: "watching", "finished", "dropped" or "next".

@@ -232,6 +232,12 @@ a.tile:hover, .tile:has(a:hover) { border-color: rgb(255 42 109 / .6); }
 .eq i:nth-child(3) { animation-delay: -.2s; animation-duration: 1.2s; }
 .eq i:nth-child(4) { animation-delay: -.6s; animation-duration: .9s; }
 @keyframes eq { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
+/* Not playing right now: bars rest, label goes quiet. */
+.t-play .label.idle { color: var(--muted); }
+.eq.idle i { animation: none; background: var(--muted); transform: scaleY(.3); }
+.eq.idle i:nth-child(2) { transform: scaleY(.55); }
+.eq.idle i:nth-child(3) { transform: scaleY(.4); }
+.music.solo { grid-template-columns: minmax(0, 760px); }
 
 .t-photo { grid-area: photo; padding: 0; min-height: 380px; justify-content: flex-end; }
 .t-photo .media { position: absolute; inset: 0; }
