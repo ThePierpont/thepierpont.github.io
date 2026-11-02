@@ -59,13 +59,9 @@ window.SITE = {
     { src: "images/movie-night.jpg", caption: "Projector movie night", place: "Home", date: "2026-06-15" },
   ],
 
-  // Newest first.
+  // Newest first. The first one shows as "Newest pickup" at the top.
   fits: [
-    { src: "", item: "Black nylon bomber", brand: "Brand Name", date: "2026-10-20", tag: "Jacket", note: "Wore it four days straight. No regrets.", link: "" },
-    { src: "", item: "Wide-leg denim", brand: "Brand Name", date: "2026-10-02", tag: "Pants", note: "Finally found a fit that works.", link: "" },
-    { src: "", item: "Grey trail runners", brand: "Brand Name", date: "2026-09-15", tag: "Shoes", note: "Daily driver.", link: "" },
-    { src: "", item: "Vintage band tee", brand: "Thrifted", date: "2026-08-29", tag: "Top", note: "$6. Best purchase of the year.", link: "" },
-    { src: "", item: "Silver chain", brand: "Brand Name", date: "2026-08-10", tag: "Jewelry", note: "", link: "" },
+    { src: "images/closet-seafarer-rib-crew.jpg", item: "Seafarer Cotton Rib Crew", brand: "Buck Mason, Faded Indigo", date: "2026-11-01", tag: "Sweater", note: "", link: "https://www.buckmason.com/products/faded-indigo-seafarer-cotton-rib-crew" },
   ],
 
   // Live music from Last.fm: the "Now playing" tile shows what you're playing right now
