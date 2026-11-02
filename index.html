@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tyler</title>
+<meta name="description" content="Photos, fits, music, what I'm watching, and how to reach me.">
+<meta name="theme-color" content="#0a0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar">
+  <a class="mark" href="#top" aria-label="Back to top"><span data-bind="initial">T</span></a>
+  <nav aria-label="Sections">
+    <button class="menu" aria-expanded="false" aria-controls="nav-list">Menu</button>
+    <ul id="nav-list">
+      <li><a href="#photos">Photos</a></li>
+      <li><a href="#closet">Closet</a></li>
+      <li><a href="#music">Music</a></li>
+      <li><a href="#watching">Watching</a></li>
+      <li><a href="#notes">Notes</a></li>
+    </ul>
+  </nav>
+  <a class="btn btn-hot" href="#contact">Say hi</a>
+</header>
+
+<main id="main">
+  <section class="hero" id="top">
+    <div class="hero-floor" aria-hidden="true"></div>
+    <div class="hero-copy">
+      <p class="status"><span class="pulse" aria-hidden="true"></span><span data-bind="status"></span></p>
+      <h1 class="name" data-bind="name" data-text="Tyler">Tyler</h1>
+      <p class="lede" data-bind="tagline"></p>
+      <ul class="socials" id="socials"></ul>
+    </div>
+    <figure class="portrait">
+      <div class="portrait-frame" id="portrait"></div>
+      <figcaption><span data-bind="location"></span><time id="clock-small"></time></figcaption>
+    </figure>
+  </section>
+
+  <section class="now" aria-labelledby="now-h">
+    <div class="head">
+      <h2 id="now-h">Right now</h2>
+      <p class="aside">Updated <time data-bind-date="updated"></time></p>
+    </div>
+    <div class="bento" id="bento"></div>
+  </section>
+
+  <section class="about" id="about" aria-labelledby="about-h">
+    <h2 id="about-h">About</h2>
+    <div class="about-body" id="about-body"></div>
+    <dl class="facts" id="facts"></dl>
+  </section>
+
+  <section id="photos" aria-labelledby="photos-h">
+    <div class="head"><h2 id="photos-h">Photos</h2><p class="aside" id="photos-count"></p></div>
+    <div class="masonry" id="gallery"></div>
+  </section>
+
+  <section id="closet" aria-labelledby="closet-h">
+    <div class="head"><h2 id="closet-h">Closet</h2><p class="aside">Recent pickups. Scroll sideways.</p></div>
+    <div class="rail" id="fits" tabindex="0" aria-label="Recent clothing pickups"></div>
+  </section>
+
+  <section id="music" aria-labelledby="music-h">
+    <div class="head"><h2 id="music-h">On repeat</h2></div>
+    <div class="music">
+      <ul class="tracks" id="tracks"></ul>
+      <div class="player" id="player"></div>
+    </div>
+  </section>
+
+  <section id="watching" aria-labelledby="watching-h">
+    <div class="head">
+      <h2 id="watching-h">Watching</h2>
+      <div class="seg" role="group" aria-label="Filter">
+        <button data-filter="all" aria-pressed="true">All</button>
+        <button data-filter="movie" aria-pressed="false">Movies</button>
+        <button data-filter="show" aria-pressed="false">Shows</button>
+      </div>
+    </div>
+    <div class="posters" id="screen"></div>
+
+    <div class="lb" id="letterboxd" hidden>
+      <div class="subhead">
+        <h3>Recently logged on Letterboxd</h3>
+        <a id="lb-profile" target="_blank" rel="noopener">Full diary ↗</a>
+      </div>
+      <div class="posters" id="lb-diary"></div>
+      <div class="subhead" id="lb-lists-head">
+        <h3>Lists</h3>
+      </div>
+      <div class="lists" id="lb-lists"></div>
+    </div>
+  </section>
+
+  <section class="split" id="notes">
+    <div>
+      <div class="head"><h2 id="reading-h">Reading</h2></div>
+      <ul class="books" id="books" aria-labelledby="reading-h"></ul>
+    </div>
+    <div>
+      <div class="head"><h2 id="notes-h">Notes</h2></div>
+      <div class="log" id="log" aria-labelledby="notes-h"></div>
+    </div>
+  </section>
+
+  <section class="contact" id="contact" aria-labelledby="contact-h">
+    <div class="contact-intro">
+      <h2 id="contact-h" class="big">Say hi</h2>
+      <p>Questions about a photo, where a jacket's from, or a song I should hear? Send it.</p>
+      <div class="email-row" id="email-row"></div>
+      <ul class="link-list" id="links"></ul>
+    </div>
+    <form id="contact-form" class="form" novalidate>
+      <label>Your name <input name="name" autocomplete="name" required></label>
+      <label>Your email <input name="email" type="email" autocomplete="email" required></label>
+      <label>Message <textarea name="message" rows="5" required></textarea></label>
+      <button type="submit" class="btn btn-hot">Send message</button>
+      <p class="form-status" id="form-status" role="status"></p>
+    </form>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>© <span id="year"></span> <span data-bind="name"></span></span>
+  <a href="#top">Back to top</a>
+</footer>
+
+<dialog id="lightbox" aria-label="Photo viewer">
+  <div class="lb-stage" id="lb-img"></div>
+  <div class="lb-bar">
+    <p id="lb-cap"></p>
+    <div class="lb-nav">
+      <button data-step="-1" aria-label="Previous photo">‹</button>
+      <button data-step="1" aria-label="Next photo">›</button>
+      <button class="lb-close" aria-label="Close">×</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="crt" aria-hidden="true"></div>
+<script src="content.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
