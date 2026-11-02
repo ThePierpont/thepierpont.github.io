@@ -85,6 +85,13 @@ window.SITE = {
     tracks: [],
   },
 
+  // Bitcoin strip on the "Right now" board: block height, price, fees, halving countdown.
+  // Live from mempool.space, no account needed. currency: USD, EUR, GBP, CAD, CHF, AUD or JPY.
+  bitcoin: {
+    show: true,
+    currency: "USD",
+  },
+
   // TV from Trakt: shows you've watched (latest episode), what's on right now, and your
   // watchlist. Make your Trakt profile public, then add your username and Client ID.
   // The Client ID is read-only and safe to be public. Get one at https://trakt.tv/oauth/applications/new

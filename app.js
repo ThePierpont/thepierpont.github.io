@@ -100,9 +100,84 @@
       <p class="label">Local time</p>
       <div><div class="clock" data-clock></div><p class="sub">${esc(S.location || "")}</p></div>
     </div>`);
+  if (S.bitcoin?.show) tiles.push(`
+    <a class="tile t-btc" href="https://mempool.space" target="_blank" rel="noopener" aria-label="Bitcoin network stats on mempool.space">
+      <div class="btc-block">
+        <p class="label">Bitcoin block height</p>
+        <div class="height" id="btc-height">…</div>
+        <p class="sub" id="btc-ago"></p>
+      </div>
+      <div class="btc-price">
+        <p class="label">Price</p>
+        <div class="price"><span id="btc-price">…</span><span class="chg" id="btc-chg"></span></div>
+        <svg class="spark" id="btc-spark" viewBox="0 0 200 48" preserveAspectRatio="none" role="img" aria-label="Price over the last 7 days"></svg>
+      </div>
+      <dl class="btc-stats">
+        <div><dt>Sats per ${esc(S.bitcoin.currency === "USD" ? "dollar" : S.bitcoin.currency)}</dt><dd id="btc-sats">…</dd></div>
+        <div><dt>Fees</dt><dd id="btc-fees">…</dd></div>
+        <div><dt>Next halving</dt><dd id="btc-halving">…</dd></div>
+      </dl>
+    </a>`);
   $("#bento").innerHTML = tiles.join("");
   document.querySelectorAll(".tile").forEach((t, i) => t.style.setProperty("--i", i));
   tick(); setInterval(tick, 15000);
+
+  // ---- bitcoin strip (mempool.space): height/price/fees every 30s, 7-day trend every 30 min
+  if (S.bitcoin?.show) {
+    const cur = S.bitcoin.currency || "USD";
+    const api = (p) => fetch(`https://mempool.space/api${p}`).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    const money = (n) => n.toLocaleString(undefined, { style: "currency", currency: cur, maximumFractionDigits: 0 });
+    const HALVING = 210000;
+    let tipTime = 0, lastPrice = 0, dayAgo = 0;
+
+    const showAgo = () => {
+      if (!tipTime) return;
+      const m = Math.floor((Date.now() / 1000 - tipTime) / 60);
+      $("#btc-ago").textContent = m < 1 ? "New block just now" : `Last block ${m} min ago`;
+    };
+    const showChange = () => {
+      if (!lastPrice || !dayAgo) return;
+      const pct = ((lastPrice - dayAgo) / dayAgo) * 100;
+      const el = $("#btc-chg");
+      el.textContent = `${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}% today`;
+      el.className = "chg " + (pct >= 0 ? "up" : "down");
+    };
+    const live = async () => {
+      const [blocks, prices, fees] = await Promise.all([api("/v1/blocks"), api("/v1/prices"), api("/v1/fees/recommended")]);
+      const tip = blocks[0];
+      tipTime = tip.timestamp;
+      const left = Math.ceil((tip.height + 1) / HALVING) * HALVING - tip.height;
+      const eta = new Date(Date.now() + left * 600000).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+      $("#btc-height").textContent = tip.height.toLocaleString();
+      $("#btc-halving").innerHTML = `~${esc(eta)}<small>${left.toLocaleString()} blocks</small>`;
+      lastPrice = prices[cur];
+      $("#btc-price").textContent = money(lastPrice);
+      $("#btc-sats").textContent = Math.round(1e8 / lastPrice).toLocaleString();
+      $("#btc-fees").textContent = `${fees.fastestFee} sat/vB`;
+      showAgo(); showChange();
+    };
+    const trend = async () => {
+      // Hourly-rounded timestamps so the browser can reuse responses.
+      const hour = Math.floor(Date.now() / 3600000) * 3600;
+      const days = [7, 6, 5, 4, 3, 2, 1].map((d) => hour - d * 86400);
+      const pts = (await Promise.all(days.map((t) => api(`/v1/historical-price?currency=${cur}&timestamp=${t}`).then((r) => r.prices[0]?.[cur]))))
+        .filter(Boolean);
+      dayAgo = pts[pts.length - 1];
+      if (lastPrice) pts.push(lastPrice);
+      if (pts.length < 2) return;
+      const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1;
+      const xy = pts.map((p, i) => [(i / (pts.length - 1)) * 200, 44 - ((p - lo) / span) * 40]);
+      const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+      $("#btc-spark").innerHTML = `
+        <polygon class="area" points="0,48 ${line} 200,48"></polygon>
+        <polyline class="line" points="${line}"></polyline>`;
+      showChange();
+    };
+    live().then(trend).catch((e) => console.warn("mempool:", e.message));
+    setInterval(() => { if (!document.hidden) live().catch(() => {}); }, 30000);
+    setInterval(() => { if (!document.hidden) trend().catch(() => {}); }, 1800000);
+    setInterval(showAgo, 15000);
+  }
 
   // ---- about
   $("#about-body").innerHTML = (S.about || []).map((p) => `<p>${esc(p)}</p>`).join("");
