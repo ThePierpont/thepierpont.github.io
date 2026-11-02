@@ -216,7 +216,7 @@
     const p = gallery[cur];
     $("#lb-img").innerHTML = media(p.src, p.caption || p.src, p.caption || "Photo", p.ratio);
     $("#lb-cap").innerHTML = esc([p.caption, p.place, fmtDate(p.date)].filter(Boolean).join(", ")) +
-      (p.link ? ` <a href="${esc(p.link)}" target="_blank" rel="noopener">View on Nostr ↗</a>` : "");
+      (p.link ? ` <a href="${esc(p.link)}" target="_blank" rel="noopener">View on Primal ↗</a>` : "");
   };
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-open]"); if (!b) return;
@@ -551,24 +551,31 @@
     if (exp && +exp[1] < Date.now() / 1000) return;
     statusEl.textContent = ev.content.trim() || S.status || "";
   };
+  // Every Nostr link opens in Primal: profiles at /p/, posts at /e/, long-form at /a/.
+  const primal = (id) => `https://primal.net/${/^(npub|nprofile)/.test(id) ? "p" : id.startsWith("naddr") ? "a" : "e"}/${id}`;
+  let profileHref = "";
   const renderNostrCard = (profile) => {
     const npub = NT.nip19.npubEncode(pubkey);
     const name = profile?.display_name || profile?.name || S.name || "Me";
-    const href = `https://njump.me/${npub}`;
+    // A Primal name (e.g. pierpont@primal.net) gets the short primal.net/pierpont address.
+    const handle = profile?.nip05?.toLowerCase().match(/^([a-z0-9._-]+)@primal\.net$/)?.[1];
+    const href = profileHref = handle && handle !== "_" ? `https://primal.net/${handle}` : primal(npub);
     const card = $("#nostr-card");
     card.hidden = false;
     card.innerHTML = `
       ${profile?.picture ? `<img class="avatar" src="${esc(profile.picture)}" alt="">` : `<span class="avatar ph" style="--h:${hue(npub)}"></span>`}
       <div class="who">${esc(name)}</div>
       <div class="npub">${npub.slice(0, 18)}…${npub.slice(-8)}</div>
-      <div class="actions"><a class="btn btn-violet" href="${href}" target="_blank" rel="noopener">Find me on Nostr</a>${profile?.lud16 ? '<button class="btn btn-zap open-zap" type="button">⚡ Zap</button>' : ""}<button class="btn copy-npub" type="button">Copy npub</button></div>`;
+      <div class="actions"><a class="btn btn-violet" href="${href}" target="_blank" rel="noopener">Find me on Primal</a>${profile?.lud16 ? '<button class="btn btn-zap open-zap" type="button">⚡ Zap</button>' : ""}<button class="btn copy-npub" type="button">Copy npub</button></div>`;
     card.querySelector(".copy-npub").addEventListener("click", async (e) => {
       try { await navigator.clipboard.writeText(npub); e.target.textContent = "Copied"; }
       catch { e.target.textContent = "Couldn't copy"; }
       setTimeout(() => (e.target.textContent = "Copy npub"), 2000);
     });
     const soc = $("#socials");
-    if (!soc.querySelector(".nostr-link")) soc.insertAdjacentHTML("afterbegin", `<li><a class="nostr-link" href="${href}" target="_blank" rel="noopener">Nostr</a></li>`);
+    if (!soc.querySelector(".nostr-link")) soc.insertAdjacentHTML("afterbegin", `<li><a class="nostr-link" target="_blank" rel="noopener">Nostr</a></li>`);
+    soc.querySelector(".nostr-link").href = href;
+    const notesSrc = $("#notes-source"); if (!notesSrc.hidden) notesSrc.href = href;
     if (profile?.lud16 && !soc.querySelector(".open-zap")) soc.querySelector(".nostr-link").parentElement.insertAdjacentHTML("afterend", '<li><a class="open-zap" href="#">⚡ Zap</a></li>');
     soc.hidden = false;
     profileMeta = profile;
@@ -585,22 +592,22 @@
       const imgs = urls.filter((u) => imeta.has(u) || IMG.test(u));
       let text = ev.content;
       imgs.forEach((u) => (text = text.split(u).join("")));
-      return { imgs, text: text.replace(/\n{3,}/g, "\n\n").trim(), link: `https://njump.me/${NT.nip19.noteEncode(ev.id)}`, date: new Date(ev.created_at * 1000) };
+      return { imgs, text: text.replace(/\n{3,}/g, "\n\n").trim(), link: primal(NT.nip19.noteEncode(ev.id)), date: new Date(ev.created_at * 1000) };
     };
     const linkify = (t) => esc(t)
       .replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 38)}${u.length > 46 ? "…" : ""}</a>`)
-      .replace(/nostr:((?:npub|nprofile|note|nevent|naddr)1[a-z0-9]+)/g, (m, id) => `<a href="https://njump.me/${id}" target="_blank" rel="noopener">${id.slice(0, 12)}…</a>`);
+      .replace(/nostr:((?:npub|nprofile|note|nevent|naddr)1[a-z0-9]+)/g, (m, id) => `<a href="${primal(id)}" target="_blank" rel="noopener">${id.slice(0, 12)}…</a>`);
     const iso = (d) => d.toISOString().slice(0, 10);
     const posts = notes.slice(0, 8).map(parse);
     $("#log").innerHTML = posts.map((p) => `
       <article class="entry"><time datetime="${iso(p.date)}">${fmtDate(iso(p.date))}</time><div>
         ${p.text ? `<p class="note-text">${linkify(p.text)}</p>` : ""}
         ${p.imgs.length ? `<div class="note-imgs">${p.imgs.slice(0, 4).map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="" loading="lazy"></a>`).join("")}</div>` : ""}
-        <a class="permalink" href="${p.link}" target="_blank" rel="noopener">View on Nostr ↗</a>
+        <a class="permalink" href="${p.link}" target="_blank" rel="noopener">View on Primal ↗</a>
       </div></article>`).join("");
     $("#notes-col").hidden = false;
     $("#notes").hidden = false;
-    const src = $("#notes-source"); src.href = `https://njump.me/${npub}`; src.hidden = false;
+    const src = $("#notes-source"); src.href = profileHref || primal(npub); src.hidden = false;
 
     const first = posts[0], tile = $(".t-note");
     const plain = first.text.replace(/https?:\/\/\S+/g, "").trim();
@@ -646,7 +653,7 @@
     if (!urls.size) return [];
     const caption = ev.content.replace(/https?:\/\/\S+/g, "").replace(/nostr:\S+/g, "").trim().split("\n")[0].slice(0, 80);
     const date = new Date(ev.created_at * 1000).toISOString().slice(0, 10);
-    const link = `https://njump.me/${NT.nip19.neventEncode({ id: ev.id, author: ev.pubkey })}`;
+    const link = primal(NT.nip19.noteEncode(ev.id));
     return [...urls].map((src) => ({ src, caption, date, ts: ev.created_at * 1000, link, nostr: true }));
   };
   window.addEventListener("DOMContentLoaded", () => initNostr().catch((e) => console.warn("nostr:", e)));
