@@ -182,7 +182,11 @@
 
   // ---- about
   $("#about-body").innerHTML = (S.about || []).map((p) => `<p>${esc(p)}</p>`).join("");
-  $("#facts").innerHTML = (S.facts || []).map((f) => `<div${f.url ? ' class="linked"' : ""}><dt>${esc(f.k)}</dt><dd>${f.url ? `<a href="${esc(f.url)}"${ext(f.url)}>${esc(f.v)} ↗</a>` : esc(f.v)}</dd></div>`).join("");
+  $("#about-body").hidden = !(S.about || []).length;
+  const factValue = (f) => f.url ? `<a href="${esc(f.url)}"${ext(f.url)}>${esc(f.v)} ↗</a>`
+    : f.album ? `<button type="button" class="fact-album" data-album="${esc(f.album)}">${esc(f.v)}<span class="sr"> (open the ${esc(f.k.toLowerCase())} photo album)</span></button>`
+    : esc(f.v);
+  $("#facts").innerHTML = (S.facts || []).map((f) => `<div${f.url || f.album ? ' class="linked"' : ""}><dt>${esc(f.k)}</dt><dd>${factValue(f)}</dd></div>`).join("");
 
   // ---- "See all" folding: show the first few items, expand on request.
   // Re-run the returned function after the list re-renders.
@@ -251,18 +255,43 @@
       <div class="cap"><p class="label">Latest photo</p><h3>${esc(p.caption || "New on Nostr")}</h3><p class="sub">${fmtDate(p.date, { month: "short", day: "numeric" })}</p></div>`;
   };
   const lb = $("#lightbox");
-  let cur = 0;
+  let cur = 0, lbList = gallery; // the viewer steps through either the whole wall or one album
   const show_ = (i) => {
-    cur = (i + gallery.length) % gallery.length;
-    const p = gallery[cur];
+    cur = (i + lbList.length) % lbList.length;
+    const p = lbList[cur];
     $("#lb-img").innerHTML = media(p.src, p.caption || p.src, p.caption || "Photo", p.ratio);
     $("#lb-cap").innerHTML = esc([p.caption, p.place, fmtDate(p.date)].filter(Boolean).join(", ")) +
       (p.link ? ` <a href="${esc(p.link)}" target="_blank" rel="noopener">View on Primal ↗</a>` : "");
   };
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-open]"); if (!b) return;
-    e.preventDefault(); show_(+b.dataset.open); lb.showModal();
+    e.preventDefault(); lbList = gallery; show_(+b.dataset.open); lb.showModal();
   });
+
+  // ---- albums (e.g. Cats): every photo on the wall tagged for that album, in a grid
+  const albums = S.albums || {};
+  const inAlbum = (p, name) => p.album === name ||
+    (p.hashtags || []).some((h) => (albums[name]?.hashtags || []).includes(h.toLowerCase()));
+  const albumDlg = $("#album");
+  let albumList = [];
+  const openAlbum = (name) => {
+    albumList = gallery.filter((p) => inAlbum(p, name));
+    $("#album-h").textContent = albums[name]?.title || name;
+    $("#album-count").textContent = `${albumList.length} ${albumList.length === 1 ? "photo" : "photos"}`;
+    $("#album-grid").innerHTML = albumList.length ? albumList.map((p, i) => `
+      <button class="album-shot" data-album-i="${i}" aria-label="Open photo: ${esc(p.caption || "photo")}">
+        ${media(p.src, p.caption || p.src, p.caption || "Photo")}
+      </button>`).join("") : `<p class="album-empty">No photos in this album yet.</p>`;
+    albumDlg.showModal();
+  };
+  document.addEventListener("click", (e) => {
+    const f = e.target.closest(".fact-album");
+    if (f) return openAlbum(f.dataset.album);
+    const a = e.target.closest("[data-album-i]");
+    if (a) { lbList = albumList; show_(+a.dataset.albumI); lb.showModal(); }
+  });
+  albumDlg.querySelector(".album-close").addEventListener("click", () => albumDlg.close());
+  albumDlg.addEventListener("click", (e) => { if (e.target === albumDlg) albumDlg.close(); });
   lb.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => show_(cur + +b.dataset.step)));
   lb.querySelector(".lb-close").addEventListener("click", () => lb.close());
   lb.addEventListener("click", (e) => { if (e.target === lb) lb.close(); });
@@ -816,7 +845,8 @@
     const caption = ev.content.replace(/https?:\/\/\S+/g, "").replace(/nostr:\S+/g, "").trim().split("\n")[0].slice(0, 80);
     const date = new Date(ev.created_at * 1000).toISOString().slice(0, 10);
     const link = primal(NT.nip19.noteEncode(ev.id));
-    return [...urls].map((src) => ({ src, caption, date, ts: ev.created_at * 1000, link, nostr: true }));
+    const hashtags = ev.tags.filter((t) => t[0] === "t").map((t) => t[1].toLowerCase()); // e.g. #cats puts it in the Cats album
+    return [...urls].map((src) => ({ src, caption, date, ts: ev.created_at * 1000, link, hashtags, nostr: true }));
   };
   window.addEventListener("DOMContentLoaded", () => initNostr().catch((e) => console.warn("nostr:", e)));
 

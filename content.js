@@ -30,17 +30,23 @@ window.SITE = {
   updated: "2026-11-01",
   portrait: "images/me.jpg",
 
-  about: [
-    "A Mainer, Bitcoiner, movie lover, photo taker, and drink maker.",
-  ],
-  // Add `url` to any fact to make it a link.
+  // Optional intro sentences above the facts. Empty = facts only.
+  about: [],
+  // Add `url` to any fact to make it a link, or `album` to open a photo album (see `albums`).
   facts: [
     { k: "From", v: "Maine" },
     { k: "Based in", v: "DC" },
     { k: "Stacking", v: "Bitcoin" },
     { k: "Shooting on", v: "iPhone 17 Pro + film camera" },
     { k: "Making", v: "Drinks at PubKey DC", url: "https://dc.pubkey.com/" },
+    { k: "Cats", v: "2", album: "cats" },
   ],
+
+  // Photo albums opened from a fact. A photo joins an album when it has `album: "<name>"`
+  // in the photos list below, or when you post it on Nostr with one of the album's hashtags.
+  albums: {
+    cats: { title: "The cats", hashtags: ["cats", "cat"] },
+  },
 
   // Newest first. The first one shows as "Latest photo" at the top.
   // Set `ratio` (like "3/2" or "4/5") only for placeholders; real photos use their own shape.
@@ -53,10 +59,10 @@ window.SITE = {
     { src: "images/steeple-night.jpg", caption: "Steeple, overcast night", place: "Washington, DC", date: "2026-10-29" },
     { src: "images/before-doors.jpg", caption: "Lighting candles before doors", place: "", date: "2026-09-22" },
     { src: "images/behind-the-mic.jpg", caption: "Behind the mic", place: "", date: "2026-09-12" },
-    { src: "images/cactus-nap.jpg", caption: "Nap with the cactus", place: "Home", date: "2026-09-11" },
+    { src: "images/cactus-nap.jpg", caption: "Nap with the cactus", place: "Home", date: "2026-09-11", album: "cats" },
     { src: "images/wedding-us.jpg", caption: "Wedding guests", place: "", date: "2026-09-05" },
     { src: "images/wedding-mom.jpg", caption: "Suited up", place: "", date: "2026-09-05" },
-    { src: "images/yawn.jpg", caption: "Mid-yawn", place: "Home", date: "2026-07-27" },
+    { src: "images/yawn.jpg", caption: "Mid-yawn", place: "Home", date: "2026-07-27", album: "cats" },
     { src: "images/movie-night.jpg", caption: "Projector movie night", place: "Home", date: "2026-06-15" },
   ],
 

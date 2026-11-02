@@ -26,7 +26,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="style.css?v=1793596367">
+<link rel="stylesheet" href="style.css?v=1793596949">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -158,6 +158,14 @@
   <a href="#top">Back to top</a>
 </footer>
 
+<dialog id="album" aria-labelledby="album-h">
+  <div class="album-head">
+    <div><h2 id="album-h"></h2><p class="aside" id="album-count"></p></div>
+    <button class="album-close" type="button" aria-label="Close">×</button>
+  </div>
+  <div class="album-grid" id="album-grid"></div>
+</dialog>
+
 <dialog id="lightbox" aria-label="Photo viewer">
   <div class="lb-stage" id="lb-img"></div>
   <div class="lb-bar">
@@ -217,7 +225,7 @@
 <div class="crt" aria-hidden="true"></div>
 <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.js" integrity="sha384-YUdjSvJQpzJUf1TiIR0LmkbTEGWdiZTiXN67W157lg3vEmBHg+LEkaJ5J0AI9BG7" crossorigin="anonymous" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous" defer></script>
-<script src="content.js?v=1793596367"></script>
-<script src="app.js?v=1793596367"></script>
+<script src="content.js?v=1793596949"></script>
+<script src="app.js?v=1793596949"></script>
 </body>
 </html>
