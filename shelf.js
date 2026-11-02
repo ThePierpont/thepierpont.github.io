@@ -109,6 +109,7 @@ function init() {
       const [l, r] = bounds(row, k);
       // Inside this spine if we're right of its left edge and left of its right edge, both leaned to this height.
       if (u >= lean(row, l, v)[0] && u < lean(row, r, v)[0]) {
+        if (cols[k].it.skip) return null; // takes up space, but isn't a movie to link
         return { it: cols[k].it, zone: [lean(row, l, row.v[0]), lean(row, r, row.v[0]), lean(row, r, row.v[1]), lean(row, l, row.v[1])] };
       }
     }
