@@ -98,11 +98,10 @@ window.SITE = {
     { title: "Next on the List", author: "Author Name", status: "next", note: "" },
   ],
 
-  // Short posts, newest first.
-  log: [
-    { date: "2026-11-01", title: "Site's live", body: "Built a little home for everything I'm into. More photos coming soon." },
-    { date: "2026-10-18", title: "Film roll developed", body: "Half of them are blurry. The other half are the best I've taken." },
-  ],
+  // Your latest Nostr posts fill the Notes section automatically (replies are skipped).
+  // Anything added here shows only if Nostr can't be reached. Newest first:
+  // { date: "2026-11-01", title: "Site's live", body: "Built a little home for everything I'm into." },
+  log: [],
 
   // Your Nostr account. Paste your npub (starts with "npub1"). This adds a "Find me on
   // Nostr" link with your profile picture and name, and turns on the live status:

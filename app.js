@@ -86,6 +86,8 @@
       <p class="label">Latest note, ${fmtDate(note.date, { month: "short", day: "numeric" })}</p>
       <h3>${esc(note.title)}</h3><p>${esc(note.body)}</p>
     </a>`);
+  else if (S.nostr?.npub) tiles.push(`
+    <a class="tile t-note" href="#notes"><p class="label">Latest note</p><h3>Checking Nostr…</h3></a>`);
   tiles.push(`
     <div class="tile t-place">
       <p class="label">Local time</p>
@@ -174,7 +176,8 @@
     </li>`).join("");
   $("#log").innerHTML = log.map((n) => `
     <article class="entry"><time datetime="${esc(n.date)}">${fmtDate(n.date, { month: "short", day: "numeric", year: "numeric" })}</time><div><h3>${esc(n.title)}</h3><p>${esc(n.body)}</p></div></article>`).join("");
-  if (!books.length && !log.length) hide("notes");
+  if (!log.length) $("#notes-col").hidden = true; // Nostr posts may fill it in once they load
+  if (!books.length && !log.length && !S.nostr?.npub) hide("notes");
 
   // ---- contact
   if (C.email) {
@@ -264,7 +267,7 @@
   const N = S.nostr || {};
   const relays = N.relays?.length ? N.relays : ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
   const statusEl = $("#status-text"), dlg = $("#status-dialog"), sform = $("#status-form"), smsg = $("#status-msg");
-  let NT = null, pool = null, pubkey = null;
+  let NT = null, pool = null, pubkey = null, profileMeta = null;
 
   const applyStatus = (ev) => {
     const exp = ev.tags.find((t) => t[0] === "expiration");
@@ -281,7 +284,7 @@
       ${profile?.picture ? `<img class="avatar" src="${esc(profile.picture)}" alt="">` : `<span class="avatar ph" style="--h:${hue(npub)}"></span>`}
       <div class="who">${esc(name)}</div>
       <div class="npub">${npub.slice(0, 18)}…${npub.slice(-8)}</div>
-      <div class="actions"><a class="btn btn-violet" href="${href}" target="_blank" rel="noopener">Find me on Nostr</a><button class="btn copy-npub" type="button">Copy npub</button></div>`;
+      <div class="actions"><a class="btn btn-violet" href="${href}" target="_blank" rel="noopener">Find me on Nostr</a>${profile?.lud16 ? '<button class="btn btn-zap open-zap" type="button">⚡ Zap</button>' : ""}<button class="btn copy-npub" type="button">Copy npub</button></div>`;
     card.querySelector(".copy-npub").addEventListener("click", async (e) => {
       try { await navigator.clipboard.writeText(npub); e.target.textContent = "Copied"; }
       catch { e.target.textContent = "Couldn't copy"; }
@@ -289,7 +292,46 @@
     });
     const soc = $("#socials");
     if (!soc.querySelector(".nostr-link")) soc.insertAdjacentHTML("afterbegin", `<li><a class="nostr-link" href="${href}" target="_blank" rel="noopener">Nostr</a></li>`);
+    if (profile?.lud16 && !soc.querySelector(".open-zap")) soc.querySelector(".nostr-link").parentElement.insertAdjacentHTML("afterend", '<li><a class="open-zap" href="#">⚡ Zap</a></li>');
     soc.hidden = false;
+    profileMeta = profile;
+  };
+
+  // Nostr posts take over the Notes list and the "Latest note" tile. Replies are skipped.
+  const IMG = /\.(jpe?g|png|gif|webp|avif)(\?|$)/i;
+  const renderNotes = (notes) => {
+    if (!notes.length) return;
+    const npub = NT.nip19.npubEncode(pubkey);
+    const parse = (ev) => {
+      const imeta = new Set(ev.tags.filter((t) => t[0] === "imeta").flatMap((t) => t.filter((x) => x.startsWith("url ")).map((x) => x.slice(4))));
+      const urls = ev.content.match(/https?:\/\/[^\s]+/g) || [];
+      const imgs = urls.filter((u) => imeta.has(u) || IMG.test(u));
+      let text = ev.content;
+      imgs.forEach((u) => (text = text.split(u).join("")));
+      return { imgs, text: text.replace(/\n{3,}/g, "\n\n").trim(), link: `https://njump.me/${NT.nip19.noteEncode(ev.id)}`, date: new Date(ev.created_at * 1000) };
+    };
+    const linkify = (t) => esc(t)
+      .replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 38)}${u.length > 46 ? "…" : ""}</a>`)
+      .replace(/nostr:((?:npub|nprofile|note|nevent|naddr)1[a-z0-9]+)/g, (m, id) => `<a href="https://njump.me/${id}" target="_blank" rel="noopener">${id.slice(0, 12)}…</a>`);
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const posts = notes.slice(0, 8).map(parse);
+    $("#log").innerHTML = posts.map((p) => `
+      <article class="entry"><time datetime="${iso(p.date)}">${fmtDate(iso(p.date))}</time><div>
+        ${p.text ? `<p class="note-text">${linkify(p.text)}</p>` : ""}
+        ${p.imgs.length ? `<div class="note-imgs">${p.imgs.slice(0, 4).map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="" loading="lazy"></a>`).join("")}</div>` : ""}
+        <a class="permalink" href="${p.link}" target="_blank" rel="noopener">View on Nostr ↗</a>
+      </div></article>`).join("");
+    $("#notes-col").hidden = false;
+    $("#notes").hidden = false;
+    const src = $("#notes-source"); src.href = `https://njump.me/${npub}`; src.hidden = false;
+
+    const first = posts[0], tile = $(".t-note");
+    const plain = first.text.replace(/https?:\/\/\S+/g, "").trim();
+    const [head, ...rest] = (plain || (first.imgs.length ? "New photos" : "New post")).split("\n");
+    if (tile) {
+      tile.href = first.link; tile.target = "_blank"; tile.rel = "noopener";
+      tile.innerHTML = `<p class="label">Latest note, ${fmtDate(iso(first.date), { month: "short", day: "numeric" })}</p><h3>${esc(head.slice(0, 70))}</h3>${rest.join(" ").trim() ? `<p>${esc(rest.join(" ").trim().slice(0, 160))}</p>` : ""}`;
+    }
   };
   const initNostr = async () => {
     NT = window.NostrTools;
@@ -308,6 +350,12 @@
     const live = newest((e) => e.kind === 30315 && e.tags.some((t) => t[0] === "d" && t[1] === "general"));
     if (profile) { try { renderNostrCard(JSON.parse(profile.content)); } catch {} }
     if (live) applyStatus(live);
+
+    const posts = await pool.querySync(relays, { kinds: [1], authors: [pubkey], limit: 30 }, { maxWait: 4000 });
+    const seen = new Set();
+    renderNotes(posts
+      .filter((e) => e.pubkey === pubkey && !e.tags.some((t) => t[0] === "e") && !seen.has(e.id) && seen.add(e.id) && NT.verifyEvent(e))
+      .sort((a, b) => b.created_at - a.created_at));
   };
   window.addEventListener("DOMContentLoaded", () => initNostr().catch((e) => console.warn("nostr:", e)));
 
@@ -332,6 +380,73 @@
       say("Status updated.");
       setTimeout(() => dlg.close(), 900);
     } catch (err) { say(`Status didn't update: ${err.message || err}`, true); }
+  });
+
+  // ---- zaps: LNURL-pay invoice from the Lightning address on the Nostr profile (NIP-57).
+  // The zap request is signed with a throwaway key, so it shows on Nostr as an anonymous zap.
+  const zapDlg = $("#zap-dialog"), zform = $("#zap-form"), zpay = $("#zap-pay"), zmsg = $("#zap-msg"), zwait = $("#zap-wait");
+  let lnurl = null, zapSub = null, invoice = "";
+  const zsay = (t, err) => { zmsg.textContent = t; zmsg.className = "form-status" + (err ? " err" : ""); };
+  const zapForm = () => { zapSub?.close(); zapSub = null; zform.hidden = false; zpay.hidden = true; zpay.classList.remove("paid"); zsay(""); };
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".open-zap")) return;
+    e.preventDefault();
+    zapForm(); zapDlg.showModal();
+  });
+  zapDlg.querySelector(".zap-close").addEventListener("click", () => zapDlg.close());
+  zapDlg.addEventListener("close", () => { zapSub?.close(); zapSub = null; });
+  zapDlg.addEventListener("click", (e) => { if (e.target === zapDlg) zapDlg.close(); });
+  $("#zap-back").addEventListener("click", zapForm);
+  zform.custom.addEventListener("input", () => zform.querySelectorAll("[name=amt]").forEach((r) => (r.checked = false)));
+  zform.querySelectorAll("[name=amt]").forEach((r) => r.addEventListener("change", () => (zform.custom.value = "")));
+  $("#zap-copy").addEventListener("click", async (e) => {
+    try { await navigator.clipboard.writeText(invoice); e.target.textContent = "Copied"; }
+    catch { e.target.textContent = "Couldn't copy"; }
+    setTimeout(() => (e.target.textContent = "Copy invoice"), 2000);
+  });
+  zform.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const sats = Math.floor(+zform.custom.value || +(zform.querySelector("[name=amt]:checked")?.value || 0));
+    if (!(sats >= 1)) return zsay("Pick an amount first.", true);
+    if (!profileMeta?.lud16) return zsay("Zaps aren't set up yet.", true);
+    zsay("Creating invoice…");
+    try {
+      if (!lnurl) {
+        const [user, domain] = profileMeta.lud16.split("@");
+        lnurl = await (await fetch(`https://${domain}/.well-known/lnurlp/${encodeURIComponent(user)}`)).json();
+      }
+      const msats = sats * 1000;
+      if (msats < lnurl.minSendable || msats > lnurl.maxSendable) throw new Error(`pick between ${Math.ceil(lnurl.minSendable / 1000)} and ${Math.floor(lnurl.maxSendable / 1000).toLocaleString()} sats`);
+      const comment = zform.comment.value.trim().slice(0, lnurl.commentAllowed || 0);
+      const url = new URL(lnurl.callback);
+      url.searchParams.set("amount", msats);
+      if (lnurl.allowsNostr && lnurl.nostrPubkey) {
+        const req = NT.nip57.makeZapRequest({ profile: pubkey, event: null, amount: msats, comment, relays });
+        url.searchParams.set("nostr", JSON.stringify(NT.finalizeEvent(req, NT.generateSecretKey())));
+      } else if (comment) url.searchParams.set("comment", comment);
+      const res = await (await fetch(url)).json();
+      if (!res.pr) throw new Error(res.reason || "the wallet didn't return an invoice");
+      invoice = res.pr;
+
+      const qr = qrcode(0, "M");
+      qr.addData(("lightning:" + invoice).toUpperCase(), "Alphanumeric");
+      qr.make();
+      $("#zap-qr").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true, alt: "Lightning invoice QR code" });
+      $("#zap-amount").textContent = `⚡ ${sats.toLocaleString()} sats`;
+      $("#zap-open").href = "lightning:" + invoice;
+      zwait.textContent = "Waiting for payment…";
+      zform.hidden = true; zpay.hidden = false;
+
+      // The receipt (kind 9735) is published by the recipient's wallet once the invoice is paid.
+      zapSub = pool.subscribeMany(relays, [{ kinds: [9735], "#p": [pubkey], since: Math.floor(Date.now() / 1000) - 60 }], {
+        onevent(ev) {
+          if (ev.pubkey !== lnurl.nostrPubkey || ev.tags.find((t) => t[0] === "bolt11")?.[1] !== invoice) return;
+          zpay.classList.add("paid");
+          zwait.textContent = "⚡ Received. Thank you!";
+          zapSub?.close(); zapSub = null;
+        },
+      });
+    } catch (err) { zsay(`Couldn't create an invoice: ${err.message || err}`, true); }
   });
 
   // ---- nav: mobile menu + current section

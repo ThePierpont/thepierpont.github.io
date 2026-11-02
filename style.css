@@ -472,6 +472,53 @@ a.tile:hover, .tile:has(a:hover) { border-color: rgb(255 42 109 / .6); }
 .status-form .hint { margin: 0; color: var(--muted); font-size: .9rem; }
 .status-form .row { display: flex; gap: 10px; }
 
+/* ---------- nostr notes ---------- */
+.entry .note-text { white-space: pre-line; overflow-wrap: anywhere; }
+.entry .note-text a { color: var(--cyan); }
+.note-imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; margin-top: 10px; }
+.note-imgs a { display: block; aspect-ratio: 1; overflow: hidden; border: 1px solid var(--line); }
+.note-imgs a:hover { border-color: var(--mag); }
+.note-imgs img { width: 100%; height: 100%; object-fit: cover; }
+.entry .permalink { font: .8rem var(--mono); color: var(--muted); text-decoration: none; display: inline-block; margin-top: 8px; }
+.entry .permalink:hover { color: var(--white); }
+a.aside { text-decoration: none; }
+a.aside:hover { color: var(--white); }
+
+/* ---------- zaps (acid yellow = lightning, only used here and for ratings) ---------- */
+.btn-zap { background: var(--acid); border-color: var(--acid); color: var(--void); }
+.btn-zap:hover { box-shadow: 0 0 12px rgb(249 240 2 / .6); }
+#zap-dialog {
+  width: min(420px, 92vw); padding: 0; background: var(--panel); color: var(--text);
+  border: 1px solid var(--acid); box-shadow: 0 0 40px rgb(249 240 2 / .18);
+}
+#zap-dialog::backdrop { background: rgb(5 5 10 / .85); backdrop-filter: blur(4px); }
+.zap-form, .zap-pay { position: relative; display: grid; gap: 14px; padding: 24px; }
+.zap-form h2 { font-size: 1.9rem; }
+.zap-form .hint { margin: 0; color: var(--muted); font-size: .92rem; }
+.zap-close { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; background: none; border: 1px solid var(--line); color: var(--white); font-size: 1.3rem; cursor: pointer; }
+.amounts { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
+.amounts legend { margin-bottom: 8px; font-weight: 500; color: var(--white); font-size: .95rem; }
+.amounts label span {
+  display: block; padding: 10px 0; text-align: center; cursor: pointer;
+  font: 600 1.1rem var(--display); border: 1px solid var(--line); color: var(--text);
+}
+.amounts input[type=radio] { position: absolute; opacity: 0; pointer-events: none; }
+.amounts input[type=radio]:checked + span { border-color: var(--acid); color: var(--acid); box-shadow: inset 0 0 0 1px var(--acid); }
+.amounts input[type=radio]:focus-visible + span { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.amounts .custom input, .zap-form > label input {
+  width: 100%; padding: 10px 12px; font-size: 1rem; background: var(--void); color: var(--text); border: 1px solid var(--line);
+}
+.amounts .custom input:focus, .zap-form > label input:focus { outline: none; border-color: var(--acid); }
+.zap-form > label { display: grid; gap: 8px; font-weight: 500; color: var(--white); font-size: .95rem; }
+.zap-form .btn, .zap-pay .btn { justify-content: center; }
+.zap-pay { justify-items: center; text-align: center; }
+.qr { width: min(260px, 70vw); padding: 12px; background: #fff; }
+.qr svg { display: block; width: 100%; height: auto; }
+.zap-amount { margin: 0; font: 700 1.6rem var(--display); color: var(--acid); }
+.zap-pay .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.link-btn { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: .9rem; }
+.zap-pay.paid .qr { opacity: .25; }
+
 /* ---------- footer ---------- */
 .foot {
   max-width: var(--max); margin: clamp(80px, 12vw, 140px) auto 0; padding: 24px var(--gutter) 48px;

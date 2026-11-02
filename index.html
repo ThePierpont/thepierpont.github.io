@@ -105,8 +105,8 @@
       <div class="head"><h2 id="reading-h">Reading</h2></div>
       <ul class="books" id="books" aria-labelledby="reading-h"></ul>
     </div>
-    <div>
-      <div class="head"><h2 id="notes-h">Notes</h2></div>
+    <div id="notes-col">
+      <div class="head"><h2 id="notes-h">Notes</h2><a class="aside" id="notes-source" hidden target="_blank" rel="noopener">From Nostr ↗</a></div>
       <div class="log" id="log" aria-labelledby="notes-h"></div>
     </div>
   </section>
@@ -161,8 +161,38 @@
   </form>
 </dialog>
 
+<dialog id="zap-dialog" aria-labelledby="zap-h">
+  <form class="zap-form" id="zap-form">
+    <button type="button" class="zap-close" aria-label="Close">×</button>
+    <h2 id="zap-h">Send a zap</h2>
+    <p class="hint">A tip in sats over Lightning. It shows up on Nostr as an anonymous zap.</p>
+    <fieldset class="amounts">
+      <legend>Amount (sats)</legend>
+      <label><input type="radio" name="amt" value="21" checked><span>21</span></label>
+      <label><input type="radio" name="amt" value="100"><span>100</span></label>
+      <label><input type="radio" name="amt" value="1000"><span>1,000</span></label>
+      <label><input type="radio" name="amt" value="5000"><span>5,000</span></label>
+      <label class="custom"><input type="number" name="custom" min="1" step="1" placeholder="Other" inputmode="numeric"></label>
+    </fieldset>
+    <label>Message (optional) <input name="comment" maxlength="200" autocomplete="off"></label>
+    <button type="submit" class="btn btn-zap">Get invoice</button>
+    <p class="form-status" id="zap-msg" role="status"></p>
+  </form>
+  <div class="zap-pay" id="zap-pay" hidden>
+    <div class="qr" id="zap-qr"></div>
+    <p class="zap-amount" id="zap-amount"></p>
+    <div class="row">
+      <a class="btn btn-zap" id="zap-open">Open in wallet</a>
+      <button type="button" class="btn" id="zap-copy">Copy invoice</button>
+    </div>
+    <p class="form-status" id="zap-wait" role="status">Waiting for payment…</p>
+    <button type="button" class="link-btn" id="zap-back">Change amount</button>
+  </div>
+</dialog>
+
 <div class="crt" aria-hidden="true"></div>
 <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.js" integrity="sha384-YUdjSvJQpzJUf1TiIR0LmkbTEGWdiZTiXN67W157lg3vEmBHg+LEkaJ5J0AI9BG7" crossorigin="anonymous" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous" defer></script>
 <script src="content.js"></script>
 <script src="app.js"></script>
 </body>
