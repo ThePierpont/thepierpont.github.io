@@ -34,6 +34,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; scroll-padding-top: 88px; -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; min-height: 100vh; overflow-x: hidden;
@@ -424,6 +425,7 @@ a.tile:hover, .tile:has(a:hover) { border-color: rgb(255 42 109 / .6); }
 .copy { padding: 6px 12px; background: none; border: 1px solid var(--line); cursor: pointer; font-size: .85rem; color: var(--muted); }
 .copy:hover { color: var(--white); border-color: var(--muted); }
 .link-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.link-list:empty, .email-row:empty { display: none; }
 .link-list a {
   display: flex; justify-content: space-between; gap: 16px; padding: 14px 4px; text-decoration: none;
   border-bottom: 1px solid var(--line); transition: color .2s, padding .25s var(--ease);

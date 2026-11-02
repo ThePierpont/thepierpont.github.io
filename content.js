@@ -109,8 +109,9 @@ window.SITE = {
   // only someone who can sign as this npub (you, with a Nostr signer extension or app)
   // can change it. Statuses also sync with Nostr apps that show them (Damus, Amethyst, Nostrudel).
   nostr: {
-    npub: "",
-    relays: ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"],
+    npub: "npub1nqvuy0k8vk8yt8sm549gehsuukjevqw3pjvem29yncvj94l82t7s5ddrp8",
+    // Your own relays first (purplepag.es holds your profile), then two big public ones.
+    relays: ["wss://relay.primal.net", "wss://purplepag.es", "wss://relay.damus.io", "wss://nos.lol"],
   },
 
   contact: {
