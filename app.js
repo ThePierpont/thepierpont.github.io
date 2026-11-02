@@ -182,7 +182,7 @@
 
   // ---- about
   $("#about-body").innerHTML = (S.about || []).map((p) => `<p>${esc(p)}</p>`).join("");
-  $("#facts").innerHTML = (S.facts || []).map((f) => `<div><dt>${esc(f.k)}</dt><dd>${esc(f.v)}</dd></div>`).join("");
+  $("#facts").innerHTML = (S.facts || []).map((f) => `<div${f.url ? ' class="linked"' : ""}><dt>${esc(f.k)}</dt><dd>${f.url ? `<a href="${esc(f.url)}"${ext(f.url)}>${esc(f.v)} ↗</a>` : esc(f.v)}</dd></div>`).join("");
 
   // ---- "See all" folding: show the first few items, expand on request.
   // Re-run the returned function after the list re-renders.
@@ -659,6 +659,89 @@
       tile.innerHTML = `<p class="label">Latest note, ${fmtDate(iso(first.date), { month: "short", day: "numeric" })}</p><h3>${esc(head.slice(0, 70))}</h3>${rest.join(" ").trim() ? `<p>${esc(rest.join(" ").trim().slice(0, 160))}</p>` : ""}`;
     }
   };
+  // ---- guestbook: NIP-22 comments (kind 1111) on this site's URL, signed by each visitor.
+  // Every entry's signature is checked, so nobody can post under someone else's name.
+  const GB = S.guestbook || {};
+  const gbRoot = GB.url || location.origin + "/";
+  let gbEntries = [], gbProfiles = new Map(), foldGuestbook = null;
+  const gbHidden = () => new Set((GB.hide || []).map((x) => {
+    try { const d = NT.nip19.decode(x.trim()); return d.type === "nevent" ? d.data.id : d.data; } catch { return x.trim(); }
+  }));
+  const ago = (ts) => {
+    const s = Date.now() / 1000 - ts;
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.round(s / 60)} min ago`;
+    if (s < 86400) return `${Math.round(s / 3600)} hr ago`;
+    if (s < 86400 * 7) return `${Math.round(s / 86400)} d ago`;
+    return new Date(ts * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  };
+  const renderGuestbook = () => {
+    const list = $("#gb-list");
+    list.innerHTML = gbEntries.length ? gbEntries.map((e) => {
+      const p = gbProfiles.get(e.pubkey) || {};
+      const npub = NT.nip19.npubEncode(e.pubkey);
+      const name = p.display_name || p.name || `${npub.slice(0, 12)}…`;
+      return `
+      <li class="gb-entry${e.pubkey === pubkey ? " owner" : ""}">
+        ${p.picture ? `<img class="gb-avatar" src="${esc(p.picture)}" alt="" loading="lazy">` : `<span class="gb-avatar ph" style="--h:${hue(npub)}"></span>`}
+        <div>
+          <div class="gb-meta"><a href="${primal(npub)}" target="_blank" rel="noopener">${esc(name)}</a>${e.pubkey === pubkey ? '<span class="chip">Me</span>' : ""}<time datetime="${new Date(e.created_at * 1000).toISOString()}">${ago(e.created_at)}</time></div>
+          <p>${esc(e.content.trim())}</p>
+        </div>
+      </li>`;
+    }).join("") : `<li class="gb-empty">No notes yet. Be the first to sign.</li>`;
+    foldGuestbook ||= fold(list, $("#gb-more"), { wide: 6, narrow: 4, noun: "notes" });
+    foldGuestbook();
+  };
+  const loadGuestbook = async () => {
+    $("#guestbook").hidden = false;
+    const hidden = gbHidden();
+    const found = await pool.querySync(relays, { kinds: [1111], "#I": [gbRoot], limit: 200 }, { maxWait: 4000 });
+    const seen = new Set();
+    gbEntries = found
+      .filter((e) => !seen.has(e.id) && seen.add(e.id)
+        && e.tags.some((t) => t[0] === "k" && t[1] === "web") // top-level notes, not replies to notes
+        && !hidden.has(e.id) && !hidden.has(e.pubkey) && e.content.trim() && NT.verifyEvent(e))
+      .sort((a, b) => b.created_at - a.created_at);
+    renderGuestbook();
+    const authors = [...new Set(gbEntries.map((e) => e.pubkey))];
+    if (!authors.length) return;
+    const profiles = await pool.querySync(relays.concat("wss://purplepag.es"), { kinds: [0], authors }, { maxWait: 4000 });
+    profiles.filter((e) => NT.verifyEvent(e)).sort((a, b) => a.created_at - b.created_at)
+      .forEach((e) => { try { gbProfiles.set(e.pubkey, JSON.parse(e.content)); } catch {} });
+    renderGuestbook();
+  };
+
+  const gbForm = $("#gb-form"), gbMsg = $("#gb-msg");
+  const gbSay = (t, err) => { gbMsg.textContent = t; gbMsg.className = "form-status" + (err ? " err" : ""); };
+  gbForm.msg.addEventListener("input", () => ($("#gb-count").textContent = `${gbForm.msg.value.length} / 280`));
+  gbForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = gbForm.msg.value.trim();
+    if (!text) return gbSay("Write something first.", true);
+    if (!pool) return gbSay("The guestbook couldn't connect to Nostr. Reload and try again.", true);
+    if (!window.nostr) return gbSay("Signing needs a Nostr signer: Alby or nos2x in your browser, or Nostore in Safari on iPhone. New to Nostr? Start at primal.net.", true);
+    try {
+      gbSay("Approve the request in your signer…");
+      const signed = await window.nostr.signEvent({
+        kind: 1111, created_at: Math.floor(Date.now() / 1000), content: text,
+        tags: [["I", gbRoot], ["K", "web"], ["i", gbRoot], ["k", "web"], ["p", pubkey]],
+      });
+      if (!NT.verifyEvent(signed)) throw new Error("the signature didn't check out");
+      gbSay("Posting…");
+      const results = await Promise.allSettled(pool.publish(relays, signed));
+      if (!results.some((r) => r.status === "fulfilled")) throw new Error("no relay accepted it, try again");
+      gbEntries = [signed, ...gbEntries.filter((x) => x.id !== signed.id)];
+      if (!gbProfiles.has(signed.pubkey)) {
+        pool.querySync(relays.concat("wss://purplepag.es"), { kinds: [0], authors: [signed.pubkey] }, { maxWait: 4000 })
+          .then((ps) => { const p = ps.filter((x) => NT.verifyEvent(x)).sort((a, b) => b.created_at - a.created_at)[0]; if (p) { try { gbProfiles.set(p.pubkey, JSON.parse(p.content)); renderGuestbook(); } catch {} } });
+      }
+      renderGuestbook();
+      gbForm.reset(); $("#gb-count").textContent = "0 / 280";
+      gbSay("Signed. Thanks for stopping by.");
+    } catch (err) { gbSay(`Your note didn't post: ${err.message || err}`, true); }
+  });
+
   const initNostr = async () => {
     NT = window.NostrTools;
     if (!N.npub || !NT) return;
@@ -669,6 +752,7 @@
     } catch { console.warn("content.js: nostr.npub isn't a valid npub"); return; }
     pool = new NT.SimplePool();
     renderNostrCard(null);
+    if (S.guestbook?.show) loadGuestbook().catch((e) => console.warn("guestbook:", e.message));
     const events = await pool.querySync(relays, { kinds: [0, 30315], authors: [pubkey] }, { maxWait: 4000 });
     const valid = events.filter((e) => e.pubkey === pubkey && NT.verifyEvent(e));
     const newest = (pred) => valid.filter(pred).sort((a, b) => b.created_at - a.created_at)[0];

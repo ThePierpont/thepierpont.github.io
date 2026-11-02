@@ -33,12 +33,13 @@ window.SITE = {
   about: [
     "A Mainer, Bitcoiner, movie lover, photo taker, and drink maker.",
   ],
+  // Add `url` to any fact to make it a link.
   facts: [
     { k: "From", v: "Maine" },
     { k: "Based in", v: "DC" },
     { k: "Stacking", v: "Bitcoin" },
     { k: "Shooting on", v: "iPhone 17 Pro + film camera" },
-    { k: "Making", v: "Drinks" },
+    { k: "Making", v: "Drinks at PubKey DC", url: "https://dc.pubkey.com/" },
   ],
 
   // Newest first. The first one shows as "Latest photo" at the top.
@@ -130,6 +131,15 @@ window.SITE = {
       "ccb36b7cf4e81df627fbb104bcb1eaba7a0b1a2319149fc35c7043df29d13655", // = Fall on Pennsylvania Ave
       "20a0173c0ebcea9b0f282da087f1f951442adec00679a08d6949f2b088991f34", // = Fountain at the Archives
     ],
+  },
+
+  // Guestbook: visitors sign a short note with their own Nostr account (a Nostr comment on
+  // this site's address, so it doesn't spam anyone's feed). You get notified on Primal.
+  guestbook: {
+    show: true,
+    url: "https://pierpont.blog/",
+    // To remove an entry, paste its note ID (note1… or nevent1…) here. Paste an npub to hide everything from that person.
+    hide: [],
   },
 
   contact: {
