@@ -292,13 +292,101 @@ function init() {
     for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
     return [r / n, g / n, b / n];
   };
-  const sideMaterial = (fm, spine) => {
+
+  // ---- designed spines: crisp, typeset versions of each format's spine, colored from the real one in the photo.
+  // (Nobody publishes official spine art, so the photo only supplies the colors.)
+  // The spine's main color between two heights: the most common color (so title lettering and glare
+  // don't muddy it), averaged within that color's bucket.
+  const sample = (c, y0, y1, wide) => { // wide: use the full width (bands on angled cases sit off-center)
+    const x0 = Math.floor(c.width * (wide ? 0.05 : 0.2)), w = Math.max(1, Math.floor(c.width * (wide ? 0.9 : 0.6)));
+    const d = c.getContext("2d").getImageData(x0, Math.floor(c.height * y0), w, Math.max(1, Math.floor(c.height * (y1 - y0)))).data;
+    const bins = new Map();
+    for (let i = 0; i < d.length; i += 4) {
+      const k = (d[i] >> 5) * 64 + (d[i + 1] >> 5) * 8 + (d[i + 2] >> 5);
+      const b = bins.get(k) || [0, 0, 0, 0]; b[0] += d[i]; b[1] += d[i + 1]; b[2] += d[i + 2]; b[3]++; bins.set(k, b);
+    }
+    let top = [0, 0, 0, 0];
+    for (const b of bins.values()) if (b[3] > top[3]) top = b;
+    return top[3] ? [top[0] / top[3], top[1] / top[3], top[2] / top[3]] : [40, 40, 50];
+  };
+  const css = ([r, g, b]) => `rgb(${r | 0},${g | 0},${b | 0})`;
+  const ink = ([r, g, b]) => (0.2126 * r + 0.7152 * g + 0.0722 * b > 150 ? "#121216" : "#f4f3ff");
+  // Blu-ray keepcases are blue: call it one only when most of the cap's center is clearly blue
+  // (a zone's edges can catch a neighbor's cap).
+  const isBlueCap = (photo) => {
+    const x0 = Math.floor(photo.width * 0.35), w = Math.max(1, Math.floor(photo.width * 0.3));
+    const d = photo.getContext("2d").getImageData(x0, 0, w, Math.max(1, Math.floor(photo.height * 0.05))).data;
+    let blue = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4, n++) if (d[i + 2] > d[i] + 40 && d[i + 2] > d[i + 1] + 15) blue++;
+    return blue / n > 0.5;
+  };
+  // Title running down the spine (top to bottom, the US convention), sized to fit.
+  const spineText = (x, text, W, from, to, font, color, track = 0) => {
+    const len = to - from, size0 = 100;
+    x.font = font.replace("{s}", size0);
+    const w0 = x.measureText(text).width + track * text.length * size0;
+    const size = Math.min(W * 0.52, (len * 0.92 / w0) * size0);
+    x.save();
+    x.font = font.replace("{s}", size); x.fillStyle = color; x.textBaseline = "middle"; x.textAlign = "center";
+    if ("letterSpacing" in x) x.letterSpacing = `${track * size}px`;
+    x.translate(W / 2, from + len / 2); x.rotate(Math.PI / 2); x.fillText(text, 0, 0);
+    x.restore();
+  };
+  const designSpine = (it, photo, dims) => {
+    const H = 1600, W = Math.max(64, Math.round(H * dims.d / dims.h));
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const x = c.getContext("2d"), fill = (col, y0, y1) => { x.fillStyle = col; x.fillRect(0, H * y0, W, H * (y1 - y0)); };
+    const title = it.t.replace(/^Monty Python's /, "");
+    if (it.fm === "criterion") {
+      // The color band sits at a different height on each spine: take the lower stretch most unlike the body.
+      const body = sample(photo, 0.08, 0.5), dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+      let band = sample(photo, 0.72, 0.86), best = -1;
+      for (let y = 0.52; y < 0.9; y += 0.03) { const s = sample(photo, y, y + 0.03, true); if (dist(s, body) > best) { best = dist(s, body); band = s; } }
+      fill(css(body), 0, 1);
+      fill(css(band), 0.6, 0.92);
+      spineText(x, title.toUpperCase(), W, H * 0.04, H * 0.56, "600 {s}px Inter, sans-serif", ink(body), 0.04);
+      spineText(x, "THE CRITERION COLLECTION", W, H * 0.64, H * 0.9, "600 {s}px Inter, sans-serif", ink(band), 0.12);
+      x.font = `600 ${W * 0.26}px 'JetBrains Mono', monospace`; x.fillStyle = ink(body); x.textAlign = "center"; x.textBaseline = "middle";
+      x.fillText(String(it.n || ""), W / 2, H * 0.96);
+    } else if (it.fm === "steel") {
+      const g = x.createLinearGradient(0, 0, W, 0);
+      g.addColorStop(0, "#7c828b"); g.addColorStop(0.45, "#d6dae0"); g.addColorStop(0.55, "#c3c8cf"); g.addColorStop(1, "#80868f");
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      for (let i = 0; i < H; i += 3) { x.fillStyle = `rgba(255,255,255,${(i * 7919 % 13) / 260})`; x.fillRect(0, i, W, 1); } // brushed grain
+      spineText(x, title.toUpperCase(), W, H * 0.08, H * 0.86, "700 {s}px Rajdhani, sans-serif", "rgba(255,255,255,.55)", 0.06);
+      x.translate(-1.5, -1.5);
+      spineText(x, title.toUpperCase(), W, H * 0.08, H * 0.86, "700 {s}px Rajdhani, sans-serif", "#2b2e35", 0.06);
+    } else if (it.fm === "keep") {
+      const blue = isBluray(it, photo), body = sample(photo, 0.3, 0.75);
+      fill(blue ? "#1c4fb0" : "#111114", 0, 1);
+      fill(css(body), 0.16, 0.97);
+      // format badge near the top, like real 4K / Blu-ray spines
+      x.fillStyle = blue ? "#1c4fb0" : "#f4f3ff"; x.fillRect(W * 0.12, H * 0.045, W * 0.76, H * 0.095);
+      spineText(x, blue ? "BLU-RAY" : "4K ULTRA HD", W, H * 0.05, H * 0.135, "700 {s}px Inter, sans-serif", blue ? "#f4f3ff" : "#111114", 0.06);
+      spineText(x, title.toUpperCase(), W, H * 0.2, H * 0.92, "700 {s}px Rajdhani, sans-serif", ink(body), 0.03);
+    } else if (it.fm === "a24") {
+      const body = sample(photo, 0.12, 0.5), foot = sample(photo, 0.88, 0.97);
+      fill(css(body), 0, 1);
+      fill("#f4f3ff", 0.68, 0.84);
+      for (let i = 0; i < 34; i++) { x.fillStyle = "#121216"; x.fillRect(W * 0.18, H * (0.695 + i * 0.0038), W * 0.64, (i * 5) % 3 + 1); } // barcode band
+      fill(css(foot), 0.88, 1);
+      spineText(x, title, W, H * 0.05, H * 0.62, "700 {s}px Rajdhani, sans-serif", ink(body), 0.02);
+    } else {
+      const body = sample(photo, 0.2, 0.8);
+      fill(css(body), 0, 1);
+      spineText(x, title.toUpperCase(), W, H * 0.08, H * 0.92, "700 {s}px Rajdhani, sans-serif", ink(body), 0.05);
+    }
+    return c;
+  };
+
+  const isBluray = (it, photo) => (it.disc ? it.disc === "bd" : isBlueCap(photo)); // format read off the spine, else guessed from the cap
+  const sideMaterial = (it, spine) => {
+    const fm = it.fm;
     if (fm === "steel") return new THREE.MeshStandardMaterial({ color: 0xb8bcc4, metalness: 0.9, roughness: 0.3 });
     if (fm === "criterion") return new THREE.MeshStandardMaterial({ color: 0xe9e9f1, roughness: 0.15, transparent: true, opacity: 0.92 });
     if (fm === "box") return new THREE.MeshStandardMaterial({ color: 0xe8e6f0, roughness: 0.5 });
     if (fm === "a24") { const [r, g, b] = avgColor(spine, 0.2, 0.6); return new THREE.MeshStandardMaterial({ color: new THREE.Color(r / 255, g / 255, b / 255).convertSRGBToLinear(), roughness: 0.6 }); }
-    const [r, g, b] = avgColor(spine, 0, 0.05); // a keepcase's top cap: blue = Blu-ray, else black 4K
-    return new THREE.MeshStandardMaterial({ color: b > r + 25 && b > g ? 0x1c4fb0 : 0x111114, roughness: 0.35, metalness: 0.1 });
+    return new THREE.MeshStandardMaterial({ color: isBluray(it, spine) ? 0x1c4fb0 : 0x111114, roughness: 0.35, metalness: 0.1 }); // blue Blu-ray, black 4K
   };
   // The back cover: my rating and review, styled like the site.
   const backCanvas = (it) => {
@@ -350,10 +438,11 @@ function init() {
   const openCase = (h, p) => {
     if (viewer) closeCase(true);
     const it = p.it, dims = CASES[it.fm] || CASES.keep;
-    const spine = spineCanvas(h.tg.row, it, p.zone);
-    const spineTex = new THREE.CanvasTexture(spine); spineTex.colorSpace = THREE.SRGBColorSpace;
+    const spine = spineCanvas(h.tg.row, it, p.zone); // the real spine from the photo: used for its colors
+    const spineTex = new THREE.CanvasTexture(designSpine(it, spine, dims)); spineTex.colorSpace = THREE.SRGBColorSpace;
+    spineTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     const backTex = new THREE.CanvasTexture(backCanvas(it)); backTex.colorSpace = THREE.SRGBColorSpace;
-    const side = sideMaterial(it.fm, spine);
+    const side = sideMaterial(it, spine);
     const aspect = dims.w / dims.h;
     const front = new THREE.MeshStandardMaterial({ color: 0x222233, roughness: it.fm === "steel" ? 0.35 : 0.45, metalness: it.fm === "steel" ? 0.5 : 0 });
     const ct = coverTexture(it, (t) => { coverFit(t, aspect); front.map = t; front.color.set(0xffffff); front.needsUpdate = true; });
@@ -397,7 +486,41 @@ function init() {
     v.closing = performance.now(); v.done = done;
   };
   ui.querySelector(".case-close").addEventListener("click", () => closeCase());
-  if (location.search.includes("shelfdebug")) window.__shelf = { scene, camera, dimmer, pivot, get viewer() { return viewer; } };
+  if (location.search.includes("shelfdebug")) window.__shelf = { scene, camera, dimmer, pivot, get viewer() { return viewer; },
+    // colors read from one spine photo, in bands down its length: __shelf.probe("criterion", 0)
+    probe(rowId, k) {
+      const tg = targets.find((t) => t.row.id === rowId), R = tg.row, it = columns(R)[k].it, [l, r] = bounds(R, k);
+      const ph = spineCanvas(R, it, [lean(R, l, R.v[0]), lean(R, r, R.v[0]), lean(R, r, R.v[1]), lean(R, l, R.v[1])]);
+      const out = [];
+      for (let y = 0; y < 1; y += 0.05) out.push(y.toFixed(2) + " " + sample(ph, y, y + 0.05).map((n) => n | 0).join(","));
+      return { title: it.t, w: ph.width, h: ph.height, bands: out };
+    },
+    // every designed spine of a row side by side over the page, for checking: __shelf.sheet("criterion")
+    sheet(rowId) {
+      const tg = targets.find((t) => t.row.id === rowId), R = tg.row, out = document.createElement("canvas");
+      const items = columns(R).map((cc, k) => ({ it: cc.it, k })).filter(({ it }) => it.u);
+      const S = 0.32; out.width = items.length * 50; out.height = 1600 * S + 30;
+      const g = out.getContext("2d"); g.fillStyle = "#222"; g.fillRect(0, 0, out.width, out.height);
+      items.forEach(({ it, k }, n) => {
+        const [l, r] = bounds(R, k), zone = [lean(R, l, R.v[0]), lean(R, r, R.v[0]), lean(R, r, R.v[1]), lean(R, l, R.v[1])];
+        const d = designSpine(it, spineCanvas(R, it, zone), CASES[it.fm] || CASES.keep);
+        g.drawImage(d, n * 50 + 4, 4, 42, 1600 * S);
+      });
+      out.style.cssText = "position:fixed;left:0;top:0;z-index:9999;max-width:100vw;background:#222";
+      document.body.appendChild(out);
+      return items.length;
+    },
+    // open a case by title, for checking designs: __shelf.open("Barry Lyndon")
+    open(title) {
+      for (const tg of targets) {
+        const it = tg.row.items.find((x) => x.t === title); if (!it) continue;
+        const k = columns(tg.row).findIndex((cc) => cc.it === it), R = tg.row;
+        const zone = it.poly || (([l, r]) => [lean(R, l, R.v[0]), lean(R, r, R.v[0]), lean(R, r, R.v[1]), lean(R, l, R.v[1])])(bounds(R, k));
+        openCase({ tg, point: tg.mesh.getWorldPosition(new THREE.Vector3()) }, { it, zone });
+        return true;
+      }
+      return false;
+    } };
   const stepViewer = (now) => {
     const v = viewer; if (!v) return;
     if (v.closing) {
