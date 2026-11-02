@@ -66,7 +66,7 @@
   if (shot) tiles.push(`
     <a class="tile t-photo" href="#photos" data-open="0">
       <div class="media">${media(shot.src, shot.caption, shot.caption)}</div>
-      <div class="cap"><p class="label">Latest photo</p><h3>${esc(shot.caption)}</h3><p class="sub">${esc(shot.place || "")}</p></div>
+      <div class="cap"><p class="label">Latest photo</p></div>
     </a>`);
   if (show) tiles.push(`
     <a class="tile t-watch" href="#watching">
@@ -223,8 +223,7 @@
     $("#gallery").innerHTML = gallery.map((p, i) => `
     <button class="shot" data-open="${i}" aria-label="Open photo: ${esc(p.caption || "photo")}">
       <div class="media">${media(p.src, p.caption || p.src, p.caption || "Photo", p.ratio)}</div>
-      <div class="cap"><span>${esc(p.caption)}</span><span>${fmtDate(p.date, { month: "short", year: "numeric" })}</span></div>
-    </button>`).join("");
+    </button>`).join(""); // captions stay as alt text only, no visible description
     foldGallery();
   };
   // Old Nostr images sometimes vanish from their hosts; drop any that fail to load.
@@ -253,7 +252,7 @@
     const p = gallery[0], tile = $(".t-photo");
     if (tile && p.nostr) tile.innerHTML = `
       <div class="media">${media(p.src, p.caption, p.caption || "Latest photo")}</div>
-      <div class="cap"><p class="label">Latest photo</p><h3>${esc(p.caption || "New on Nostr")}</h3><p class="sub">${fmtDate(p.date, { month: "short", day: "numeric" })}</p></div>`;
+      <div class="cap"><p class="label">Latest photo</p></div>`;
   };
   const lb = $("#lightbox");
   let cur = 0, lbList = gallery; // the viewer steps through either the whole wall or one album
@@ -261,7 +260,7 @@
     cur = (i + lbList.length) % lbList.length;
     const p = lbList[cur];
     $("#lb-img").innerHTML = media(p.src, p.caption || p.src, p.caption || "Photo", p.ratio);
-    $("#lb-cap").innerHTML = esc([p.caption, p.place, fmtDate(p.date)].filter(Boolean).join(", ")) +
+    $("#lb-cap").innerHTML = esc(fmtDate(p.date)) +
       (p.link ? ` <a href="${esc(p.link)}" target="_blank" rel="noopener">View on Primal ↗</a>` : "");
   };
   document.addEventListener("click", (e) => {
