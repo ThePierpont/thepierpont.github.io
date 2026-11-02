@@ -71,12 +71,17 @@ function init() {
     board(W + 2 * T, T, D, 0, y + T / 2, 0);
     y += T;
   }
+  // The IMAX case runs the width of the top: its front photo while closed; click it and it turns
+  // to the side photo, where the spines (and the box itself, The Odyssey) are clickable.
+  let imaxBox = null, imaxFace = null, imaxOpen = false, imaxFlip = null;
   if (imaxRow) {
-    const w = 2.3, h = w / imaxRow.aspect, d = 1.1;
+    const w = W, h = w / imaxRow.aspect, d = D;
     const side = new THREE.MeshStandardMaterial({ color: 0xd9d7e6, roughness: 0.45 });
     imaxRow._tex = tex(imaxRow.img);
-    const caseBox = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, side, side, new THREE.MeshBasicMaterial({ map: imaxRow._tex }), side]);
-    caseBox.position.set(-W / 2 - T + w / 2, y + h / 2, D / 2 - d / 2);
+    imaxRow._front = imaxRow.front ? tex(imaxRow.front) : imaxRow._tex;
+    imaxFace = new THREE.MeshBasicMaterial({ map: imaxRow._front });
+    const caseBox = imaxBox = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, side, side, imaxFace, side]);
+    caseBox.position.set(0, y + h / 2, 0);
     caseBox.add(new THREE.LineSegments(new THREE.EdgesGeometry(caseBox.geometry), new THREE.LineBasicMaterial({ color: 0x05d9e8 })));
     shelf.add(caseBox);
     targets.unshift({ row: imaxRow, mesh: caseBox, w, h, cy: y + h / 2, z: caseBox.position.z + d / 2, x: caseBox.position.x, faceZ: d / 2 });
@@ -151,6 +156,23 @@ function init() {
     }
   }
 
+  // Turn the IMAX case to its side view (open) or back to the front photo: a quarter turn out, swap, a quarter turn back.
+  const setImaxOpen = (open) => {
+    if (!imaxBox || open === imaxOpen) return;
+    imaxOpen = open;
+    if (reduce) { imaxFace.map = open ? imaxRow._tex : imaxRow._front; imaxFace.needsUpdate = true; return; }
+    imaxFlip = { t0: performance.now(), swapped: false };
+  };
+  const stepImax = (now) => {
+    if (!imaxFlip) return;
+    const k = Math.min(1, (now - imaxFlip.t0) / 700);
+    if (k >= 0.5 && !imaxFlip.swapped) { imaxFace.map = imaxOpen ? imaxRow._tex : imaxRow._front; imaxFace.needsUpdate = true; imaxFlip.swapped = true; }
+    const half = k < 0.5 ? ease(k * 2) : 1 - ease((k - 0.5) * 2); // 0 → 1 → 0
+    imaxBox.rotation.y = (k < 0.5 ? 1 : -1) * half * (Math.PI / 2) * (imaxOpen ? 1 : -1);
+    if (k === 1) { imaxBox.rotation.y = 0; imaxFlip = null; }
+  };
+  const imaxReady = (tg) => tg.row !== imaxRow || (imaxOpen && !imaxFlip);
+
   // ---- camera: full view or one shelf
   // On tall screens (phones) a whole row is too small to read, so the camera zooms in on its height
   // and you swipe sideways along it ("pan mode").
@@ -187,6 +209,7 @@ function init() {
     controls.enableRotate = !touch && !panMode;
     clearPick();
     const row = focus >= 0 ? targets[focus].row : null;
+    setImaxOpen(row === imaxRow);
     box.classList.toggle("focused", focus >= 0);
     label.textContent = row ? `${NAMES[row.id] || row.id} · ${row.items.filter((x) => x.u).length} films` : "My shelf";
     hint.textContent = focus < 0 ? (touch ? "Tap a shelf to look closer" : "Click a shelf to look closer · drag to turn")
@@ -228,8 +251,10 @@ function init() {
     if (!h) return clearPick();
     if (focus < 0 || h.i !== focus) {
       showZone(h.tg, wholeFace); canvas.style.cursor = "zoom-in";
-      return placeTip(e, `<strong>${esc(NAMES[h.tg.row.id])}</strong><span>${focus < 0 ? "Click to look closer" : "Click to move here"}</span>`);
+      const act = h.tg.row === imaxRow ? "Click to open it" : focus < 0 ? "Click to look closer" : "Click to move here";
+      return placeTip(e, `<strong>${esc(NAMES[h.tg.row.id])}</strong><span>${act}</span>`);
     }
+    if (!imaxReady(h.tg)) return clearPick();
     const p = pick(h.tg.row, h.u, h.v);
     if (!p) return clearPick();
     showZone(h.tg, p.zone);
@@ -240,6 +265,7 @@ function init() {
     const h = hitAt(e);
     if (!h) return clearPick();
     if (focus < 0 || h.i !== focus) return setFocus(h.i);
+    if (!imaxReady(h.tg)) return;
     const p = pick(h.tg.row, h.u, h.v);
     if (!p) return clearPick();
     if (!p.it.u) return;
@@ -641,6 +667,7 @@ function init() {
     // A slow sway in the full view until someone interacts.
     if (focus < 0 && !reduce && now - lastInteract > 4000) shelf.rotation.y = Math.sin(now / 2600) * 0.16;
     stepViewer(now);
+    stepImax(now);
     controls.update();
     renderer.clear();
     renderer.render(scene, camera);
