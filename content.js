@@ -52,6 +52,7 @@ window.SITE = {
   // Set `ratio` (like "3/2" or "4/5") only for placeholders; real photos use their own shape.
   photos: [
     { src: "images/archives-fountain.jpg", caption: "Fountain at the Archives", place: "Washington, DC", date: "2026-11-01" },
+    { src: "images/cats-window-crop.jpg", caption: "Window watch", place: "Home", date: "2026-11-01", album: "cats" },
     { src: "images/old-post-office-tower.jpg", caption: "Old Post Office, last light", place: "Washington, DC", date: "2026-11-01" },
     { src: "images/penn-ave-fall.jpg", caption: "Fall on Pennsylvania Ave", place: "Washington, DC", date: "2026-11-01" },
     { src: "images/blue-hour-concrete.jpg", caption: "Brutalism and blue sky", place: "Washington, DC", date: "2026-11-01" },

@@ -615,9 +615,14 @@ a.aside:hover { color: var(--white); }
   background: var(--panel); border: 1px solid var(--line); color: var(--white);
 }
 .album-close:hover { border-color: var(--mag); }
-.album-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 10px; padding: 20px; }
-.album-shot { padding: 0; border: 1px solid var(--line); background: var(--panel); cursor: zoom-in; aspect-ratio: 4 / 5; overflow: hidden; }
-.album-shot img, .album-shot .ph { width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--ease); }
+/* Masonry columns so every photo keeps its own shape (tall crops included). */
+.album-grid { columns: 3 200px; column-gap: 10px; padding: 20px; }
+.album-shot {
+  display: block; width: 100%; margin: 0 0 10px; padding: 0; break-inside: avoid;
+  border: 1px solid var(--line); background: var(--panel); cursor: zoom-in; overflow: hidden;
+}
+.album-shot img { width: 100%; height: auto; transition: transform .6s var(--ease); }
+.album-shot .ph { width: 100%; aspect-ratio: 4 / 5; }
 .album-shot:hover { border-color: var(--mag); }
 .album-shot:hover img { transform: scale(1.04); }
 .album-empty { margin: 0; color: var(--muted); }
