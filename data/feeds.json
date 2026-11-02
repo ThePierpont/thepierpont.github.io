@@ -1,9 +1,21 @@
 {
-  "updated": "2026-11-02T04:49:10+00:00",
+  "updated": "2026-11-02T20:57:13+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
     "diary": [
+      {
+        "title": "Clayface",
+        "year": "2026",
+        "rating": 3.5,
+        "liked": true,
+        "rewatch": false,
+        "watched": "2026-11-02",
+        "poster": "https://a.ltrbxd.com/resized/film-poster/1/2/8/4/6/3/6/1284636-clayface-0-600-0-900-crop.jpg?v=eb305849d5",
+        "review": "I can’t imagine the amount of ptsd for that scientist \nThis sold me on the weird James Gunn path to building the DCU\nAlso a great analogy for AI",
+        "link": "https://letterboxd.com/thepierpont/film/clayface/",
+        "published": "2026-11-02T20:13:19+00:00"
+      },
       {
         "title": "Wildwood",
         "year": "2026",
@@ -591,18 +603,6 @@
         "review": "He can do Odyssey \nA slightly confusing movie compared to his other work",
         "link": "https://letterboxd.com/thepierpont/film/dunkirk-2017/",
         "published": "2026-05-16T20:05:29+00:00"
-      },
-      {
-        "title": "Top Gun: Maverick",
-        "year": "2022",
-        "rating": 2.0,
-        "liked": true,
-        "rewatch": false,
-        "watched": "2026-05-15",
-        "poster": "https://a.ltrbxd.com/resized/film-poster/2/9/3/4/6/5/293465-top-gun-maverick-0-600-0-900-crop.jpg?v=9f8af0f61b",
-        "review": "Watched in IMAX, I’ve learned to enjoy popcorn slop and so I’m adding a heart. No one ever gets any good in this movie, they’re just bad and then go on a mission. Cool planes tho",
-        "link": "https://letterboxd.com/thepierpont/film/top-gun-maverick/",
-        "published": "2026-05-16T02:21:50+00:00"
       }
     ],
     "lists": [
