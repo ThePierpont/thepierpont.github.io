@@ -183,7 +183,8 @@
   // ---- about
   $("#about-body").innerHTML = (S.about || []).map((p) => `<p>${esc(p)}</p>`).join("");
   $("#about-body").hidden = !(S.about || []).length;
-  const factValue = (f) => f.url ? `<a href="${esc(f.url)}"${ext(f.url)}>${esc(f.v)} ↗</a>`
+  // ↗ = opens another site, ↓ = jumps to a section of this page.
+  const factValue = (f) => f.url ? `<a href="${esc(f.url)}"${ext(f.url)}>${esc(f.v)} ${f.url.startsWith("#") ? "↓" : "↗"}</a>`
     : f.album ? `<button type="button" class="fact-album" data-album="${esc(f.album)}">${esc(f.v)}<span class="sr"> (open the ${esc(f.k.toLowerCase())} photo album)</span></button>`
     : esc(f.v);
   $("#facts").innerHTML = (S.facts || []).map((f) => `<div${f.url || f.album ? ' class="linked"' : ""}><dt>${esc(f.k)}</dt><dd>${factValue(f)}</dd></div>`).join("");

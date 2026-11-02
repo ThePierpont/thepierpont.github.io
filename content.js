@@ -34,10 +34,10 @@ window.SITE = {
   about: [],
   // Add `url` to any fact to make it a link, or `album` to open a photo album (see `albums`).
   facts: [
-    { k: "From", v: "Maine" },
-    { k: "Based in", v: "DC" },
-    { k: "Stacking", v: "Bitcoin" },
-    { k: "Shooting on", v: "iPhone 17 Pro + film camera" },
+    { k: "From", v: "Maine", url: "https://themainebeaches.com/things-to-do-in-biddeford/" },
+    { k: "Based in", v: "DC", url: "https://truthsocial.com/@realDonaldTrump" },
+    { k: "Stacking", v: "Bitcoin", url: "https://bitcoin.org/bitcoin.pdf" },
+    { k: "Shooting on", v: "iPhone 17 Pro + film camera", url: "#photos" },
     { k: "Making", v: "Drinks at PubKey DC", url: "https://dc.pubkey.com/" },
     { k: "Cats", v: "2", album: "cats" },
   ],
