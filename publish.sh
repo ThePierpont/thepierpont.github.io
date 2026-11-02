@@ -1,5 +1,5 @@
 #!/bin/sh
-# Publishes your edits to https://thepierpont.github.io (live about a minute later).
+# Publishes your edits to https://pierpont.blog (live about a minute later).
 # Run from this folder:  sh publish.sh
 set -e
 cd "$(dirname "$0")"
@@ -11,4 +11,4 @@ if git diff --cached --quiet; then
 fi
 git commit -q -m "Update site"
 git push -q
-echo "Published. Live at https://thepierpont.github.io in about a minute."
+echo "Published. Live at https://pierpont.blog in about a minute."

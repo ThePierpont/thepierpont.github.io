@@ -31,7 +31,7 @@ Run `python3 -m http.server` in this folder and open http://localhost:8000. Doub
 
 ## Where it lives
 
-The site is live at **https://thepierpont.github.io**, hosted free on GitHub Pages from the repo github.com/ThePierpont/thepierpont.github.io.
+The site is live at **https://pierpont.blog** (domain from Namecheap), hosted free on GitHub Pages from the repo github.com/ThePierpont/thepierpont.github.io. The old thepierpont.github.io address forwards there.
 
 **Publishing edits:** after changing `content.js` or adding photos, open Terminal in this folder and run:
 
