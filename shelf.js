@@ -21,6 +21,7 @@ function init() {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.autoClear = false; // cleared by hand so the pulled-out case can be drawn in a second pass
   const scene = new THREE.Scene(), shelf = new THREE.Group();
   scene.add(shelf);
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
@@ -59,7 +60,8 @@ function init() {
   board(W + 2 * T, T, D, 0, -T / 2, 0);
   for (const row of [...cubbyRows].reverse()) {
     const h = W / row.aspect;
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(W, h), new THREE.MeshBasicMaterial({ map: tex(row.img) }));
+    row._tex = tex(row.img); // kept so the pop-out case can cut its spine from the photo
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(W, h), new THREE.MeshBasicMaterial({ map: row._tex }));
     face.position.set(0, y + h / 2, -D / 2 + 0.03);
     shelf.add(face);
     targets.unshift({ row, mesh: face, w: W, h, cy: y + h / 2, z: face.position.z });
@@ -72,7 +74,8 @@ function init() {
   if (imaxRow) {
     const w = 2.3, h = w / imaxRow.aspect, d = 1.1;
     const side = new THREE.MeshStandardMaterial({ color: 0xd9d7e6, roughness: 0.45 });
-    const caseBox = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, side, side, new THREE.MeshBasicMaterial({ map: tex(imaxRow.img) }), side]);
+    imaxRow._tex = tex(imaxRow.img);
+    const caseBox = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, side, side, new THREE.MeshBasicMaterial({ map: imaxRow._tex }), side]);
     caseBox.position.set(-W / 2 - T + w / 2, y + h / 2, D / 2 - d / 2);
     caseBox.add(new THREE.LineSegments(new THREE.EdgesGeometry(caseBox.geometry), new THREE.LineBasicMaterial({ color: 0x05d9e8 })));
     shelf.add(caseBox);
@@ -205,7 +208,7 @@ function init() {
     for (const h of ray.intersectObjects(targets.map((t) => t.mesh), false)) {
       const tg = targets.find((t) => t.mesh === h.object);
       if (tg.faceZ && h.face.materialIndex !== 4) continue; // IMAX case: only its front face has movies
-      return { tg, i: targets.indexOf(tg), u: h.uv.x, v: 1 - h.uv.y };
+      return { tg, i: targets.indexOf(tg), u: h.uv.x, v: 1 - h.uv.y, point: h.point };
     }
     return null;
   };
@@ -231,7 +234,7 @@ function init() {
     if (!p) return clearPick();
     showZone(h.tg, p.zone);
     canvas.style.cursor = p.it.u ? "pointer" : "default";
-    placeTip(e, p.it.u ? `<strong>${esc(p.it.t)}</strong><span>${esc(describe(p.it))} ↗</span>` : `<strong>Can't read this one yet</strong>`);
+    placeTip(e, p.it.u ? `<strong>${esc(p.it.t)}</strong><span>${esc(describe(p.it))}</span><span>Click to pull it out</span>` : `<strong>Can't read this one yet</strong>`);
   };
   const tap = (e) => {
     const h = hitAt(e);
@@ -239,14 +242,205 @@ function init() {
     if (focus < 0 || h.i !== focus) return setFocus(h.i);
     const p = pick(h.tg.row, h.u, h.v);
     if (!p) return clearPick();
-    if (!touch && p.it.u) return window.open(p.it.u, "_blank", "noopener");
-    // Touch: first tap selects and shows a link, so stray taps don't leave the page.
-    selected = p.it; showZone(h.tg, p.zone);
-    placeTip(e, p.it.u ? `<strong>${esc(p.it.t)}</strong><span>${esc(describe(p.it))}</span><a href="${esc(p.it.u)}" target="_blank" rel="noopener">Open on Letterboxd ↗</a>` : `<strong>Can't read this one yet</strong>`, true);
+    if (!p.it.u) return;
+    openCase(h, p); // the case pops out; its panel has the Letterboxd link
   };
+  // ---- pop-out 3D case: slides off the shelf, turns to face you, drag to spin it
+  // Sizes in decimetres (w × h × d). The side color of standard keepcases is read from the photo.
+  const CASES = {
+    keep: { w: 1.35, h: 1.71, d: 0.13 }, criterion: { w: 1.36, h: 1.72, d: 0.15 },
+    steel: { w: 1.36, h: 1.72, d: 0.1 }, a24: { w: 1.42, h: 1.86, d: 0.17 }, box: { w: 1.5, h: 1.9, d: 0.42 },
+  };
+  // The dimmer rides on the camera in the shelf scene; the case lives in its own scene, drawn on top
+  // in a second pass, with a pivot that follows the camera so the case can be placed in front of it.
+  scene.add(camera);
+  const dimmer = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshBasicMaterial({ color: 0x05050a, transparent: true, opacity: 0, depthTest: false, depthWrite: false }));
+  dimmer.position.z = -1; dimmer.renderOrder = 20; camera.add(dimmer);
+  const caseScene = new THREE.Scene(), pivot = new THREE.Object3D();
+  pivot.matrixAutoUpdate = false; caseScene.add(pivot);
+  caseScene.add(new THREE.AmbientLight(0xffffff, 1.5));
+  const caseLight = new THREE.PointLight(0xffffff, 0, 30); caseLight.position.set(1.5, 2, 1); pivot.add(caseLight);
+  const casePink = new THREE.PointLight(0xff2a6d, 6, 20); casePink.position.set(-3, 1, -2); pivot.add(casePink);
+  const caseCyan = new THREE.PointLight(0x05d9e8, 5, 20); caseCyan.position.set(3, -1.5, -2); pivot.add(caseCyan);
+  const ui = box.querySelector(".case-ui");
+  const posterCache = new Map();
+  let viewer = null; // { group, it, anim, spinning }
+
+  // Cut this movie's spine out of the row photo, straightening its lean.
+  const spineCanvas = (row, it, zone) => {
+    const img = row._tex.image, iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    const us = zone.map((p) => p[0]), vs = zone.map((p) => p[1]);
+    const c = document.createElement("canvas"), x = c.getContext("2d");
+    if (it.poly) {
+      const sx = Math.min(...us) * iw, sy = Math.min(...vs) * ih, sw = (Math.max(...us) - Math.min(...us)) * iw, sh = (Math.max(...vs) - Math.min(...vs)) * ih;
+      if (it.flat) { // lying on its side in the photo: turn it upright
+        c.width = sh; c.height = sw; x.translate(sh, 0); x.rotate(Math.PI / 2);
+      } else { c.width = sw; c.height = sh; }
+      x.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      return c;
+    }
+    const [l, r] = bounds(row, columns(row).findIndex((cc) => cc.it === it));
+    const s = shearAt(row, (l + r) / 2) * (iw / ih), lpx = l * iw, midY = row.midV * ih, top = row.v[0] * ih;
+    c.width = Math.max(8, (r - l) * iw); c.height = (row.v[1] - row.v[0]) * ih;
+    x.setTransform(1, 0, -s, 1, -lpx + s * midY, -top);
+    x.drawImage(img, 0, 0);
+    return c;
+  };
+  const avgColor = (c, y0, y1) => {
+    const d = c.getContext("2d").getImageData(0, Math.floor(c.height * y0), c.width, Math.max(1, Math.floor(c.height * (y1 - y0)))).data;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+    return [r / n, g / n, b / n];
+  };
+  const sideMaterial = (fm, spine) => {
+    if (fm === "steel") return new THREE.MeshStandardMaterial({ color: 0xb8bcc4, metalness: 0.9, roughness: 0.3 });
+    if (fm === "criterion") return new THREE.MeshStandardMaterial({ color: 0xe9e9f1, roughness: 0.15, transparent: true, opacity: 0.92 });
+    if (fm === "box") return new THREE.MeshStandardMaterial({ color: 0xe8e6f0, roughness: 0.5 });
+    if (fm === "a24") { const [r, g, b] = avgColor(spine, 0.2, 0.6); return new THREE.MeshStandardMaterial({ color: new THREE.Color(r / 255, g / 255, b / 255).convertSRGBToLinear(), roughness: 0.6 }); }
+    const [r, g, b] = avgColor(spine, 0, 0.05); // a keepcase's top cap: blue = Blu-ray, else black 4K
+    return new THREE.MeshStandardMaterial({ color: b > r + 25 && b > g ? 0x1c4fb0 : 0x111114, roughness: 0.35, metalness: 0.1 });
+  };
+  // The back cover: my rating and review, styled like the site.
+  const backCanvas = (it) => {
+    const c = document.createElement("canvas"); c.width = 600; c.height = 760;
+    const x = c.getContext("2d");
+    const g = x.createLinearGradient(0, 0, 0, 760); g.addColorStop(0, "#1c1c3a"); g.addColorStop(1, "#0a0a12");
+    x.fillStyle = g; x.fillRect(0, 0, 600, 760);
+    x.strokeStyle = "rgba(5,217,232,.08)"; x.lineWidth = 1;
+    for (let i = 0; i < 600; i += 30) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 760); x.stroke(); }
+    for (let i = 0; i < 760; i += 30) { x.beginPath(); x.moveTo(0, i); x.lineTo(600, i); x.stroke(); }
+    x.fillStyle = "#ff2a6d"; x.fillRect(40, 48, 80, 4);
+    const wrap = (text, font, lh, maxLines, y, color) => {
+      x.font = font; x.fillStyle = color;
+      const words = text.split(/\s+/); let line = "", n = 0;
+      for (const w of words) {
+        const t = line ? line + " " + w : w;
+        if (x.measureText(t).width > 520 && line) { x.fillText(line, 40, y); y += lh; line = w; if (++n >= maxLines - 1) { line += "…"; break; } }
+        else line = t;
+      }
+      if (line) { x.fillText(line, 40, y); y += lh; }
+      return y;
+    };
+    let y = wrap(it.t, "700 52px Rajdhani, sans-serif", 54, 3, 110, "#f4f3ff");
+    x.font = "22px 'JetBrains Mono', monospace"; x.fillStyle = "#9d9dc0";
+    x.fillText([it.y, it.d].filter(Boolean).join("  /  ").slice(0, 44), 40, y + 6); y += 70;
+    if (it.s) { x.font = "48px sans-serif"; x.fillStyle = "#f9f002"; x.shadowColor = "rgba(249,240,2,.6)"; x.shadowBlur = 14; x.fillText(it.s, 40, y); x.shadowBlur = 0; y += 60; }
+    if (it.rv) wrap(`“${it.rv}”`, "italic 26px Inter, sans-serif", 38, 7, y + 10, "#d6d6e7");
+    else wrap(it.m ? "Rated on Letterboxd, no review yet." : "Not on my Letterboxd yet.", "26px Inter, sans-serif", 38, 2, y + 10, "#9d9dc0");
+    for (let i = 0; i < 46; i++) { x.fillStyle = "#f4f3ff"; x.fillRect(40 + i * 5, 650, (i * 7) % 3 + 1, 56); } // decorative barcode
+    x.font = "18px 'JetBrains Mono', monospace"; x.fillStyle = "#ff2a6d"; x.fillText("PIERPONT.BLOG", 330, 700);
+    return c;
+  };
+  const coverTexture = (it, onReady) => {
+    if (!it.f) return null;
+    if (posterCache.has(it.f)) return posterCache.get(it.f);
+    const t = loader.load(it.f, onReady, undefined, () => {});
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    posterCache.set(it.f, t);
+    return t;
+  };
+  const coverFit = (t, aspect) => { // crop the cover image to the case's front, like CSS object-fit: cover
+    const img = t.image; if (!img || !img.width) return;
+    const a = img.width / img.height;
+    if (a > aspect) { t.repeat.set(aspect / a, 1); t.offset.set((1 - aspect / a) / 2, 0); }
+    else { t.repeat.set(1, a / aspect); t.offset.set(0, (1 - a / aspect) / 2); }
+  };
+
+  const viewSize = (dist) => { const [vf, hf] = halfFov(); return [2 * dist * Math.tan(hf), 2 * dist * Math.tan(vf)]; };
+  const openCase = (h, p) => {
+    if (viewer) closeCase(true);
+    const it = p.it, dims = CASES[it.fm] || CASES.keep;
+    const spine = spineCanvas(h.tg.row, it, p.zone);
+    const spineTex = new THREE.CanvasTexture(spine); spineTex.colorSpace = THREE.SRGBColorSpace;
+    const backTex = new THREE.CanvasTexture(backCanvas(it)); backTex.colorSpace = THREE.SRGBColorSpace;
+    const side = sideMaterial(it.fm, spine);
+    const aspect = dims.w / dims.h;
+    const front = new THREE.MeshStandardMaterial({ color: 0x222233, roughness: it.fm === "steel" ? 0.35 : 0.45, metalness: it.fm === "steel" ? 0.5 : 0 });
+    const ct = coverTexture(it, (t) => { coverFit(t, aspect); front.map = t; front.color.set(0xffffff); front.needsUpdate = true; });
+    if (ct && ct.image && ct.image.width) { coverFit(ct, aspect); front.map = ct; front.color.set(0xffffff); }
+    // BoxGeometry faces: +x (opening edge), -x (spine), +y, -y, +z (front), -z (back)
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(dims.w, dims.h, dims.d), [
+      side, new THREE.MeshStandardMaterial({ map: spineTex, roughness: 0.4 }), side, side, front,
+      new THREE.MeshStandardMaterial({ map: backTex, roughness: 0.5 }),
+    ]);
+    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0xff2a6d, transparent: true, opacity: 0.5 })));
+    const group = new THREE.Group(); group.add(mesh);
+    pivot.add(group);
+    // Start where the spine was on the shelf, spine facing you; end centered, front turned toward you.
+    const dist = 4, [vw, vh] = viewSize(dist);
+    const scale = Math.min((vh * 0.55) / dims.h, (vw * 0.68) / dims.w);
+    const from = camera.worldToLocal(h.point.clone());
+    viewer = { group, it, t0: performance.now(), from, to: new THREE.Vector3(0, vh * 0.11, -dist), s0: scale * 0.25, s1: scale,
+      r0: Math.PI / 2, r1: -0.45, opening: true, spinY: -0.45, spinX: 0.08 };
+    group.position.copy(from); group.scale.setScalar(viewer.s0); group.rotation.set(0, viewer.r0, 0);
+    clearPick();
+    ui.hidden = false;
+    ui.querySelector(".case-title").textContent = it.t;
+    ui.querySelector(".case-sub").textContent = [it.y, it.d].filter(Boolean).join(", ");
+    const link = ui.querySelector(".case-link");
+    link.href = it.u; link.textContent = it.r ? `Read my ${it.s} review ↗` : it.m ? `My ${it.s} rating ↗` : "Open on Letterboxd ↗";
+    box.classList.add("case-open");
+    controls.enabled = false;
+    if (reduce) { viewer.t0 = -1e9; }
+  };
+  const closeCase = (instant) => {
+    if (!viewer) return;
+    const v = viewer;
+    const done = () => {
+      pivot.remove(v.group);
+      // Free this case's geometry, materials and spine/back textures; posters stay cached for next time.
+      v.group.traverse((o) => { o.geometry?.dispose(); [].concat(o.material || []).forEach((m) => { if (m.map?.isCanvasTexture) m.map.dispose(); m.dispose(); }); });
+    };
+    ui.hidden = true; box.classList.remove("case-open");
+    controls.enabled = true;
+    if (instant || reduce) { done(); viewer = null; dimmer.material.opacity = 0; caseLight.intensity = 0; return; }
+    v.closing = performance.now(); v.done = done;
+  };
+  ui.querySelector(".case-close").addEventListener("click", () => closeCase());
+  if (location.search.includes("shelfdebug")) window.__shelf = { scene, camera, dimmer, pivot, get viewer() { return viewer; } };
+  const stepViewer = (now) => {
+    const v = viewer; if (!v) return;
+    if (v.closing) {
+      const k = Math.min(1, (now - v.closing) / 450), s = ease(k);
+      v.group.position.lerpVectors(v.to, v.from, s);
+      v.group.scale.setScalar(THREE.MathUtils.lerp(v.s1, v.s0, s));
+      v.group.rotation.y = THREE.MathUtils.lerp(v.spinY, Math.PI / 2, s);
+      dimmer.material.opacity = 0.82 * (1 - s); caseLight.intensity = 18 * (1 - s);
+      if (k === 1) { v.done(); viewer = null; }
+      return;
+    }
+    const k = Math.min(1, (now - v.t0) / 800), s = ease(k);
+    v.group.position.lerpVectors(v.from, v.to, s);
+    v.group.scale.setScalar(THREE.MathUtils.lerp(v.s0, v.s1, s));
+    dimmer.material.opacity = 0.82 * s; caseLight.intensity = 18 * s;
+    if (v.opening) { v.group.rotation.y = THREE.MathUtils.lerp(v.r0, v.r1, s); if (k === 1) v.opening = false; }
+    else {
+      if (!v.dragging && !reduce) v.spinY += Math.sin(now / 1800) * 0.0008; // a slight drift so it feels alive
+      v.group.rotation.set(v.spinX, v.spinY, 0);
+    }
+  };
+  const caseHit = (e) => {
+    if (!viewer) return false;
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    return ray.intersectObject(viewer.group, true).length > 0;
+  };
+
   let down = null;
-  canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, lastX: e.clientX }; lastInteract = performance.now(); });
+  canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY }; lastInteract = performance.now(); });
   canvas.addEventListener("pointermove", (e) => {
+    if (viewer) {
+      // Drag to turn the case all the way round (and tilt it a little).
+      if (down && !viewer.opening && !viewer.closing) {
+        viewer.dragging = true;
+        viewer.spinY += (e.clientX - down.lastX) * 0.012;
+        viewer.spinX = THREE.MathUtils.clamp(viewer.spinX + (e.clientY - down.lastY) * 0.008, -0.6, 0.6);
+        down.lastX = e.clientX; down.lastY = e.clientY;
+      }
+      canvas.style.cursor = down ? "grabbing" : caseHit(e) ? "grab" : "default";
+      return;
+    }
     if (down && panMode && focus >= 0) {
       // Slide along the row: move camera and target together, within the row's ends.
       const [, hf] = halfFov(), perPx = (2 * camera.position.distanceTo(controls.target) * Math.tan(hf)) / canvas.clientWidth;
@@ -259,12 +453,15 @@ function init() {
     if (e.pointerType === "mouse" && !(down && e.buttons)) hover(e);
   });
   canvas.addEventListener("pointerup", (e) => {
-    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) tap(e);
+    const still = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6;
+    if (viewer) { viewer.dragging = false; if (still && !caseHit(e)) closeCase(); } // click off the case: put it back
+    else if (still) tap(e);
     down = null;
   });
   canvas.addEventListener("pointerleave", () => { if (!selected) clearPick(); });
   box.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") setFocus(-1);
+    if (e.key === "Escape") { if (viewer) closeCase(); else setFocus(-1); return; }
+    if (viewer) return;
     if (e.key === "ArrowUp" && focus > 0) { e.preventDefault(); setFocus(focus - 1); }
     if (e.key === "ArrowDown" && focus < targets.length - 1) { e.preventDefault(); setFocus(focus + 1); }
   });
@@ -291,8 +488,16 @@ function init() {
     }
     // A slow sway in the full view until someone interacts.
     if (focus < 0 && !reduce && now - lastInteract > 4000) shelf.rotation.y = Math.sin(now / 2600) * 0.16;
+    stepViewer(now);
     controls.update();
+    renderer.clear();
     renderer.render(scene, camera);
+    if (viewer) { // second pass: the pulled-out case, always on top of the dimmed shelf
+      camera.updateMatrixWorld();
+      pivot.matrix.copy(camera.matrixWorld); pivot.updateMatrixWorld(true);
+      renderer.clearDepth();
+      renderer.render(caseScene, camera);
+    }
   });
   setFocus(-1);
   resize();

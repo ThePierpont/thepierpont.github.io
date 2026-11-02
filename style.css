@@ -441,6 +441,19 @@ a.t-btc:hover { border-color: rgb(249 240 2 / .55); }
 .shelf-tip span { color: var(--muted); font-size: .85rem; }
 .shelf-tip a { margin-top: 6px; color: var(--cyan); font-weight: 600; }
 .shelf-fallback { display: none; }
+/* Pulled-out case: info + links pinned to the bottom of the shelf view */
+.case-ui {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; gap: 10px; justify-items: center;
+  padding: 18px 16px 14px; text-align: center; background: linear-gradient(transparent, rgb(10 10 18 / .92) 35%);
+}
+.case-info { display: grid; gap: 2px; }
+.case-title { font: 700 clamp(1.3rem, 3vw, 1.8rem)/1.1 var(--display); color: var(--white); text-shadow: 0 0 14px rgb(255 42 109 / .45); }
+.case-sub { color: var(--muted); font-size: .9rem; }
+.case-btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.case-btns .btn { padding: 10px 18px; }
+.case-hint { margin: 0; font: .78rem var(--mono); color: var(--muted); }
+.shelf3d.case-open .shelf-hint, .shelf3d.case-open .shelf-bar { opacity: 0; pointer-events: none; }
+.shelf-bar, .shelf-hint { transition: opacity .25s; }
 /* Without WebGL: hide the canvas and show the plain list instead. */
 .shelf3d.no-3d { height: auto; padding: 16px; }
 .shelf3d.no-3d canvas, .shelf3d.no-3d .shelf-bar, .shelf3d.no-3d .shelf-hint { display: none; }
