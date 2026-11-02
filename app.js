@@ -15,7 +15,7 @@
     return isNaN(t) ? esc(d) : t.toLocaleDateString(undefined, opts);
   };
   const rating = (n) => n ? `<span class="rating" role="img" aria-label="Rated ${n} out of 5">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</span>` : "";
-  const hide = (id) => { document.getElementById(id).hidden = true; document.querySelector(`.bar a[href="#${id}"]`)?.parentElement.remove(); };
+  const hide = (id) => { document.getElementById(id).hidden = true; };
   const ext = (url) => url && !url.startsWith("mailto:") && !url.startsWith("#") ? ' target="_blank" rel="noopener"' : "";
 
   const photos = S.photos || [], fits = S.fits || [], M = S.music || {}, tracks = M.tracks || [];
@@ -25,7 +25,6 @@
   // ---- bindings
   document.querySelectorAll("[data-bind]").forEach((el) => { const v = S[el.dataset.bind]; if (v) el.textContent = v; });
   document.querySelectorAll("[data-bind-date]").forEach((el) => { const v = S[el.dataset.bindDate]; el.dateTime = v; el.textContent = fmtDate(v, { month: "long", day: "numeric" }); });
-  $("[data-bind=initial]").textContent = (S.name || "T")[0];
   $(".name").dataset.text = S.name || "";
   document.title = S.name || "Home";
   $("#year").textContent = new Date().getFullYear();
@@ -641,7 +640,7 @@
       .replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 38)}${u.length > 46 ? "…" : ""}</a>`)
       .replace(/nostr:((?:npub|nprofile|note|nevent|naddr)1[a-z0-9]+)/g, (m, id) => `<a href="${primal(id)}" target="_blank" rel="noopener">${id.slice(0, 12)}…</a>`);
     const iso = (d) => d.toISOString().slice(0, 10);
-    const posts = notes.slice(0, 8).map(parse);
+    const posts = notes.slice(0, 3).map(parse); // the three most recent; older ones live on Primal
     $("#log").innerHTML = posts.map((p) => `
       <article class="entry"><time datetime="${iso(p.date)}">${fmtDate(iso(p.date))}</time><div>
         ${p.text ? `<p class="note-text">${linkify(p.text)}</p>` : ""}
@@ -826,14 +825,4 @@
       });
     } catch (err) { zsay(`Couldn't create an invoice: ${err.message || err}`, true); }
   });
-
-  // ---- nav: mobile menu + current section
-  const toggle = $(".menu"), list = $("#nav-list");
-  toggle.addEventListener("click", () => { const o = list.classList.toggle("open"); toggle.setAttribute("aria-expanded", o); });
-  list.addEventListener("click", (e) => { if (e.target.closest("a")) { list.classList.remove("open"); toggle.setAttribute("aria-expanded", false); } });
-  const navLinks = [...list.querySelectorAll("a")];
-  const io = new IntersectionObserver((entries) => entries.forEach((en) => {
-    if (en.isIntersecting) navLinks.forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + en.target.id));
-  }), { rootMargin: "-45% 0px -50% 0px" });
-  document.querySelectorAll("main section[id]").forEach((s) => io.observe(s));
 })();

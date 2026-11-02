@@ -35,7 +35,7 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { scroll-behavior: smooth; scroll-padding-top: 88px; -webkit-text-size-adjust: 100%; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; min-height: 100vh; overflow-x: hidden;
   background:
@@ -67,46 +67,6 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 .btn-hot { background: var(--mag); border-color: var(--mag); color: var(--void); }
 .btn-hot:hover { box-shadow: var(--glow); background: #ff4d86; }
-
-/* ---------- top bar ---------- */
-.bar {
-  position: sticky; top: 0; z-index: 50;
-  display: flex; align-items: center; gap: 24px;
-  padding: 12px var(--gutter);
-  background: rgb(10 10 18 / .72); backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  border-bottom: 1px solid rgb(38 38 74 / .6);
-}
-.mark {
-  display: grid; place-items: center; width: 40px; height: 40px; text-decoration: none;
-  font: 700 1.4rem var(--display); color: var(--mag); text-shadow: var(--glow);
-  border: 1px solid var(--mag); clip-path: var(--cut-s);
-}
-.bar nav { margin-right: auto; }
-.bar ul { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
-.bar ul a {
-  display: block; padding: 8px 12px; text-decoration: none;
-  font: 600 1.05rem var(--display); letter-spacing: .03em; color: var(--muted);
-  transition: color .2s;
-}
-.bar ul a:hover { color: var(--white); }
-.bar ul a.active { color: var(--mag); }
-.menu { display: none; }
-@media (max-width: 760px) {
-  .bar { gap: 12px; }
-  .bar nav { order: 3; margin: 0; }
-  .bar .btn { margin-left: auto; }
-  .menu {
-    display: block; background: none; border: 1px solid var(--line); padding: 8px 14px; cursor: pointer;
-    font: 600 1rem var(--display); color: var(--text);
-  }
-  .bar ul {
-    display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column;
-    padding: 8px var(--gutter) 20px; background: rgb(10 10 18 / .97); border-bottom: 1px solid var(--line);
-  }
-  .bar ul.open { display: flex; }
-  .bar ul a { padding: 12px 0; font-size: 1.4rem; }
-}
 
 /* ---------- layout ---------- */
 main { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
