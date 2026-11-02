@@ -563,6 +563,15 @@
     }
   });
 
+  // ---- shelf list: every movie on the 3D shelf as plain links (screen readers, and the fallback without WebGL)
+  if (window.SHELF) {
+    const seenFilm = new Set();
+    $("#shelf-list").innerHTML = window.SHELF.flatMap((r) => r.items).filter((it) => it.u && !seenFilm.has(it.u) && seenFilm.add(it.u))
+      .map((it) => `<li><a href="${esc(it.u)}" target="_blank" rel="noopener">${esc(it.t)}</a>${it.s ? ` <span>${esc(it.s)}</span>` : ""}</li>`).join("");
+  } else {
+    $("#shelf3d").hidden = true;
+  }
+
   // ---- connectors: data/feeds.json is written by connectors/fetch_feeds.py
   const stars = (r) => r ? "★".repeat(Math.floor(r)) + (r % 1 ? "½" : "") : "";
   const renderLetterboxd = (lb) => {

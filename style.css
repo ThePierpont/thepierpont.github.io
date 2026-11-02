@@ -402,6 +402,53 @@ a.t-btc:hover { border-color: rgb(249 240 2 / .55); }
 .rating i { width: 12px; height: 5px; background: var(--line); transform: skewX(-24deg); }
 .rating i.on { background: var(--acid); box-shadow: 0 0 6px rgb(249 240 2 / .5); }
 
+/* ---------- 3D shelf ---------- */
+.shelf3d {
+  position: relative; height: min(82vh, 820px); margin-bottom: 48px; overflow: hidden;
+  background:
+    radial-gradient(60% 50% at 50% 45%, rgb(123 44 191 / .28), transparent 70%),
+    linear-gradient(to right, rgb(5 217 232 / .06) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(to bottom, rgb(5 217 232 / .06) 1px, transparent 1px) 0 0 / 40px 40px,
+    var(--void);
+  border: 1px solid var(--line); clip-path: var(--cut);
+}
+.shelf3d:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+.shelf3d canvas { display: block; width: 100%; height: 100%; }
+.shelf-bar {
+  position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 12px 14px; background: linear-gradient(rgb(10 10 18 / .85), transparent); pointer-events: none;
+}
+.shelf-label { font: 700 1.25rem var(--display); color: var(--white); text-shadow: 0 0 12px rgb(255 42 109 / .5); }
+.shelf-btns { display: flex; gap: 6px; pointer-events: auto; }
+.shelf-btns button {
+  min-width: 38px; height: 36px; padding: 0 12px; cursor: pointer; font: 600 .95rem var(--display);
+  color: var(--white); background: rgb(20 20 43 / .85); border: 1px solid var(--line);
+}
+.shelf-btns button:hover:not(:disabled) { border-color: var(--mag); color: var(--mag); }
+.shelf-btns button:disabled { opacity: .35; cursor: default; }
+.shelf3d:not(.focused) [data-act="prev"], .shelf3d:not(.focused) [data-act="next"], .shelf3d:not(.focused) [data-act="back"] { display: none; }
+.shelf-hint {
+  position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 10px 14px; text-align: center;
+  font: .82rem var(--mono); color: var(--muted); background: linear-gradient(transparent, rgb(10 10 18 / .85)); pointer-events: none;
+}
+.shelf-tip {
+  position: absolute; top: 0; left: 0; z-index: 2; display: grid; gap: 2px; max-width: 260px; padding: 10px 12px;
+  background: rgb(10 10 18 / .94); border: 1px solid var(--cyan); box-shadow: 0 0 18px rgb(5 217 232 / .3);
+  pointer-events: none; font-size: .9rem;
+}
+.shelf-tip.interactive { pointer-events: auto; }
+.shelf-tip strong { font: 700 1.1rem/1.15 var(--display); color: var(--white); }
+.shelf-tip span { color: var(--muted); font-size: .85rem; }
+.shelf-tip a { margin-top: 6px; color: var(--cyan); font-weight: 600; }
+.shelf-fallback { display: none; }
+/* Without WebGL: hide the canvas and show the plain list instead. */
+.shelf3d.no-3d { height: auto; padding: 16px; }
+.shelf3d.no-3d canvas, .shelf3d.no-3d .shelf-bar, .shelf3d.no-3d .shelf-hint { display: none; }
+.shelf3d.no-3d .shelf-fallback { display: block; margin: 0; color: var(--muted); }
+.shelf-list { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.shelf3d.no-3d + .shelf-list { position: static; width: auto; height: auto; clip: auto; columns: 3 220px; margin: -32px 0 48px; padding-left: 18px; }
+@media (max-width: 560px) { .shelf3d { height: 78vh; } }
+
 /* ---------- letterboxd connector ---------- */
 .lb { margin-top: 56px; }
 #screen[hidden] + .lb { margin-top: 0; }
