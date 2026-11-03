@@ -160,8 +160,8 @@ h2 {
   display: grid; gap: 14px;
   grid-template-columns: repeat(4, 1fr);
   grid-template-areas:
-    "play  play  photo photo"
-    "watch fit   photo photo"
+    "photo photo photo photo"
+    "play  play  watch fit"
     "read  note  note  place"
     "btc   btc   btc   btc";
 }
@@ -194,14 +194,26 @@ a.tile:hover, .tile:has(a:hover) { border-color: rgb(255 42 109 / .6); }
 .eq.idle i:nth-child(3) { transform: scaleY(.4); }
 .music.solo { grid-template-columns: minmax(0, 760px); }
 
-.t-photo { grid-area: photo; padding: 0; min-height: 380px; justify-content: flex-end; }
+.t-photo { grid-area: photo; padding: 0; min-height: clamp(300px, 34vw, 440px); justify-content: flex-end; }
 .t-photo .media { position: absolute; inset: 0; }
 .t-photo .media img, .t-photo .ph { transition: transform .8s var(--ease); }
 .t-photo:hover .media img, .t-photo:hover .ph { transform: scale(1.04); }
 .t-photo .cap {
-  position: relative; padding: 60px 20px 20px; display: grid; gap: 4px;
+  position: relative; padding: 80px 24px 20px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px;
   background: linear-gradient(to top, rgb(10 10 18 / .92), transparent);
 }
+.t-photo .cap h3 { margin-top: 6px; font-size: clamp(1.4rem, 2.4vw, 2rem); }
+.t-photo .more-info { color: var(--text); font-size: .92rem; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.tile .go { color: var(--mag); font-weight: 600; font-size: .92rem; }
+/* Extra detail in the smaller tiles */
+.tile .quote {
+  color: var(--text); font-size: .92rem; font-style: italic; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tile .extra-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: auto; }
+.t-play .before { color: var(--muted); font-size: .88rem; margin-top: 4px; }
+.t-play .before a { color: var(--text); }
+.rewatch { margin-left: 8px; font: .75rem var(--mono); color: var(--muted); }
 
 .t-watch { grid-area: watch; }
 .t-fit { grid-area: fit; }
@@ -218,11 +230,11 @@ a.tile:hover, .tile:has(a:hover) { border-color: rgb(255 42 109 / .6); }
 @media (max-width: 960px) {
   .bento {
     grid-template-columns: 1fr 1fr;
-    grid-template-areas: "play play" "photo photo" "watch fit" "read place" "note note" "btc btc";
+    grid-template-areas: "photo photo" "play play" "watch fit" "read place" "note note" "btc btc";
   }
 }
 @media (max-width: 560px) {
-  .bento { grid-template-columns: 1fr; grid-template-areas: "play" "photo" "watch" "fit" "read" "note" "place" "btc"; }
+  .bento { grid-template-columns: 1fr; grid-template-areas: "photo" "play" "watch" "fit" "read" "note" "place" "btc"; }
   .t-photo { min-height: 320px; }
   .t-play .art { width: 80px; }
 }

@@ -44,7 +44,15 @@
     try { return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", timeZone: S.timezone || undefined }); }
     catch { return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }); }
   })();
-  const tick = () => { const t = clockFmt.format(new Date()); document.querySelectorAll("[data-clock], #clock-small").forEach((el) => (el.textContent = t)); };
+  const dayFmt = (() => {
+    try { return new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric", timeZone: S.timezone || undefined }); }
+    catch { return new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric" }); }
+  })();
+  const tick = () => {
+    const now = new Date(), t = clockFmt.format(now);
+    document.querySelectorAll("[data-clock], #clock-small").forEach((el) => (el.textContent = t));
+    document.querySelectorAll("[data-today]").forEach((el) => (el.textContent = dayFmt.format(now)));
+  };
 
   // ---- right now board
   const song = tracks[0];
@@ -54,6 +62,15 @@
   const book = books.find((b) => b.status === "reading") || books[0];
   const note = log[0];
   const tiles = [];
+  // Latest photo: a wide banner across the top of the board, with its date and how to see the rest.
+  const camera = (S.facts || []).find((f) => /shoot/i.test(f.k))?.v || "";
+  const photoTile = (p, count) => `
+      <div class="media">${media(p.src, p.caption, p.caption || "Latest photo")}</div>
+      <div class="cap">
+        <p class="label">Latest photo${p.date ? `, ${fmtDate(p.date, { month: "short", day: "numeric" })}` : ""}${p.place ? ` · ${esc(p.place)}` : ""}</p>
+        <p class="more-info">${count} photo${count === 1 ? "" : "s"}${camera ? ` · Shot on ${esc(camera)}` : ""}<span class="go">See all ↓</span></p>
+      </div>`;
+  const shortDate = (d) => fmtDate(d, { month: "short", day: "numeric" });
   if (song) tiles.push(`
     <article class="tile t-play">
       <div class="art media">${media(song.src, song.title + song.artist, `${song.title} cover art`)}</div>
@@ -68,11 +85,7 @@
       <div class="art media">${media("", "lastfm", "")}</div>
       <div class="info"><p class="label idle"><span class="eq idle" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Now playing</p><h3>Checking Last.fm…</h3></div>
     </article>`);
-  if (shot) tiles.push(`
-    <a class="tile t-photo" href="#photos" data-open="0">
-      <div class="media">${media(shot.src, shot.caption, shot.caption)}</div>
-      <div class="cap"><p class="label">Latest photo</p></div>
-    </a>`);
+  if (shot) tiles.unshift(`<a class="tile t-photo" href="#photos" data-open="0">${photoTile(shot, photos.length)}</a>`);
   if (show) tiles.push(`
     <a class="tile t-watch" href="#watching">
       <p class="label">${show.status === "watching" ? "Watching" : "Last watched"}</p>
@@ -83,9 +96,10 @@
     <a class="tile t-watch" href="#watching"><p class="label">Watching</p><h3>Checking…</h3></a>`);
   if (fit) tiles.push(`
     <a class="tile t-fit" href="#closet">
-      <p class="label">Newest pickup</p>
+      <p class="label">Newest pickup${fit.date ? `, ${shortDate(fit.date)}` : ""}</p>
       <div class="t-thumb"><div class="media">${media(fit.src, fit.item, fit.item)}</div>
       <div><h3>${esc(fit.item)}</h3><p class="sub">${esc(fit.brand || "")}</p></div></div>
+      <div class="extra-row">${fit.tag ? `<span class="chip">${esc(fit.tag)}</span>` : ""}${fits.length > 1 ? `<span class="sub">+${fits.length - 1} more in the closet</span>` : ""}</div>
     </a>`);
   if (book) tiles.push(`
     <a class="tile t-read" href="#notes">
@@ -104,7 +118,7 @@
   tiles.push(`
     <div class="tile t-place">
       <p class="label">Local time</p>
-      <div><div class="clock" data-clock></div><p class="sub">${esc(S.location || "")}</p></div>
+      <div><div class="clock" data-clock></div><p class="sub">${esc(S.location || "")} · <span data-today></span></p></div>
     </div>`);
   if (S.bitcoin?.show) tiles.push(`
     <a class="tile t-btc" href="https://mempool.space" target="_blank" rel="noopener" aria-label="Bitcoin network stats on mempool.space">
@@ -255,9 +269,7 @@
     gallery = gallery.concat(fresh).sort((a, b) => b.ts - a.ts);
     renderGallery();
     const p = gallery[0], tile = $(".t-photo");
-    if (tile && p.nostr) tile.innerHTML = `
-      <div class="media">${media(p.src, p.caption, p.caption || "Latest photo")}</div>
-      <div class="cap"><p class="label">Latest photo</p></div>`;
+    if (tile) tile.innerHTML = photoTile(p, gallery.length);
   };
   const lb = $("#lightbox");
   let cur = 0, lbList = gallery; // the viewer steps through either the whole wall or one album
@@ -350,16 +362,17 @@
     };
     const profile = `https://www.last.fm/user/${encodeURIComponent(LF.user)}`;
 
-    const renderNowPlaying = (t) => {
+    const renderNowPlaying = (t, prev) => {
       const tile = $(".t-play");
       if (!tile) return;
-      const live = t["@attr"]?.nowplaying === "true";
+      const live = t["@attr"]?.nowplaying === "true", album = t.album?.["#text"] || "";
       tile.innerHTML = `
         <div class="art media">${media(art(t.image), t.name + t.artist["#text"], `${t.name} cover art`)}</div>
         <div class="info">
           <p class="label${live ? "" : " idle"}"><span class="eq${live ? "" : " idle"}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>${live ? "Now playing" : `Last played, ${ago(+t.date.uts)}`}</p>
           <h3><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.name)}</a></h3>
-          <p class="sub">${esc(t.artist["#text"])}</p>
+          <p class="sub">${esc(t.artist["#text"])}${album && album !== t.name ? ` · <i>${esc(album)}</i>` : ""}</p>
+          ${prev ? `<p class="before">Before that: <a href="${esc(prev.url)}" target="_blank" rel="noopener">${esc(prev.name)}</a>, ${esc(prev.artist["#text"])}</p>` : ""}
         </div>`;
     };
     // "Recently played": your latest songs, newest first, each song once.
@@ -391,7 +404,7 @@
     const pollRecent = async (limit) => {
       const list = [].concat((await lfm("user.getrecenttracks", `&limit=${limit}`)).recenttracks.track || []);
       list.forEach((t) => { const u = art(t.image); if (u) artCache.set(key(t.artist["#text"], t.name), u); });
-      if (list[0]) renderNowPlaying(list[0]);
+      if (list[0]) renderNowPlaying(list[0], list.find((x) => x.name !== list[0].name));
       await renderRecent(list);
     };
 
@@ -523,7 +536,8 @@
       tile.innerHTML = `
         <p class="label">Last read</p>
         <div class="t-thumb">${b.src ? `<div class="media"><img src="${esc(b.src)}" alt=""></div>` : ""}
-        <div><h3>${esc(b.title.split(":")[0])}</h3><p class="sub">${esc(b.author)} ${rating(b.rating)}</p></div></div>`;
+        <div><h3>${esc(b.title.split(":")[0])}</h3><p class="sub">${esc(b.author)} ${rating(b.rating)}</p></div></div>
+        ${b.note ? `<p class="quote">“${esc(b.note)}”</p>` : ""}`;
     }
   };
   $("#log").innerHTML = log.map((n) => `
@@ -607,7 +621,9 @@
       tile.innerHTML = `
         <p class="label">Just watched</p>
         <div class="t-thumb"><div class="media">${media(d.poster, d.title, `${d.title} poster`)}</div>
-        <div><h3>${esc(d.title)}</h3><p class="sub">${d.rating ? `<span class="stars">${stars(d.rating)}</span>` : esc(d.year)}${d.liked ? '<span class="heart" aria-label="Liked">♥</span>' : ""}</p></div></div>`;
+        <div><h3>${esc(d.title)}</h3><p class="sub">${esc(d.year)}${d.watched ? ` · watched ${esc(fmtDate(d.watched, { month: "short", day: "numeric" }))}` : ""}</p>
+        <p class="sub">${d.rating ? `<span class="stars">${stars(d.rating)}</span>` : ""}${d.liked ? '<span class="heart" aria-label="Liked">♥</span>' : ""}${d.rewatch ? '<span class="rewatch">rewatch</span>' : ""}</p></div></div>
+        ${d.review ? `<p class="quote">“${esc(d.review.replace(/\s+/g, " ").trim())}”</p>` : ""}`;
     }
   };
   fetch("data/feeds.json", { cache: "no-cache" })
@@ -700,7 +716,8 @@
     const [head, ...rest] = (plain || (first.imgs.length ? "New photos" : "New post")).split("\n");
     if (tile) {
       tile.href = first.link; tile.target = "_blank"; tile.rel = "noopener";
-      tile.innerHTML = `<p class="label">Latest note, ${fmtDate(iso(first.date), { month: "short", day: "numeric" })}</p><h3>${esc(head.slice(0, 70))}</h3>${rest.join(" ").trim() ? `<p>${esc(rest.join(" ").trim().slice(0, 160))}</p>` : ""}`;
+      tile.innerHTML = `<p class="label">Latest note, ${fmtDate(iso(first.date), { month: "short", day: "numeric" })}</p><h3>${esc(head.slice(0, 70))}</h3>${rest.join(" ").trim() ? `<p>${esc(rest.join(" ").trim().slice(0, 160))}</p>` : ""}
+        <p class="extra-row"><span class="sub">Posted on Nostr${first.imgs.length ? ` · ${first.imgs.length} photo${first.imgs.length > 1 ? "s" : ""}` : ""}</span><span class="go">Read on Primal ↗</span></p>`;
     }
   };
   // ---- guestbook: NIP-22 comments (kind 1111) on this site's URL, signed by each visitor.
