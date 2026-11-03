@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793702487";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793721612";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -327,7 +327,11 @@ const buildLiving = () => {
   const doorway = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.9), new THREE.MeshBasicMaterial({ visible: false }));
   doorway.position.set(-4.5, 1.45, -6.95); scene.add(doorway);
   addHot(doorway, "living", "Theater", "My latest watch and the movie shelf", () => go("theater"));
-  doorway.userData.glow = [theaterSign];
+  doorway.userData.glow = [theaterSign]; doorway.userData.fromCat = true;
+  // the same doorway from the theater side: from the movie shelf, clicking it walks you back to your seat
+  const shelfExit = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.9), new THREE.MeshBasicMaterial({ visible: false }));
+  shelfExit.position.set(-4.5, 1.45, -7.1); shelfExit.rotation.y = Math.PI; scene.add(shelfExit);
+  addHot(shelfExit, "shelf", "Back to the theater", touch ? "Tap to go back to your seat" : "Click to go back to your seat", () => go("theater"));
 
   // rooms still being built: closed doors with tape
   const soon = (name, x, z, rotY, lx, lz) => {
@@ -348,7 +352,7 @@ const buildLiving = () => {
   tube(0.04, 0.04, 1.48, 0xf9f002, 5.88, 2.44, -3.6, { k: 1.2 });
   const gallerySign = sign("GALLERY", 0.3, 5.88, 2.8, -3.6, { color: "#fff27a", font: "700 160px Rajdhani", rotY: -Math.PI / 2, k: 1.0, glow: 0.06, core: 0 });
   const gdoor = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.4), new THREE.MeshBasicMaterial({ visible: false })); gdoor.position.set(5.95, 1.2, -3.6); gdoor.rotation.y = -Math.PI / 2; scene.add(gdoor);
-  addHot(gdoor, "living", "Gallery", "My photos, hung properly", () => go("gallery")); gdoor.userData.glow = [gallerySign];
+  addHot(gdoor, "living", "Gallery", "My photos, hung properly", () => go("gallery")); gdoor.userData.glow = [gallerySign]; gdoor.userData.fromCat = true;
 
   // the window onto DC (a canvas: skyline + a little HUD with the time and block height)
   windowCanvas = document.createElement("canvas"); windowCanvas.width = 2600; windowCanvas.height = 1000; // drawn in 2080 × 800 units, at 1.25× for sharpness
@@ -1033,7 +1037,7 @@ const buildKitchenMore = () => {
   // an invisible box over the bar and the counters: click the kitchen to step inside it
   const kitchenHit = new THREE.Mesh(new THREE.BoxGeometry(3.7, 1.1, 2.75), new THREE.MeshBasicMaterial({ visible: false }));
   kitchenHit.position.set(3.35, 0.55, -1.475); scene.add(kitchenHit);
-  addHot(kitchenHit, "living", "The kitchen", touch ? "Tap to step inside" : "Click to step inside", () => openKitchen(kitchenHit));
+  addHot(kitchenHit, "living", "The kitchen", touch ? "Tap to step inside" : "Click to step inside", () => openKitchen(kitchenHit)); kitchenHit.userData.fromCat = "spot";
   animators.push((now) => { recipe.material.opacity = reduce ? 0.85 : Math.sin(now / 77) > 0.986 ? 0.45 : 0.85; });
   // a rail over the bar with pans and a ladle hanging
   { const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.8, 10), steelM(0xc4cad8)); rail.rotation.z = Math.PI / 2; rail.position.set(3.4, 2.5, -1.55); scene.add(rail);
@@ -1570,7 +1574,7 @@ const setListPosters = (lists) => lists.slice(0, listPosters.length).forEach((l,
 let couchCats = [], seatCats = [], kitchenCats = []; // [sleeping cat, sitting cat, name] for each: on the couch, and in the theater seats
 const PHOEBE = { fur: 0xec9a4c, stripe: 0xbb6128, chin: 0xf8ead4, inner: 0xf4a6b4, nose: 0xf29aa6, eye: 0xc98d32, size: 0.62, lean: true };
 const buildCats = () => {
-  const napper = (g, name) => addHot(g, "living", name, ["Shh… napping", touch ? "Tap to tiptoe closer" : "Click to tiptoe closer"], () => { g.userData.twitch = performance.now(); spot?.g === g ? askCat() : openCat(g, name); });
+  const napper = (g, name) => { g.userData.fromCat = "spot"; addHot(g, "living", name, ["Shh… napping", touch ? "Tap to tiptoe closer" : "Click to tiptoe closer"], () => { g.userData.twitch = performance.now(); spot?.g === g ? askCat() : openCat(g, name); }); };
   // living room: Phoebe on top of the cat tree (back wall, left of the window), Fin in his bed (back wall, right)
   const tree = catTree(-3.2, -6.58, 0, { tall: 1.5 });
   const phoebeNap = cat(PHOEBE, -3.22, tree.perch, -6.56, -1.2); napper(phoebeNap, "Phoebe");
@@ -2224,9 +2228,9 @@ const closeNode = (after) => {
 };
 // ---------- close-ups: walk up to something, then click it again to do something with it (the cats, the chess table) ----------
 let spot = null; // { name, g, view, hint, tip }
-const openSpot = (g, name, view, { hint, tip, hover, click, onClose }) => {
+const openSpot = (g, name, view, { hint, tip, hover, click, onClose, self, only }) => {
   if (spot || nodeFocus || flight) return;
-  spot = { name, g, view, hint, tip, hover, click, onClose }; hideTip(); setRoomUI();
+  spot = { name, g, view, hint, tip, hover, click, onClose, self, only }; hideTip(); setRoomUI(); // only: which things can be clicked from here (the rest are looked through)
   flyTo(view.pos, view.look, 1100);
 };
 const closeSpot = (after) => {
@@ -2241,7 +2245,15 @@ const openCat = (g, name) => {
   // a little in front and above, so you look down at them curled up (closer for a smaller cat)
   const k = g.scale.x;
   openSpot(g, name, { pos: c.clone().add(V(0.35, 0.45, 1.13).multiplyScalar(k)), look: c.clone().add(V(0, 0.12 * k, 0)) },
-    { hint: `${tapWord} ${name} again · ${tapWord.toLowerCase()} away to step back`, tip: { label: name, sub: `${tapWord} to say hi` } });
+    { hint: `${tapWord} ${name} again · ${tapWord.toLowerCase()} away to step back`, self: true, only: (o) => o === g || !!o.userData.fromCat,
+      // from beside a cat you can also head for the other cat, the kitchen, or the gallery and theater doorways
+      hover: (h) => (h?.obj === g ? { label: name, sub: `${tapWord} to say hi` } : h?.obj.userData.fromCat ? h : null),
+      click: (h) => {
+        if (h?.obj === g) return h.act();
+        if (!h?.obj.userData.fromCat) return closeSpot();
+        if (h.obj.userData.fromCat === "spot") { spot.onClose?.(); spot = null; return h.act(); } // the kitchen or the other cat: straight over, no stepping back first
+        h.act(); // a doorway: go() steps back from the cat, then walks
+      } });
 };
 // the couch: sit down facing the window. The cats hop over and sit on your right; the window opens the clock app.
 const hopCats = (list, on) => list.forEach(([nap, sitter], i) => {
@@ -2470,7 +2482,7 @@ const pickAt = (e) => {
   setRay(e);
   const shown = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
   // while you're sitting on the couch, the couch itself is out of the way (so the cats beside you can be clicked)
-  const objs = hot.filter((h) => h.room === room && shown(h.obj) && !(spot?.click && h.obj === spot.g)).map((h) => h.obj);
+  const objs = hot.filter((h) => h.room === room && shown(h.obj) && !(spot?.click && !spot.self && h.obj === spot.g) && (!spot?.only || spot.only(h.obj))).map((h) => h.obj);
   for (const hit of ray.intersectObjects(objs, true)) {
     let o = hit.object; while (o && o.userData.hot === undefined) o = o.parent;
     if (o) return hot[o.userData.hot];
@@ -2488,6 +2500,9 @@ const showTip = (e, h) => {
   const tw = ui.tip.offsetWidth, th = ui.tip.offsetHeight;
   ui.tip.style.transform = `translate(${Math.min(e.clientX + 16, innerWidth - tw - 8)}px, ${Math.min(e.clientY + 16, innerHeight - th - 8)}px)`;
 };
+// turned round to face the way you came in: clicking anywhere that isn't something to click takes you back
+const facingBack = () => !!PARENT[room] && Math.abs(Math.atan2(Math.sin(yaw), Math.cos(yaw))) > 2.1;
+const backTip = () => ({ label: `← Back to the ${VIEWS[PARENT[room]].name.toLowerCase()}`, sub: touch ? "Tap to go back" : "Click to go back" });
 canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, drag: false }; try { canvas.setPointerCapture(e.pointerId); } catch {} });
 canvas.addEventListener("pointermove", (e) => {
   if (cv.active) { // a case is out: drag spins it
@@ -2541,7 +2556,7 @@ canvas.addEventListener("pointermove", (e) => {
   }
   const h = pickAt(e);
   if (h !== hovered) { if (hovered) setGlow(hovered, false); hovered = h; if (h) setGlow(h, true); }
-  if (h) { showTip(e, h); canvas.style.cursor = "pointer"; } else { ui.tip.hidden = true; canvas.style.cursor = "grab"; }
+  if (h) { showTip(e, h); canvas.style.cursor = "pointer"; } else if (facingBack()) { showTip(e, backTip()); canvas.style.cursor = "pointer"; } else { ui.tip.hidden = true; canvas.style.cursor = "grab"; }
 });
 canvas.addEventListener("pointerup", (e) => {
   const wasDrag = down?.drag; down = null; canvas.style.cursor = "";
@@ -2568,7 +2583,7 @@ canvas.addEventListener("pointerup", (e) => {
     return;
   }
   const h = pickAt(e);
-  if (h) { hideTip(); h.act(); }
+  if (h) { hideTip(); h.act(); } else if (facingBack()) { hideTip(); back(); }
 });
 canvas.addEventListener("pointerleave", hideTip);
 
