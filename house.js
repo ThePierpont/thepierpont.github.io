@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793687538";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793688185";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -406,7 +406,7 @@ const buildDecor = () => {
     const fan = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.012, 6, 16), glowMat(0x05d9e8, 1.2)); fan.position.set(0.17, 0.3 + u * 0.3, 0.275); node.add(fan);
   }
   sign("NODE", 0.12, 0, 1.52, 0.26, { parent: node, color: "#f9f002", font: "700 100px Rajdhani", k: 1.4 });
-  addHot(node, "living", "My Bitcoin node", "Click for its status", () => toast(height ? `My node is synced to block ${height.toLocaleString()}. Don't trust, verify.` : "My node is syncing…"));
+  addHot(node, "living", "My Bitcoin node", touch ? "Tap to see what it's tracking" : "Click to see what it's tracking", () => openNode());
   // a chess table against the right wall, a game in progress: plays me at chess
   const ct = new THREE.Group(); ct.position.set(5.45, 0, -5.05); ct.rotation.y = -Math.PI / 2; scene.add(ct); // local +z faces into the room
   const wood = 0x5a3a2a;
@@ -780,12 +780,13 @@ const flyTo = (pos, look, dur, after) => {
   flight = { t0: performance.now(), dur, pos: new THREE.CatmullRomCurve3([camera.position.clone(), pos]), look: new THREE.CatmullRomCurve3([lookAt.clone(), look]), yaw0: yaw, pitch0: pitch, after };
 };
 let peekView = null; // ?debug only: a close-up camera for checking details
-const view = () => peekView || focusRow?.view || winFocus?.view || VIEWS[room];
+const view = () => peekView || focusRow?.view || nodeFocus?.view || winFocus?.view || VIEWS[room];
 const setRoomUI = () => {
   const v = VIEWS[room];
-  ui.room.textContent = focusRow ? `${v.name} · ${NAMES[focusRow.f.row.id] || ""}` : winFocus ? `${v.name} · Clock` : v.name;
+  ui.room.textContent = focusRow ? `${v.name} · ${NAMES[focusRow.f.row.id] || ""}` : nodeFocus ? `${v.name} · Node` : winFocus ? `${v.name} · Clock` : v.name;
   ui.hint.textContent = focusRow ? (focusRow.pan ? "Swipe along the shelf · tap a movie to pull it out" : touch ? "Tap a movie to pull it out" : "Click a movie to pull it out")
-    : winFocus ? (touch ? "Tap a block to open it · tap off the window to close" : "Click a block to open it on mempool.space · click off the window to close")
+    : nodeFocus ? (touch ? "Tap a block to open it · tap away to step back" : "Click a block to open it on mempool.space · click away to step back")
+    : winFocus ? (touch ? "Tap off the window to close" : "Esc or click off the window to close")
     : v.hint;
   ui.back.hidden = room === "outside";
   document.title = room === "outside" ? "Pierpont's apartment" : `${v.name} · Pierpont's apartment`;
@@ -795,6 +796,7 @@ const go = (to) => {
   if (to === "screen") { if (room !== "theater") go("theater"); return latest?.link && window.open(latest.link, "_blank", "noopener"); }
   if (focusRow) return unfocus(() => go(to));
   if (winFocus) return closeWindowApp(() => go(to));
+  if (nodeFocus) return closeNode(() => go(to));
   if (to === room) return;
   hideTip();
   const from = room, a = ORDER.indexOf(from), b = ORDER.indexOf(to), route = [];
@@ -812,6 +814,7 @@ const back = () => {
   if (cv.active) return cv.close();
   if (focusRow) return unfocus();
   if (winFocus) return closeWindowApp();
+  if (nodeFocus) return closeNode();
   if (room !== "outside") go(ORDER[ORDER.indexOf(room) - 1]);
 };
 ui.back.addEventListener("click", back);
@@ -849,6 +852,26 @@ const trend = async () => { // the last week's price, a point a day (hour-rounde
   btc.dayAgo = pts[pts.length - 1]; btc.spark = btc.price ? [...pts, btc.price] : pts; drawWindow();
 };
 const APP = { x: 36, y: 36, w: 2008, h: 728 }, HUDR = { x: 60, y: 52, w: 600, h: 200 };
+const bar = (x, bx, by, bw, frac, col) => { x.fillStyle = "rgba(157,157,192,.25)"; x.fillRect(bx, by, bw, 8); x.fillStyle = col; x.shadowColor = col; x.shadowBlur = 12; x.fillRect(bx, by, bw * Math.max(0, Math.min(1, frac)), 8); x.shadowBlur = 0; };
+// SAMPLE weather and headlines, until real connectors are wired up.
+const WEATHER = { now: 58, cond: "Light rain", icon: "rain", hi: 61, lo: 49, wind: "8 MPH NE", humidity: "82%", sunset: "5:03 PM",
+  hours: [["NOW", "rain", 58], ["3 AM", "rain", 57], ["6 AM", "cloud", 55], ["9 AM", "cloud", 54], ["NOON", "partly", 59], ["3 PM", "sun", 61]] };
+const NEWS = [
+  ["Metro extends late-night service on weekends", "LOCAL", "12 min"],
+  ["City council approves new protected bike lanes downtown", "DC", "40 min"],
+  ["Smithsonian announces an after-hours exhibit this winter", "CULTURE", "1 hr"],
+  ["Tech stocks close higher ahead of earnings week", "MARKETS", "2 hr"],
+  ["Clearing skies expected by Thursday afternoon", "WEATHER", "3 hr"],
+];
+const weatherIcon = (x, type, cx, cy, sc) => {
+  const sun = (ox, oy, r) => { x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 20 * sc; x.beginPath(); x.arc(ox, oy, r, 0, Math.PI * 2); x.fill(); x.shadowBlur = 0;
+    x.strokeStyle = "#f9f002"; x.lineWidth = 6 * sc; for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; x.beginPath(); x.moveTo(ox + Math.cos(a) * r * 1.35, oy + Math.sin(a) * r * 1.35); x.lineTo(ox + Math.cos(a) * r * 1.7, oy + Math.sin(a) * r * 1.7); x.stroke(); } };
+  const cloud = (ox, oy, k) => { x.fillStyle = "#c9c4ea"; for (const [dx, dy, r] of [[-30, 8, 28], [0, -10, 36], [32, 6, 28], [0, 16, 30]]) { x.beginPath(); x.arc(ox + dx * k, oy + dy * k, r * k, 0, Math.PI * 2); x.fill(); } };
+  if (type === "sun") sun(cx, cy, 34 * sc);
+  if (type === "partly") { sun(cx + 22 * sc, cy - 18 * sc, 24 * sc); cloud(cx - 6 * sc, cy + 10 * sc, sc); }
+  if (type === "cloud") cloud(cx, cy, sc);
+  if (type === "rain") { cloud(cx, cy - 12 * sc, sc); x.strokeStyle = "#05d9e8"; x.lineWidth = 5 * sc; x.lineCap = "round"; for (const dx of [-28, -4, 20]) { x.beginPath(); x.moveTo(cx + dx * sc, cy + 30 * sc); x.lineTo(cx + (dx - 8) * sc, cy + 56 * sc); x.stroke(); } x.lineCap = "butt"; }
+};
 const tileRects = []; // where the block tiles are (canvas units), for clicks
 const lerp = (a, b, t) => a + (b - a) * t;
 const drawApp = (x, k) => {
@@ -870,7 +893,7 @@ const drawApp = (x, k) => {
     x.textAlign = "right"; label(touch ? "TAP OFF THE WINDOW TO CLOSE" : "ESC OR CLICK OFF THE WINDOW TO CLOSE", L + APP.w - 40, T + 23); x.textAlign = "left";
     x.fillStyle = "rgba(157,157,192,.25)"; x.fillRect(L, T + 72, APP.w, 2);
     for (const dx of [665, 1315]) x.fillRect(L + dx, T + 96, 2, APP.h - 120);
-    // 1 · local time
+    // 1 · local time, with the current block under it
     const now = new Date(), p = Object.fromEntries(partsF.formatToParts(now).map((q) => [q.type, q.value]));
     const [hh, mm, ss] = hmsF.format(now).split(":").map(Number);
     const a1 = L + 40;
@@ -881,47 +904,38 @@ const drawApp = (x, k) => {
     x.font = "500 50px 'JetBrains Mono'"; x.fillStyle = "#d6d6e7"; x.fillText(`:${p.second}`, a1 + hmW + 6, T + 252);
     if (p.dayPeriod) x.fillText(p.dayPeriod, a1 + hmW + 6, T + 198);
     x.font = "600 44px Inter"; x.fillStyle = "#f4f3ff"; x.fillText(dayF.format(now), a1, T + 380);
-    const bar = (bx, by, bw, frac, col) => { x.fillStyle = "rgba(157,157,192,.25)"; x.fillRect(bx, by, bw, 8); x.fillStyle = col; x.shadowColor = col; x.shadowBlur = 12; x.fillRect(bx, by, bw * Math.max(0, Math.min(1, frac)), 8); x.shadowBlur = 0; };
-    label("THIS MINUTE", a1, T + 460); bar(a1, T + 498, 580, ss / 59, "#05d9e8");
+    label("BITCOIN BLOCK", a1, T + 452);
+    x.font = "500 78px 'JetBrains Mono'"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 20; x.fillText(height ? height.toLocaleString() : "…", a1 - 2, T + 484); x.shadowBlur = 0;
     const dayFrac = (hh * 3600 + mm * 60 + ss) / 86400;
-    label(`TODAY · ${Math.round(dayFrac * 100)}% DONE`, a1, T + 540); bar(a1, T + 578, 580, dayFrac, "#ff2a6d");
-    label(`TIME ZONE · ${tz.replace(/_/g, " ").toUpperCase()}`, a1, T + 640);
-    // 2 · the block clock
-    const a2 = L + 705;
-    label(">> BITCOIN BLOCK CLOCK", a2, T + 104);
-    x.font = "500 124px 'JetBrains Mono'"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 26;
-    x.fillText(height ? height.toLocaleString() : "…", a2 - 4, T + 140); x.shadowBlur = 0;
-    x.font = "500 34px Inter"; x.fillStyle = "#d6d6e7"; x.fillText(btc.tip ? `Last block found ${since(btc.tip)}` : "Checking the chain…", a2, T + 282);
-    btc.blocks.forEach((b, i) => {
-      const tx = a2 + (i % 3) * 200, ty = T + 346 + Math.floor(i / 3) * 176, w = 184, h = 160;
-      const tg = x.createLinearGradient(tx, ty, tx + w, ty + h);
-      if (i) { tg.addColorStop(0, "#5b2fb0"); tg.addColorStop(1, "#2a1563"); } else { tg.addColorStop(0, "#b8a60a"); tg.addColorStop(1, "#6b5e00"); }
-      x.fillStyle = tg; x.fillRect(tx, ty, w, h);
-      x.strokeStyle = i ? "rgba(185,140,255,.6)" : "#f9f002"; x.lineWidth = 2; x.strokeRect(tx, ty, w, h);
-      x.font = "600 30px 'JetBrains Mono'"; x.fillStyle = "#f4f3ff"; x.fillText(b.height.toLocaleString(), tx + 14, ty + 14);
-      x.font = "400 24px Inter"; x.fillStyle = "rgba(244,243,255,.85)";
-      x.fillText(`${b.tx_count.toLocaleString()} txs`, tx + 14, ty + 62); x.fillText(`${(b.size / 1e6).toFixed(2)} MB`, tx + 14, ty + 92); x.fillText(since(b.timestamp), tx + 14, ty + 122);
-      tileRects.push({ x: tx, y: ty, w, h, height: b.height });
+    label(`TODAY · ${Math.round(dayFrac * 100)}% DONE`, a1, T + 600); bar(x, a1, T + 638, 580, dayFrac, "#ff2a6d");
+    label(`TIME ZONE · ${tz.replace(/_/g, " ").toUpperCase()}`, a1, T + 672);
+    // 2 · today's weather (SAMPLE data for now)
+    const a2 = L + 705, sample = (px, py) => { x.font = "600 20px 'JetBrains Mono'"; x.fillStyle = "#f9f002"; x.strokeStyle = "#f9f002"; x.lineWidth = 2; const w = x.measureText("SAMPLE").width + 18; x.strokeRect(px, py - 2, w, 30); x.fillText("SAMPLE", px + 9, py + 3); };
+    label(`>> WEATHER · ${(S.location || "DC").toUpperCase()}`, a2, T + 104); sample(a2 + 390, T + 100);
+    weatherIcon(x, WEATHER.icon, a2 + 95, T + 235, 1.5);
+    x.font = "700 170px Rajdhani"; x.fillStyle = "#f4f3ff"; x.fillText(`${WEATHER.now}°`, a2 + 215, T + 140);
+    x.font = "600 40px Inter"; x.fillStyle = "#d6d6e7"; x.fillText(WEATHER.cond, a2, T + 330);
+    x.font = "500 30px 'JetBrains Mono'"; x.fillStyle = "#9d9dc0"; x.fillText(`H ${WEATHER.hi}°  ·  L ${WEATHER.lo}°`, a2 + 360, T + 336);
+    WEATHER.hours.forEach(([t, ic, deg], i) => {
+      const hx = a2 + i * 100;
+      x.fillStyle = "rgba(157,157,192,.12)"; x.fillRect(hx, T + 400, 90, 170);
+      x.font = "500 22px 'JetBrains Mono'"; x.fillStyle = "#9d9dc0"; x.textAlign = "center"; x.fillText(t, hx + 45, T + 412);
+      weatherIcon(x, ic, hx + 45, T + 480, 0.55);
+      x.font = "600 32px Inter"; x.fillStyle = "#f4f3ff"; x.fillText(`${deg}°`, hx + 45, T + 525); x.textAlign = "left";
     });
-    // 3 · price and the slow clocks
+    label(`WIND ${WEATHER.wind}  ·  HUMIDITY ${WEATHER.humidity}  ·  SUNSET ${WEATHER.sunset}`, a2, T + 600);
+    // 3 · headlines (SAMPLE data for now)
     const a3 = L + 1355, w3 = APP.w - 1355 - 40;
-    label("PRICE", a3, T + 104);
-    x.font = "700 104px Rajdhani"; x.fillStyle = "#f4f3ff"; x.fillText(btc.price ? money(btc.price) : "…", a3, T + 132);
-    if (btc.price && btc.dayAgo) {
-      const pct = ((btc.price - btc.dayAgo) / btc.dayAgo) * 100;
-      x.font = "500 30px 'JetBrains Mono'"; x.fillStyle = pct >= 0 ? "#05d9e8" : "#ff6b95"; x.fillText(`${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}% TODAY`, a3, T + 244);
+    label(">> HEADLINES", a3, T + 104); sample(a3 + 230, T + 100);
+    let ny = T + 150;
+    for (const [head, src, ago] of NEWS) {
+      x.font = "600 29px Inter"; x.fillStyle = "#f4f3ff";
+      const lines = wrap(x, head, w3, 2); lines.forEach((l, n) => x.fillText(l, a3, ny + n * 34));
+      ny += lines.length * 34 + 4;
+      x.font = "500 20px 'JetBrains Mono'"; x.fillStyle = "#05d9e8"; x.fillText(`${src} · ${ago} ago`, a3, ny);
+      ny += 38;
+      x.fillStyle = "rgba(157,157,192,.2)"; x.fillRect(a3, ny - 16, w3, 2);
     }
-    if (btc.spark.length > 1) {
-      const lo = Math.min(...btc.spark), hi = Math.max(...btc.spark), sy = T + 300, sh = 100;
-      x.beginPath(); btc.spark.forEach((v, i) => { const px = a3 + (i / (btc.spark.length - 1)) * w3, py = sy + sh - ((v - lo) / (hi - lo || 1)) * sh; i ? x.lineTo(px, py) : x.moveTo(px, py); });
-      x.strokeStyle = "#f9f002"; x.lineWidth = 4; x.shadowColor = "#f9f002"; x.shadowBlur = 12; x.stroke(); x.shadowBlur = 0;
-      label("LAST 7 DAYS", a3, sy + sh + 14);
-    }
-    const stat = (k2, v, px, py) => { label(k2, px, py); x.font = "600 36px Inter"; x.fillStyle = "#f4f3ff"; x.fillText(v, px, py + 32); };
-    stat("SATS PER DOLLAR", btc.sats ? btc.sats.toLocaleString() : "…", a3, T + 460);
-    stat("FEES, NEXT BLOCK", btc.fee ? `${btc.fee} sat/vB` : "…", a3 + 330, T + 460);
-    if (btc.halv) { stat("NEXT HALVING", `~${btc.halv.eta} · ${btc.halv.left.toLocaleString()} blocks`, a3, T + 548); bar(a3, T + 626, w3, btc.halv.pct, "#f9f002"); }
-    if (btc.diff) { const d = btc.diff; stat("DIFFICULTY ADJUSTMENT", `${d.difficultyChange >= 0 ? "+" : ""}${d.difficultyChange.toFixed(1)}% · ${d.remainingBlocks.toLocaleString()} blocks`, a3, T + 648); bar(a3, T + 726 - 10, w3, d.progressPercent / 100, "#05d9e8"); }
   }
   x.globalAlpha = 1;
 };
@@ -948,6 +962,114 @@ const tileAt = (e) => {
   if (!hit) return { off: true };
   const cx = hit.uv.x * 2080, cy = (1 - hit.uv.y) * 800;
   return { t: tileRects.find((t) => cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) };
+};
+
+// ---------- the node station: my Bitcoin node projects mempool.space onto the wall ----------
+// Click the rack and the camera walks over; a hologram beams out of the rack onto the wall under the
+// STACK SATS sign (between the rack and the aquarium): block height, the latest blocks, price, fees,
+// the halving and the next difficulty adjustment. The canvas is 1500 × 1000.
+const HOLO_C = V(-5.66, 1.3, -4.7);
+let holo = null, holoCanvas, holoTex, holoK = 0, holoAnim = null, nodeFocus = null, nodeTimers = [];
+const holoTiles = [];
+const buildHolo = () => {
+  holoCanvas = document.createElement("canvas"); holoCanvas.width = 1500; holoCanvas.height = 1000;
+  holoTex = new THREE.CanvasTexture(holoCanvas); holoTex.colorSpace = THREE.SRGBColorSpace; holoTex.anisotropy = 8;
+  const g = new THREE.Group(); g.position.copy(HOLO_C); g.rotation.y = Math.PI / 2; scene.add(g);
+  const W = 1.26, Hh = 0.84;
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(W, Hh), new THREE.MeshBasicMaterial({ map: holoTex, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, color: new THREE.Color(0.86, 0.86, 0.86), side: THREE.DoubleSide }));
+  g.add(plane);
+  // the beam: a faint pyramid of light from the node's lens to the panel's corners
+  g.updateMatrixWorld(true);
+  const lensW = V(-5.4, 1.47, -3.72), lens = g.worldToLocal(lensW.clone());
+  const cs = [V(-W / 2, -Hh / 2, 0), V(W / 2, -Hh / 2, 0), V(W / 2, Hh / 2, 0), V(-W / 2, Hh / 2, 0)], pos = [];
+  for (let i = 0; i < 4; i++) { const a = cs[i], b = cs[(i + 1) % 4]; pos.push(lens.x, lens.y, lens.z, a.x, a.y, a.z, b.x, b.y, b.z); }
+  const bg = new THREE.BufferGeometry(); bg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  const beam = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: 0x05d9e8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false }));
+  g.add(beam);
+  const lensDot = ball(0.03, 0x05d9e8, lensW.x, lensW.y, lensW.z); lensDot.material = glowMat(0x05d9e8, 1.6);
+  beam.raycast = () => {};
+  holo = { g, plane, beam };
+  g.visible = false;
+};
+const applyHolo = (now) => {
+  if (!holo) return;
+  holo.g.visible = holoK > 0.002;
+  holo.g.scale.set(Math.min(1, holoK * 1.6), Math.max(0.02, holoK), 1); // it widens, then unfolds upward
+  const flick = holoK >= 1 && Math.sin(now / 70) > 0.985 ? 0.65 : 1;
+  holo.plane.material.opacity = 0.95 * holoK * flick; holo.beam.material.opacity = 0.1 * holoK;
+};
+const drawHolo = () => {
+  if (!holoCanvas) return;
+  const x = holoCanvas.getContext("2d"), W = 1500, Hh = 1000;
+  x.clearRect(0, 0, W, Hh);
+  const g = x.createLinearGradient(0, 0, 0, Hh); g.addColorStop(0, "rgba(5,40,60,.55)"); g.addColorStop(1, "rgba(10,10,40,.65)"); x.fillStyle = g; x.fillRect(0, 0, W, Hh);
+  x.strokeStyle = "#05d9e8"; x.lineWidth = 5; x.shadowColor = "#05d9e8"; x.shadowBlur = 18; x.strokeRect(10, 10, W - 20, Hh - 20); x.shadowBlur = 0;
+  x.textBaseline = "top"; x.textAlign = "left";
+  const label = (t, px, py) => { x.font = "500 28px 'JetBrains Mono'"; x.fillStyle = "#9fdfe8"; x.fillText(t, px, py); };
+  const stat = (k, v, px, py) => { label(k, px, py); x.font = "600 40px Inter"; x.fillStyle = "#f4f3ff"; x.fillText(v, px, py + 36); };
+  label(">> MY NODE · MEMPOOL.SPACE", 50, 40);
+  x.fillStyle = "#2bff88"; x.beginPath(); x.arc(560, 55, 8, 0, Math.PI * 2); x.fill(); label("SYNCED", 578, 40);
+  x.fillStyle = "rgba(5,217,232,.35)"; x.fillRect(40, 90, W - 80, 2); x.fillRect(760, 120, 2, 820);
+  // left: the chain
+  label("BLOCK HEIGHT", 50, 120);
+  x.font = "500 120px 'JetBrains Mono'"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 22; x.fillText(height ? height.toLocaleString() : "…", 46, 158); x.shadowBlur = 0;
+  x.font = "500 36px Inter"; x.fillStyle = "#d6d6e7"; x.fillText(btc.tip ? `Last block found ${since(btc.tip)}` : "Checking the chain…", 50, 300);
+  holoTiles.length = 0;
+  btc.blocks.forEach((b, i) => {
+    const tx = 50 + (i % 3) * 228, ty = 370 + Math.floor(i / 3) * 200, w = 210, h = 180;
+    const tg = x.createLinearGradient(tx, ty, tx + w, ty + h);
+    if (i) { tg.addColorStop(0, "rgba(91,47,176,.9)"); tg.addColorStop(1, "rgba(42,21,99,.9)"); } else { tg.addColorStop(0, "rgba(184,166,10,.9)"); tg.addColorStop(1, "rgba(107,94,0,.9)"); }
+    x.fillStyle = tg; x.fillRect(tx, ty, w, h);
+    x.strokeStyle = i ? "rgba(185,140,255,.7)" : "#f9f002"; x.lineWidth = 3; x.strokeRect(tx, ty, w, h);
+    x.font = "600 34px 'JetBrains Mono'"; x.fillStyle = "#f4f3ff"; x.fillText(b.height.toLocaleString(), tx + 16, ty + 16);
+    x.font = "400 27px Inter"; x.fillStyle = "rgba(244,243,255,.88)";
+    x.fillText(`${b.tx_count.toLocaleString()} txs`, tx + 16, ty + 70); x.fillText(`${(b.size / 1e6).toFixed(2)} MB`, tx + 16, ty + 104); x.fillText(since(b.timestamp), tx + 16, ty + 138);
+    holoTiles.push({ x: tx, y: ty, w, h, height: b.height });
+  });
+  label(touch ? "TAP A BLOCK TO OPEN IT ↗" : "CLICK A BLOCK TO OPEN IT ON MEMPOOL.SPACE ↗", 50, 920);
+  // right: money and the slow clocks
+  const a = 800, w3 = 650;
+  label("PRICE", a, 120);
+  x.font = "700 112px Rajdhani"; x.fillStyle = "#f4f3ff"; x.fillText(btc.price ? money(btc.price) : "…", a, 150);
+  if (btc.price && btc.dayAgo) { const pct = ((btc.price - btc.dayAgo) / btc.dayAgo) * 100; x.font = "500 32px 'JetBrains Mono'"; x.fillStyle = pct >= 0 ? "#05d9e8" : "#ff6b95"; x.fillText(`${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}% TODAY`, a, 272); }
+  if (btc.spark.length > 1) {
+    const lo = Math.min(...btc.spark), hi = Math.max(...btc.spark), sy = 330, sh = 110;
+    x.beginPath(); btc.spark.forEach((v, i) => { const px = a + (i / (btc.spark.length - 1)) * w3, py = sy + sh - ((v - lo) / (hi - lo || 1)) * sh; i ? x.lineTo(px, py) : x.moveTo(px, py); });
+    x.strokeStyle = "#f9f002"; x.lineWidth = 5; x.shadowColor = "#f9f002"; x.shadowBlur = 12; x.stroke(); x.shadowBlur = 0;
+    label("LAST 7 DAYS", a, sy + sh + 14);
+  }
+  stat("SATS PER DOLLAR", btc.sats ? btc.sats.toLocaleString() : "…", a, 500);
+  stat("FEES, NEXT BLOCK", btc.fee ? `${btc.fee} sat/vB` : "…", a + 340, 500);
+  if (btc.halv) { stat("NEXT HALVING", `~${btc.halv.eta} · ${btc.halv.left.toLocaleString()} blocks`, a, 610); bar(x, a, 700, w3, btc.halv.pct, "#f9f002"); }
+  if (btc.diff) { const d = btc.diff; stat("DIFFICULTY ADJUSTMENT", `${d.difficultyChange >= 0 ? "+" : ""}${d.difficultyChange.toFixed(1)}% · ${d.remainingBlocks.toLocaleString()} blocks`, a, 740); bar(x, a, 830, w3, d.progressPercent / 100, "#05d9e8"); }
+  for (let y = 0; y < Hh; y += 5) { x.fillStyle = "rgba(255,255,255,.035)"; x.fillRect(0, y, W, 2); } // scanlines
+  holoTex.needsUpdate = true;
+};
+const openNode = () => {
+  if (nodeFocus || flight) return;
+  const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect);
+  // frame the whole station: the rack, the beam, the projection and the sign above it
+  const look = V(-5.66, 1.45, -4.6), d = Math.min(4.4, Math.max(0.88 / Math.tan(vf), 1.15 / Math.tan(hf)));
+  nodeFocus = { view: { pos: look.clone().add(V(d, 0.1, 0)), look, yaw: 0.15 } };
+  hideTip(); setRoomUI();
+  flyTo(nodeFocus.view.pos, nodeFocus.view.look, 1100);
+  holoAnim = { t0: performance.now() + (reduce ? 0 : 450), from: holoK, to: 1 };
+  drawHolo();
+  liveBlocks().then(drawHolo).then(trend).then(drawHolo).catch((e) => console.warn("mempool:", e.message));
+  nodeTimers = [setInterval(drawHolo, 1000), setInterval(() => liveBlocks().then(drawHolo).catch(() => {}), 20000)];
+};
+const closeNode = (after) => {
+  if (!nodeFocus) return after?.();
+  nodeFocus = null; nodeTimers.forEach(clearInterval); hideTip(); setRoomUI();
+  holoAnim = { t0: performance.now(), from: holoK, to: 0 };
+  flyTo(VIEWS.living.pos, VIEWS.living.look, 1000, after);
+};
+// Which block tile on the projection is under the pointer?
+const holoAt = (e) => {
+  const hit = setRay(e).intersectObject(holo.plane, false)[0];
+  if (!hit) return { off: true };
+  const cx = hit.uv.x * 1500, cy = (1 - hit.uv.y) * 1000;
+  return { t: holoTiles.find((t) => cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) };
 };
 
 // ---------- the movie shelf, up close ----------
@@ -1058,12 +1180,13 @@ canvas.addEventListener("pointermove", (e) => {
     return;
   }
   if (e.pointerType !== "mouse" || flight) return;
-  if (winFocus) {
-    const w = tileAt(e);
+  if (nodeFocus) {
+    const w = holoAt(e);
     if (w.t) { showTip(e, { label: `Block ${w.t.height.toLocaleString()}`, sub: "Open it on mempool.space ↗" }); canvas.style.cursor = "pointer"; }
     else { hideTip(); canvas.style.cursor = w.off ? "zoom-out" : "default"; }
     return;
   }
+  if (winFocus) { hideTip(); canvas.style.cursor = tileAt(e).off ? "zoom-out" : "default"; return; }
   if (room === "shelf") {
     const s = shelfPick(e);
     if (!s) { hideTip(); canvas.style.cursor = focusRow ? "zoom-out" : "grab"; return; }
@@ -1085,12 +1208,13 @@ canvas.addEventListener("pointerup", (e) => {
     return;
   }
   if (wasDrag || flight) return;
-  if (winFocus) {
-    const w = tileAt(e);
+  if (nodeFocus) {
+    const w = holoAt(e);
     if (w.t) window.open(`https://mempool.space/block/${w.t.height}`, "_blank", "noopener");
-    else if (w.off) closeWindowApp(); // off the glass: close the app
+    else if (w.off) closeNode(); // off the projection: step back
     return;
   }
+  if (winFocus) { if (tileAt(e).off) closeWindowApp(); return; } // off the glass: close the app
   if (room === "shelf") {
     const s = shelfPick(e);
     if (!s) return focusRow && unfocus(); // clicking off the shelf steps back from the row
@@ -1157,6 +1281,11 @@ const frame = (now) => {
     const on = Math.sin(now / 1000 * 1.3 + s.userData.seed) > -0.97 || Math.random() < 0.5;
     s.material.color.setScalar(on ? s.userData.k : s.userData.k * 0.35);
   }
+  if (holoAnim) { // the node's projection unfolding (or folding away)
+    const t = reduce ? 1 : Math.max(0, Math.min(1, (now - holoAnim.t0) / 600));
+    holoK = holoAnim.from + (holoAnim.to - holoAnim.from) * ease(t); if (t === 1) holoAnim = null;
+  }
+  applyHolo(now);
   if (winAnim) { // the clock app growing out of (or shrinking back into) the corner readout
     const t = reduce ? 1 : Math.max(0, Math.min(1, (now - winAnim.t0) / 650));
     winApp = winAnim.from + (winAnim.to - winAnim.from) * t; drawWindow();
@@ -1168,6 +1297,7 @@ const frame = (now) => {
 };
 
 if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, shelfFaces, focus, openWindowApp, closeWindowApp,
+  openNode, closeNode,
   peek(p, l) { peekView = p ? { pos: V(...p), look: V(...l), yaw: 0 } : null; }, get room() { return room; }, set yaw(v) { yaw = v; } };
 
 // ---------- start ----------
@@ -1176,7 +1306,7 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
     Promise.all(["700 140px Rajdhani", "500 34px 'JetBrains Mono'", "500 38px Inter", "600 40px Inter", "italic 400 38px Inter"].map((f) => document.fonts.load(f))),
     new Promise((r) => setTimeout(r, 2500)),
   ]);
-  buildOutside(); buildLiving(); buildTheater(); buildDecor(); buildCats();
+  buildOutside(); buildLiving(); buildTheater(); buildDecor(); buildCats(); buildHolo();
   scene.add(new THREE.AmbientLight(0x5b4a9a, 0.9));
   scene.add(new THREE.HemisphereLight(0x9d8cff, 0x1a0f30, 0.7));
   const key = new THREE.DirectionalLight(0xffffff, 0.7); key.position.set(3, 6, 4); scene.add(key);
