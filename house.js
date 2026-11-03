@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793701984";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793702487";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -103,16 +103,20 @@ const buildOutside = () => {
   // Finishes: matte graphite wall panels with fine seams over a darker lower band, a tiled floor,
   // a plain ceiling with recessed light panels. Quiet, so the doors, signs and ads do the talking.
   const wallTex = (len) => { const t = canvasTex(512, 1160, (x, w, h) => {
-    x.fillStyle = "#353a4c"; x.fillRect(0, 0, w, h);
-    const band = h * (1 - 1.05 / H); x.fillStyle = "#252938"; x.fillRect(0, band, w, h - band); // lower band, 1.05 m tall
-    x.fillStyle = "#1a1d28"; x.fillRect(0, band - 6, w, 10); x.fillRect(0, 0, 6, h); // the reveal, and the seam between panels
-    x.fillStyle = "rgba(255,255,255,.05)"; x.fillRect(8, 0, 3, band - 8); // a soft highlight on the panel edge
+    x.fillStyle = "#2b3042"; x.fillRect(0, 0, w, h);
+    const band = h * (1 - 1.05 / H), head = h * (1 - 2.62 / H); x.fillStyle = "#3a4052"; x.fillRect(0, band, w, h - band); // a lower band of pressed metal, 1.05 m tall
+    for (let y = band + 14; y < h - 34; y += 12) { x.fillStyle = "rgba(0,0,0,.18)"; x.fillRect(0, y, w, 2); } // its ribs
+    x.fillStyle = "#23273a"; x.fillRect(0, 0, w, head); // a darker frieze above door height
+    x.fillStyle = "#151824"; x.fillRect(0, band - 6, w, 10); x.fillRect(0, head - 4, w, 8); x.fillRect(0, 0, 6, h); // the reveals, and the seam between panels
+    x.fillStyle = "rgba(255,255,255,.05)"; x.fillRect(8, head + 4, 3, band - head - 12); // a soft highlight on the panel edge
+    x.fillStyle = "#5a6178"; for (const [fx, fy] of [[22, head + 18], [w - 22, head + 18], [22, band - 20], [w - 22, band - 20]]) { x.beginPath(); x.arc(fx, fy, 4, 0, Math.PI * 2); x.fill(); } // fasteners
     x.fillStyle = "#14161f"; x.fillRect(0, h - 30, w, 30); // skirting
   }); t.wrapS = THREE.RepeatWrapping; t.repeat.set(len / 1.5, 1); return t; };
   const finish = (w, h, d, map, x, y, z, color = 0xffffff) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toon(color, { map })); m.position.set(x, y, z); scene.add(m); return m; };
   const floorTex = canvasTex(512, 512, (x, w) => {
-    const n = 2, c = w / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const v = 32 + ((i * 7 + j * 3) % 3) * 3; x.fillStyle = `rgb(${v},${v + 2},${v + 10})`; x.fillRect(i * c, j * c, c, c); }
-    x.strokeStyle = "#16171f"; x.lineWidth = 4; for (let i = 0; i <= n; i++) { x.beginPath(); x.moveTo(i * c, 0); x.lineTo(i * c, w); x.stroke(); x.beginPath(); x.moveTo(0, i * c); x.lineTo(w, i * c); x.stroke(); }
+    const n = 2, c = w / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const v = 22 + ((i * 7 + j * 3) % 3) * 3; x.fillStyle = `rgb(${v},${v + 2},${v + 9})`; x.fillRect(i * c, j * c, c, c); }
+    const gl = x.createLinearGradient(0, 0, w, w); gl.addColorStop(0.3, "rgba(255,255,255,0)"); gl.addColorStop(0.5, "rgba(170,200,255,.07)"); gl.addColorStop(0.7, "rgba(255,255,255,0)"); x.fillStyle = gl; x.fillRect(0, 0, w, w); // a wet sheen
+    x.strokeStyle = "#0e0f16"; x.lineWidth = 4; for (let i = 0; i <= n; i++) { x.beginPath(); x.moveTo(i * c, 0); x.lineTo(i * c, w); x.stroke(); x.beginPath(); x.moveTo(0, i * c); x.lineTo(w, i * c); x.stroke(); }
   }); floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set((2 * L) / 1.2, Dp / 1.2);
   finish(2 * L, 0.1, Dp, floorTex, 0, -0.05, Dp / 2);
   slab(2 * L, 0.1, Dp, 0x1c1e28, 0, H + 0.05, Dp / 2);
@@ -166,7 +170,7 @@ const buildOutside = () => {
   for (const s of [-1, 1]) { block(0.12, 0.34, 0.08, 0x14161f, s * 1.25, 2.1, 0.12, { r: 0.02 }); tube(0.05, 0.28, 0.02, 0x05d9e8, s * 1.25, 2.1, 0.165, { k: 1.1 }); } // sconces
   const lamp = new THREE.PointLight(0x05d9e8, 3.5, 6); lamp.position.set(0, 2.3, 1.4); scene.add(lamp);
   const warm = new THREE.PointLight(0xff2a6d, 2.5, 6); warm.position.set(0, 2.9, 0.8); scene.add(warm);
-  block(1.4, 0.03, 0.8, 0x3a2d63, 0, 0.015, 0.75, { r: 0.012 }); // doormat
+  block(1.4, 0.03, 0.8, 0x1c1f2a, 0, 0.015, 0.75, { r: 0.012 }); // doormat, rubber
   const mat = sign("WELCOME", 0.24, 0, 0.034, 0.75, { color: "#f9f002", k: 1.05 }); mat.rotation.x = -Math.PI / 2;
   // the neighbours: recessed metal frames, lit number plates and a little status light
   const doorTones = [0x9aa2b4, 0x8f98a6, 0xa3a6b0, 0x939cb0]; // steel tints, a little different from batch to batch
@@ -199,10 +203,78 @@ const buildOutside = () => {
     tube(1.2, 0.01, 0.6, 0xb8c4e0, xx, H - 0.045, Dp / 2, { k: 0.42 });
   }
   for (const zz of [0.16, Dp - 0.16]) tube(2 * L, 0.02, 0.02, 0x7fb8d8, 0, H - 0.08, zz, { k: 0.55 }); // a quiet cove glow where wall meets ceiling
-  for (const zz of [0.2, Dp - 0.2]) block(2 * L, 0.06, 0.06, 0x2a2e3a, 0, H - 0.16, zz, { ink: false, r: 0.02 }); // tidy conduit
+  // straight pipe runs up by the ceiling, clamped every couple of metres (never sagging)
+  for (const zz of [0.2, Dp - 0.2]) for (const [dy, r, c] of [[0.12, 0.035, 0x6c7389], [0.2, 0.022, 0xb36b2c]]) {
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 2 * L, 12), steelM(c)); pipe.rotation.z = Math.PI / 2; pipe.position.set(0, H - dy, zz + (zz < 1 ? 0.02 : -0.02)); scene.add(pipe); }
+  for (let xx = -L + 1; xx < L; xx += 2.2) for (const zz of [0.17, Dp - 0.17]) block(0.04, 0.14, 0.07, 0x1a1d28, xx, H - 0.15, zz, { r: 0.01, ink: false });
   for (const xx of [-8, 0, 8]) { const hl = new THREE.PointLight(0xc8d0ff, 2.4, 9); hl.position.set(xx, 3.0, Dp / 2); scene.add(hl); }
 };
 
+// the hallway, lived in: windows onto the city at both ends, warm sconces against the cool light,
+// neon traced round the neighbours' doors, plants, vents and a utility panel by the lift
+const buildHallMore = () => {
+  const L = 16, Dp = 5.2;
+  const glowT = canvasTex(256, 256, (c, w) => { const gr = c.createRadialGradient(w / 2, w / 2, 6, w / 2, w / 2, w / 2); gr.addColorStop(0, "rgba(255,255,255,.95)"); gr.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = gr; c.fillRect(0, 0, w, w); });
+  const pool = (w, h, color, op, x, y, z, rotX = 0, rotY = 0) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: glowT, color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); m.rotation.set(rotX, rotY, 0); m.position.set(x, y, z); m.raycast = () => {}; scene.add(m); return m; };
+  // a window at each end of the hall: a tall slot of neon city in the rain, framed in rounded neon
+  const cityT = (seed) => canvasTex(512, 900, (x, w, h) => {
+    let sd = seed; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+    const sky = x.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, "#07051a"); sky.addColorStop(0.6, "#2a0b3d"); sky.addColorStop(1, "#5a1450"); x.fillStyle = sky; x.fillRect(0, 0, w, h);
+    for (let layer = 0; layer < 3; layer++) { const shade = ["#140f2e", "#0f0b22", "#08061a"][layer];
+      for (let bx = -20; bx < w; bx += 40 + r() * 60) { const bw = 40 + r() * 70 + layer * 20, top = h * (0.12 + r() * 0.4 + layer * 0.12); x.fillStyle = shade; x.fillRect(bx, top, bw, h - top);
+        for (let wy = top + 10; wy < h; wy += 14) for (let wx = bx + 6; wx < bx + bw - 6; wx += 10) if (r() < 0.12) { x.fillStyle = r() < 0.7 ? "rgba(255,214,150,.55)" : "rgba(5,217,232,.6)"; x.fillRect(wx, wy, 4, 6); }
+        if (r() < 0.35) { const sc = ["#ff2a6d", "#05d9e8", "#f9f002", "#ff6bd5"][Math.floor(r() * 4)]; x.fillStyle = sc; x.shadowColor = sc; x.shadowBlur = 16; x.fillRect(bx + bw * 0.4, top + 20, 8, 80 + r() * 120); x.shadowBlur = 0; } } }
+    x.strokeStyle = "rgba(200,220,255,.08)"; x.lineWidth = 1; for (let i = 0; i < 120; i++) { const rx = r() * w, ry = r() * h; x.beginPath(); x.moveTo(rx, ry); x.lineTo(rx - 4, ry + 26); x.stroke(); } // rain on the glass
+  });
+  for (const s of [-1, 1]) {
+    const g = new THREE.Group(); g.position.set(s * (L - 0.01), 0, Dp / 2); g.rotation.y = -s * Math.PI / 2; scene.add(g);
+    panel(2.2, 2.7, cityT(s > 0 ? 11 : 29), 0, 1.65, 0.0, { parent: g, k: 0.95 });
+    block(2.36, 0.12, 0.12, 0, 0, 0.27, 0.02, { parent: g, r: 0.02, mat: steelM(0x6c7389) }); // sill
+    const curve = new THREE.CurvePath(), rr = 0.25, W = 1.14, Ht = 1.4, cy = 1.65; // a rounded neon frame
+    const P = (a, b) => V(a, cy + b, 0.04);
+    for (const [a, b, c] of [[P(-W + rr, Ht), P(W - rr, Ht)], [P(W, Ht - rr), P(W, -Ht + rr)], [P(W - rr, -Ht), P(-W + rr, -Ht)], [P(-W, -Ht + rr), P(-W, Ht - rr)]]) curve.add(new THREE.LineCurve3(a, b));
+    for (const [cx, cy2, a0] of [[W - rr, Ht - rr, 0], [W - rr, -Ht + rr, -Math.PI / 2], [-W + rr, -Ht + rr, Math.PI], [-W + rr, Ht - rr, Math.PI / 2]]) {
+      const pts = []; for (let k = 0; k <= 8; k++) { const a = a0 + (k / 8) * (Math.PI / 2); pts.push(V(cx + Math.cos(a) * rr, cy + cy2 + Math.sin(a) * rr, 0.04)); } g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 10, 0.014, 6), glowMat(s > 0 ? 0xff2a6d : 0x05d9e8, 1.4))); }
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 64, 0.014, 6), glowMat(s > 0 ? 0xff2a6d : 0x05d9e8, 1.4)));
+    pool(3.4, 2.4, s > 0 ? 0xff2a6d : 0x05d9e8, 0.12, s * (L - 1.2), 0.004, Dp / 2, -Math.PI / 2); // the city's colour on the wet floor
+    const l = new THREE.PointLight(s > 0 ? 0xff4f8b : 0x3fd8ff, 1.6, 6); l.position.set(s * (L - 0.8), 1.8, Dp / 2); scene.add(l);
+    // a big planter under each window
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 18), steelM(0x2a2e3a)); pot.position.set(s * (L - 0.5), 0.25, Dp / 2 + 1.5); scene.add(pot);
+    for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 2, leaf = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.9 + (k % 3) * 0.2, 5), toon(k % 2 ? 0x2f8f4e : 0x3fae5e)); leaf.position.set(s * (L - 0.5) + Math.cos(a) * 0.1, 0.9, Dp / 2 + 1.5 + Math.sin(a) * 0.1); leaf.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35); scene.add(leaf); }
+  }
+  // warm amber sconces between the doors, each washing its bit of wall
+  for (const [x, back] of [[-4.0, false], [3.9, false], [-4.05, true], [1.55, true], [4.25, true]]) {
+    const z = back ? Dp - 0.11 : 0.11, f = back ? -1 : 1;
+    block(0.1, 0.42, 0.04, 0, x, 2.05, z + f * 0.01, { mat: steelM(0x9aa2b4), r: 0.01, ink: false });
+    tube(0.045, 0.32, 0.03, 0xffa040, x, 2.05, z + f * 0.035, { k: 1.25 });
+    pool(1.2, 1.6, 0xffa040, 0.22, x, 2.0, z + f * 0.002, 0, back ? Math.PI : 0);
+    pool(0.9, 0.7, 0xffa040, 0.06, x, 0.004, z + f * 0.5, -Math.PI / 2);
+  }
+  for (const [x, z] of [[-4, 1.0], [4.1, Dp - 1.0]]) { const l = new THREE.PointLight(0xffa040, 1.4, 4.5); l.position.set(x, 2.1, z); scene.add(l); }
+  // neon traced round each neighbour's door frame (a thin line, not a glow)
+  for (const [x, back] of [[-5.2, false], [5.2, false], [10.4, false], [8.6, true], [2.8, true], [-2.6, true], [-8.4, true]]) {
+    const z = back ? Dp - 0.075 : 0.075 + 0.1, c = back ? 0xff2a6d : 0x7ff6ff;
+    for (const sx of [-1, 1]) tube(0.016, 2.5, 0.016, c, x + sx * 0.73, 1.25, z, { k: 0.75 });
+    tube(1.48, 0.016, 0.016, c, x, 2.51, z, { k: 0.75 });
+  }
+  // a reflection of my door's neon on the floor in front of it
+  pool(1.9, 1.2, 0x05d9e8, 0.1, 0, 0.034, 1.3, -Math.PI / 2); pool(0.9, 0.6, 0xff2a6d, 0.12, 0, 0.036, 0.6, -Math.PI / 2);
+  // a planter by my door
+  { const box = block(0.7, 0.42, 0.3, 0, 2.6, 0.21, 0.3, { r: 0.02, mat: steelM(0x6c7389) });
+    for (let k = 0; k < 7; k++) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), toon(k % 2 ? 0x2f8f4e : 0x3fae5e)); leaf.scale.set(1, 0.6 + (k % 3) * 0.25, 1); leaf.position.set(2.36 + k * 0.08, 0.5 + (k % 2) * 0.08, 0.3 + ((k % 3) - 1) * 0.05); scene.add(leaf); }
+    tube(0.6, 0.012, 0.012, 0xb48cff, 2.6, 0.43, 0.46, { k: 0.6 }); }
+  // low vents along both walls
+  for (const [x, back] of [[-1.6, false], [7.0, false], [-12.6, true], [6.9, true], [13.8, false]]) {
+    const z = back ? Dp - 0.12 : 0.12; const v = block(0.5, 0.18, 0.02, 0x181a24, x, 0.3, z, { r: 0.01, ink: false });
+    for (let k = 0; k < 4; k++) block(0.44, 0.012, 0.01, 0x0b0c12, x, 0.24 + k * 0.04, z + (back ? -0.012 : 0.012), { ink: false, r: 0.002 });
+  }
+  // a utility panel by the lift: breaker readouts, status lights and a warning label
+  { const ux = -12.25, z = 0.13; block(0.52, 0.8, 0.06, 0x1c1f2a, ux, 1.45, z, { r: 0.02 });
+    for (let k = 0; k < 6; k++) blinkers.push({ m: tube(0.02, 0.02, 0.01, k % 4 ? 0x2bff88 : 0xf9f002, ux - 0.15 + (k % 3) * 0.15, 1.7 - Math.floor(k / 3) * 0.1, z + 0.035, { k: 2 }), rate: 0.3 + k * 0.4, phase: k });
+    panel(0.42, 0.14, canvasTex(420, 140, (x, w, h) => { x.fillStyle = "#f9f002"; x.fillRect(0, 0, w, h); x.fillStyle = "#14161f"; for (let i = -2; i < 12; i++) { x.beginPath(); x.moveTo(i * 40, 0); x.lineTo(i * 40 + 20, 0); x.lineTo(i * 40 + 60, h); x.lineTo(i * 40 + 40, h); x.fill(); }
+      x.fillStyle = "#f9f002"; x.fillRect(40, 30, w - 80, h - 60); x.fillStyle = "#14161f"; x.font = "700 46px Rajdhani"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("⚡ HV · 480V", w / 2, h / 2 + 2); }), ux, 1.2, z + 0.035, { k: 0.85 });
+    sign("UTIL 4", 0.06, ux, 1.78, z + 0.035, { color: "#9d9dc0", font: "500 70px 'JetBrains Mono'", k: 1, glow: 0, core: 0 }); }
+};
 // ---------- the living room (z 0 … -7) ----------
 let windowTex, windowCanvas, windowGlass, mullion;
 const buildLiving = () => {
@@ -2581,7 +2653,7 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
     Promise.all(["700 140px Rajdhani", "500 34px 'JetBrains Mono'", "500 38px Inter", "600 40px Inter", "italic 400 38px Inter"].map((f) => document.fonts.load(f))),
     new Promise((r) => setTimeout(r, 2500)),
   ]);
-  buildOutside(); buildLiving(); buildTheater(); buildKitchen(); buildKitchenMore(); buildGallery(); buildDecor(); buildCats(); buildHolo();
+  buildOutside(); buildLiving(); buildTheater(); buildKitchen(); buildKitchenMore(); buildGallery(); buildDecor(); buildHallMore(); buildCats(); buildHolo();
   scene.add(new THREE.AmbientLight(0x5b4a9a, 0.9));
   scene.add(new THREE.HemisphereLight(0x9d8cff, 0x1a0f30, 0.7));
   const key = new THREE.DirectionalLight(0xffffff, 0.7); key.position.set(3, 6, 4); scene.add(key);
