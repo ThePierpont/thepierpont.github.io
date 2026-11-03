@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793688185";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793688478";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -966,16 +966,19 @@ const tileAt = (e) => {
 
 // ---------- the node station: my Bitcoin node projects mempool.space onto the wall ----------
 // Click the rack and the camera walks over; a hologram beams out of the rack onto the wall under the
-// STACK SATS sign (between the rack and the aquarium): block height, the latest blocks, price, fees,
-// the halving and the next difficulty adjustment. The canvas is 1500 × 1000.
-const HOLO_C = V(-5.66, 1.3, -4.7);
+// STACK SATS sign (between the rack and the aquarium), floor to sign: block height, the latest blocks,
+// price, fees, the halving and the next difficulty adjustment, and my miners. The canvas is 1500 × 2000.
+const HOLO_C = V(-5.66, 0.88, -4.7), HOLO_H = 2000;
+// my miners (entered by hand for now): six of them, 50 TH/s between them
+const MINERS = [["MINER 01", 9.2, 61, "21d 4h"], ["MINER 02", 8.4, 58, "21d 4h"], ["MINER 03", 8.9, 63, "14d 9h"], ["MINER 04", 7.6, 57, "9d 2h"], ["MINER 05", 8.1, 60, "9d 2h"], ["MINER 06", 7.8, 59, "3d 17h"]]
+  .map(([name, th, temp, up]) => ({ name, th, temp, up, hist: Array.from({ length: 24 }, () => th) }));
 let holo = null, holoCanvas, holoTex, holoK = 0, holoAnim = null, nodeFocus = null, nodeTimers = [];
 const holoTiles = [];
 const buildHolo = () => {
-  holoCanvas = document.createElement("canvas"); holoCanvas.width = 1500; holoCanvas.height = 1000;
+  holoCanvas = document.createElement("canvas"); holoCanvas.width = 1500; holoCanvas.height = HOLO_H;
   holoTex = new THREE.CanvasTexture(holoCanvas); holoTex.colorSpace = THREE.SRGBColorSpace; holoTex.anisotropy = 8;
   const g = new THREE.Group(); g.position.copy(HOLO_C); g.rotation.y = Math.PI / 2; scene.add(g);
-  const W = 1.26, Hh = 0.84;
+  const W = 1.26, Hh = 1.68; // from the floor up to just under the sign
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(W, Hh), new THREE.MeshBasicMaterial({ map: holoTex, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, color: new THREE.Color(0.86, 0.86, 0.86), side: THREE.DoubleSide }));
   g.add(plane);
   // the beam: a faint pyramid of light from the node's lens to the panel's corners
@@ -1000,7 +1003,7 @@ const applyHolo = (now) => {
 };
 const drawHolo = () => {
   if (!holoCanvas) return;
-  const x = holoCanvas.getContext("2d"), W = 1500, Hh = 1000;
+  const x = holoCanvas.getContext("2d"), W = 1500, Hh = HOLO_H;
   x.clearRect(0, 0, W, Hh);
   const g = x.createLinearGradient(0, 0, 0, Hh); g.addColorStop(0, "rgba(5,40,60,.55)"); g.addColorStop(1, "rgba(10,10,40,.65)"); x.fillStyle = g; x.fillRect(0, 0, W, Hh);
   x.strokeStyle = "#05d9e8"; x.lineWidth = 5; x.shadowColor = "#05d9e8"; x.shadowBlur = 18; x.strokeRect(10, 10, W - 20, Hh - 20); x.shadowBlur = 0;
@@ -1009,7 +1012,7 @@ const drawHolo = () => {
   const stat = (k, v, px, py) => { label(k, px, py); x.font = "600 40px Inter"; x.fillStyle = "#f4f3ff"; x.fillText(v, px, py + 36); };
   label(">> MY NODE · MEMPOOL.SPACE", 50, 40);
   x.fillStyle = "#2bff88"; x.beginPath(); x.arc(560, 55, 8, 0, Math.PI * 2); x.fill(); label("SYNCED", 578, 40);
-  x.fillStyle = "rgba(5,217,232,.35)"; x.fillRect(40, 90, W - 80, 2); x.fillRect(760, 120, 2, 820);
+  x.fillStyle = "rgba(5,217,232,.35)"; x.fillRect(40, 90, W - 80, 2); x.fillRect(760, 120, 2, 800);
   // left: the chain
   label("BLOCK HEIGHT", 50, 120);
   x.font = "500 120px 'JetBrains Mono'"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 22; x.fillText(height ? height.toLocaleString() : "…", 46, 158); x.shadowBlur = 0;
@@ -1042,6 +1045,30 @@ const drawHolo = () => {
   stat("FEES, NEXT BLOCK", btc.fee ? `${btc.fee} sat/vB` : "…", a + 340, 500);
   if (btc.halv) { stat("NEXT HALVING", `~${btc.halv.eta} · ${btc.halv.left.toLocaleString()} blocks`, a, 610); bar(x, a, 700, w3, btc.halv.pct, "#f9f002"); }
   if (btc.diff) { const d = btc.diff; stat("DIFFICULTY ADJUSTMENT", `${d.difficultyChange >= 0 ? "+" : ""}${d.difficultyChange.toFixed(1)}% · ${d.remainingBlocks.toLocaleString()} blocks`, a, 740); bar(x, a, 830, w3, d.progressPercent / 100, "#05d9e8"); }
+  // bottom: my miners, each wobbling a little around its rate like live readings
+  x.fillStyle = "rgba(5,217,232,.35)"; x.fillRect(40, 990, W - 80, 2);
+  const t = performance.now() / 1000;
+  // each one wobbles, but the wobbles cancel out, so the total holds at 50 TH/s
+  const wob = MINERS.map((m, i) => Math.sin(t * 0.9 + i * 1.7) * 0.18 + Math.sin(t * 2.3 + i) * 0.07), avg = wob.reduce((a2, b) => a2 + b, 0) / wob.length;
+  MINERS.forEach((m, i) => { m.now = m.th + wob[i] - avg; m.hist.push(m.now); m.hist.shift(); });
+  const total = MINERS.reduce((n, m) => n + m.now, 0);
+  label(">> MINERS", 50, 1025);
+  x.fillStyle = "#2bff88"; x.beginPath(); x.arc(280, 1040, 8, 0, Math.PI * 2); x.fill(); label(`${MINERS.length} ONLINE`, 298, 1025);
+  label("TOTAL HASHRATE", 50, 1085);
+  x.font = "500 120px 'JetBrains Mono'"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 22; x.fillText(total.toFixed(1), 46, 1122); x.shadowBlur = 0;
+  const tw = x.measureText(total.toFixed(1)).width; x.font = "700 56px Rajdhani"; x.fillStyle = "#f4f3ff"; x.fillText("TH/s", 66 + tw, 1172);
+  MINERS.forEach((m, i) => {
+    const cx = 50 + (i % 2) * 715, cy = 1290 + Math.floor(i / 2) * 230, cw = 685, ch = 210;
+    x.fillStyle = "rgba(10,20,50,.6)"; x.fillRect(cx, cy, cw, ch); x.strokeStyle = "rgba(5,217,232,.55)"; x.lineWidth = 2; x.strokeRect(cx, cy, cw, ch);
+    x.fillStyle = "#2bff88"; x.beginPath(); x.arc(cx + 26, cy + 32, 8, 0, Math.PI * 2); x.fill();
+    x.font = "600 32px 'JetBrains Mono'"; x.fillStyle = "#d6d6e7"; x.fillText(m.name, cx + 46, cy + 16);
+    x.font = "700 78px Rajdhani"; x.fillStyle = "#f4f3ff"; x.fillText(m.now.toFixed(1), cx + 22, cy + 66);
+    const vw = x.measureText(m.now.toFixed(1)).width; x.font = "600 34px Rajdhani"; x.fillStyle = "#9fdfe8"; x.fillText("TH/s", cx + 30 + vw, cy + 104);
+    x.font = "500 26px 'JetBrains Mono'"; x.fillStyle = "#9d9dc0"; x.fillText(`${m.temp}°C · UP ${m.up}`, cx + 24, cy + 160);
+    // a little bar graph of its last readings
+    const gx = cx + 370, gy = cy + 40, gw = 290, gh = 130, lo = m.th - 0.5, hi = m.th + 0.5;
+    m.hist.forEach((v, k) => { const bh = Math.max(4, ((v - lo) / (hi - lo)) * gh); x.fillStyle = k === m.hist.length - 1 ? "#f9f002" : "rgba(5,217,232,.7)"; x.fillRect(gx + k * (gw / m.hist.length), gy + gh - bh, gw / m.hist.length - 3, bh); });
+  });
   for (let y = 0; y < Hh; y += 5) { x.fillStyle = "rgba(255,255,255,.035)"; x.fillRect(0, y, W, 2); } // scanlines
   holoTex.needsUpdate = true;
 };
@@ -1049,7 +1076,7 @@ const openNode = () => {
   if (nodeFocus || flight) return;
   const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect);
   // frame the whole station: the rack, the beam, the projection and the sign above it
-  const look = V(-5.66, 1.45, -4.6), d = Math.min(4.4, Math.max(0.88 / Math.tan(vf), 1.15 / Math.tan(hf)));
+  const look = V(-5.66, 1.08, -4.65), d = Math.min(4.4, Math.max(1.22 / Math.tan(vf), 0.85 / Math.tan(hf)));
   nodeFocus = { view: { pos: look.clone().add(V(d, 0.1, 0)), look, yaw: 0.15 } };
   hideTip(); setRoomUI();
   flyTo(nodeFocus.view.pos, nodeFocus.view.look, 1100);
@@ -1068,7 +1095,7 @@ const closeNode = (after) => {
 const holoAt = (e) => {
   const hit = setRay(e).intersectObject(holo.plane, false)[0];
   if (!hit) return { off: true };
-  const cx = hit.uv.x * 1500, cy = (1 - hit.uv.y) * 1000;
+  const cx = hit.uv.x * 1500, cy = (1 - hit.uv.y) * HOLO_H;
   return { t: holoTiles.find((t) => cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) };
 };
 
