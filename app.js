@@ -37,6 +37,8 @@
   if (S.chess?.username) $("#socials").insertAdjacentHTML("beforeend", `
     <li><a class="chess-link" href="https://www.chess.com/play/online/new?opponent=${encodeURIComponent(S.chess.username)}" target="_blank" rel="noopener">
       <svg class="king" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 1h2v2.5h2.5v2H13V8h-2V5.5H8.5v-2H11z"/><path d="M6.5 9.5h11l-2 7.5h-7z"/><path d="M6 18h12v2H6zM4.5 21h15v2h-15z"/></svg>Play me</a></li>`);
+  // The 3D apartment (house.html), behind a door code for now.
+  $("#socials").insertAdjacentHTML("beforeend", `<li><a class="tour-link" href="house"><svg class="king" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 2 10h3v11h5v-6h4v6h5V10h3z"/></svg>Apartment tour</a></li>`);
   $("#socials").hidden = !$("#socials").children.length;
 
   // ---- live clock

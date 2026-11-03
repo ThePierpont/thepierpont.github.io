@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793688478";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793690123";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -356,7 +356,7 @@ const buildDecor = () => {
   // ---- hallway (on the front wall, where the doorstep camera can see it)
   block(0.17, 0.27, 0.04, 0x16102e, 0.98, 1.28, 0.12, { r: 0.02 }); // keypad
   for (let i = 0; i < 9; i++) tube(0.032, 0.032, 0.01, 0x05d9e8, 0.94 + (i % 3) * 0.04, 1.34 - Math.floor(i / 3) * 0.045, 0.145, { k: 1.4 });
-  led(0.98, 1.17, 0.145, 0x2bff88, 0.25);
+  keypadLed = led(0.98, 1.17, 0.145, unlocked ? 0x2bff88 : 0xff3b5c, 0.25); // red while locked
   const cam = new THREE.Group(); cam.position.set(1.6, 3.05, 0.25); cam.rotation.set(0.35, -0.5, 0); scene.add(cam);
   block(0.08, 0.2, 0.08, 0x221a40, 0, 0.1, -0.06, { parent: cam, r: 0.02 });
   block(0.34, 0.17, 0.17, 0xd9d7e6, 0, -0.02, 0.06, { parent: cam, r: 0.05 });
@@ -793,6 +793,7 @@ const setRoomUI = () => {
 };
 const go = (to) => {
   if (flight || cv.active) return;
+  if (!unlocked && room === "outside" && to !== "outside") return openPad(() => go(to)); // the door's locked: keypad first
   if (to === "screen") { if (room !== "theater") go("theater"); return latest?.link && window.open(latest.link, "_blank", "noopener"); }
   if (focusRow) return unfocus(() => go(to));
   if (winFocus) return closeWindowApp(() => go(to));
@@ -820,6 +821,13 @@ const back = () => {
 ui.back.addEventListener("click", back);
 document.querySelectorAll(".h-nav [data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
 addEventListener("keydown", (e) => {
+  if (!pad.hidden) { // typing on the keypad
+    if (/^[0-9]$/.test(e.key)) press(e.key);
+    else if (e.key === "Backspace") { entry = entry.slice(0, -1); showDots(); }
+    else if (e.key === "Enter") { e.preventDefault(); press("enter"); }
+    else if (e.key === "Escape") closePad();
+    return;
+  }
   if (e.key === "Escape") back();
   if (e.key === "Enter" && cv.active) cv.openReview();
 });
@@ -963,6 +971,51 @@ const tileAt = (e) => {
   const cx = hit.uv.x * 2080, cy = (1 - hit.uv.y) * 800;
   return { t: tileRects.find((t) => cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) };
 };
+
+// ---------- the door keypad: the apartment is private for now ----------
+// Only a hash of the code is in the page. (A code checked in the browser keeps casual visitors out;
+// it isn't real security.) Once in, it stays unlocked for the rest of the browser session.
+const PASS_HASH = "09b51bb1c30fc4f572cf45ead15e8da7a27ca2212225899c46237fd1d0af0671";
+let unlocked = false, keypadLed = null;
+try { unlocked = sessionStorage.getItem("apt4b") === "1"; } catch {}
+const pad = $("#h-pad"), padBox = pad.querySelector(".h-pad-box"), padDots = [...pad.querySelectorAll(".pad-dots i")], padMsg = $("#pad-msg");
+let entry = "", padAfter = null, checking = false;
+const sha256 = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+const showDots = () => padDots.forEach((d, i) => d.classList.toggle("on", i < entry.length));
+const openPad = (after) => {
+  padAfter = after; entry = ""; showDots(); padMsg.textContent = "Residents and guests only";
+  pad.className = "h-pad"; pad.hidden = false; hideTip();
+  if (!reduce) { // pop out of the keypad on the wall
+    const q = V(0.98, 1.28, 0.14).project(camera), r = canvas.getBoundingClientRect(), b = padBox.getBoundingClientRect();
+    const px = r.left + ((q.x + 1) / 2) * r.width, py = r.top + ((1 - q.y) / 2) * r.height;
+    padBox.classList.remove("pop"); padBox.style.transform = `translate(${px - (b.left + b.width / 2)}px, ${py - (b.top + b.height / 2)}px) scale(0.06)`;
+    padBox.getBoundingClientRect(); padBox.classList.add("pop"); padBox.style.transform = "";
+  }
+  pad.querySelector('[data-k="1"]').focus({ preventScroll: true });
+};
+const closePad = () => { pad.hidden = true; padAfter = null; };
+const checkCode = async () => {
+  if (checking) return; checking = true;
+  const ok = !!crypto.subtle && (await sha256(`pierpont-4b:${entry}`)) === PASS_HASH;
+  if (ok) {
+    unlocked = true; try { sessionStorage.setItem("apt4b", "1"); } catch {}
+    pad.classList.add("granted"); padMsg.textContent = "ACCESS GRANTED";
+    keypadLed?.material.color.copy(new THREE.Color(0x2bff88).multiplyScalar(2.2));
+    setTimeout(() => { const a = padAfter; closePad(); checking = false; a?.(); }, 650);
+  } else {
+    pad.classList.remove("denied"); void pad.offsetWidth; pad.classList.add("denied"); padMsg.textContent = "ACCESS DENIED";
+    setTimeout(() => { entry = ""; showDots(); checking = false; }, 400);
+  }
+};
+const press = (k) => {
+  if (checking) return;
+  if (k === "cancel") return closePad();
+  if (k === "clear") { entry = ""; showDots(); return; }
+  if (k === "enter") return checkCode();
+  if (entry.length < 4) { entry += k; showDots(); pad.classList.remove("denied"); if (entry.length === 4) checkCode(); }
+};
+pad.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => press(b.dataset.k)));
+pad.addEventListener("click", (e) => { if (e.target === pad) closePad(); });
 
 // ---------- the node station: my Bitcoin node projects mempool.space onto the wall ----------
 // Click the rack and the camera walks over; a hologram beams out of the rack onto the wall under the
