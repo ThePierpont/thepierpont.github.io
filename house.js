@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793691269";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793691497";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -122,15 +122,15 @@ const buildOutside = () => {
   slab(1.4, H - 2.4, 0.2, 0x353a4c, 0, 2.4 + (H - 2.4) / 2, 0);
   for (const s of [-1, 1]) tube(0.04, 2.44, 0.04, 0x05d9e8, s * 0.74, 1.22, 0.12, { k: 1.3 });
   tube(1.52, 0.04, 0.04, 0x05d9e8, 0, 2.44, 0.12, { k: 1.3 });
-  // my door, on a hinge at its left edge
+  // my door: a single panel that slides straight up into the wall above the opening
   doorPivot = new THREE.Group(); doorPivot.position.set(-0.68, 0, 0); scene.add(doorPivot);
   block(1.36, 2.36, 0.08, 0x1d1638, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03 }); // dark, so the neon P stands out (like the site icon)
   block(1.0, 0.9, 0.03, 0x16112c, 0.68, 1.75, 0.05, { parent: doorPivot, r: 0.02 });
   block(1.0, 0.9, 0.03, 0x16112c, 0.68, 0.62, 0.05, { parent: doorPivot, r: 0.02 });
-  ball(0.055, 0xf9f002, 1.2, 1.12, 0.09, { parent: doorPivot });
+  tube(0.03, 0.5, 0.02, 0xf9f002, 1.22, 1.12, 0.05, { parent: doorPivot, k: 1.2 }); // a flush light strip instead of a knob
   sign("4B", 0.16, 0.68, 2.08, 0.07, { parent: doorPivot, color: "#f9f002", font: "700 100px Rajdhani", k: 1.1 });
   addHot(doorPivot, "outside", "Come on in", touch ? "Tap to open the door" : "Click to open the door", () => go("living"));
-  // a neon P on the door itself (it swings open with the door)
+  // a neon P on the door itself (it rides up with the door)
   sign("P", 0.95, 0.68, 1.62, 0.075, { parent: doorPivot, color: "#ff2a6d", font: "700 260px Rajdhani", k: 1.9, glow: 0.3 }).userData.flicker = true;
   sign("APT 4B · DC", 0.12, -1.15, 1.7, 0.11, { color: "#05d9e8", font: "500 70px 'JetBrains Mono'", k: 1.2 });
   for (const s of [-1, 1]) { block(0.12, 0.34, 0.08, 0x14161f, s * 1.25, 2.1, 0.12, { r: 0.02 }); tube(0.05, 0.28, 0.02, 0x05d9e8, s * 1.25, 2.1, 0.165, { k: 1.1 }); } // sconces
@@ -1426,10 +1426,12 @@ const aim = (pos, look, yw, pt) => {
   camera.position.copy(pos); lookAt.set(pos.x + dir.x, pos.y + dir.y, pos.z + dir.z); camera.lookAt(lookAt);
 };
 const flickers = [];
+let doorT = 0;
 const frame = (now) => {
-  // the door eases open or shut
-  doorOpen += (doorTo - doorOpen) * (reduce ? 1 : 0.08);
-  doorPivot.rotation.y = -doorOpen * 1.85; // swings out into the hallway, clear of the living room view
+  // the door eases open or shut, at the same speed whatever the frame rate
+  const ddt = Math.min(100, now - (doorT || now)); doorT = now;
+  doorOpen += (doorTo - doorOpen) * (reduce ? 1 : 1 - Math.exp(-ddt / 170));
+  doorPivot.position.y = doorOpen * 2.44; // slides up out of sight, behind the header and above the ceiling
   if (flight) {
     const k = Math.max(0, Math.min(1, (now - flight.t0) / flight.dur)), s = ease(k); // a frame's timestamp can predate the click that started this
     yaw = flight.yaw0 * (1 - s); pitch = flight.pitch0 * (1 - s);
