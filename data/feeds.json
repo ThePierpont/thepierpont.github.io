@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-02T20:57:13+00:00",
+  "updated": "2026-11-03T10:08:16+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
@@ -786,6 +786,144 @@
           }
         ]
       }
+    ],
+    "featured": [
+      {
+        "slug": "2026-ranked",
+        "title": "2026 Ranked",
+        "link": "https://letterboxd.com/ThePierpont/list/2026-ranked/",
+        "count": 48,
+        "top": [
+          {
+            "title": "The Invite",
+            "year": "2026",
+            "link": "https://letterboxd.com/film/the-invite-2026/"
+          },
+          {
+            "title": "The Drama",
+            "year": "2026",
+            "link": "https://letterboxd.com/film/the-drama/"
+          },
+          {
+            "title": "Obsession",
+            "year": "2025",
+            "link": "https://letterboxd.com/film/obsession-2025/"
+          },
+          {
+            "title": "Project Hail Mary",
+            "year": "2026",
+            "link": "https://letterboxd.com/film/project-hail-mary/"
+          },
+          {
+            "title": "You Can See Everything",
+            "year": "2026",
+            "link": "https://letterboxd.com/film/you-can-see-everything/"
+          }
+        ],
+        "poster": "data/list-posters/2026-ranked.jpg"
+      },
+      {
+        "slug": "2025-ranked",
+        "title": "2025 Ranked",
+        "link": "https://letterboxd.com/ThePierpont/list/2025-ranked/",
+        "count": 47,
+        "top": [
+          {
+            "title": "Marty Supreme",
+            "year": "2025",
+            "link": "https://letterboxd.com/film/marty-supreme/"
+          },
+          {
+            "title": "One Battle After Another",
+            "year": "2025",
+            "link": "https://letterboxd.com/film/one-battle-after-another/"
+          },
+          {
+            "title": "Weapons",
+            "year": "2025",
+            "link": "https://letterboxd.com/film/weapons-2025/"
+          },
+          {
+            "title": "Sinners",
+            "year": "2025",
+            "link": "https://letterboxd.com/film/sinners-2025/"
+          },
+          {
+            "title": "The Long Walk",
+            "year": "2025",
+            "link": "https://letterboxd.com/film/the-long-walk-2025/"
+          }
+        ],
+        "poster": "data/list-posters/2025-ranked.jpg"
+      },
+      {
+        "slug": "2024-ranked",
+        "title": "2024 ranked",
+        "link": "https://letterboxd.com/ThePierpont/list/2024-ranked/",
+        "count": 55,
+        "top": [
+          {
+            "title": "Dune: Part Two",
+            "year": "2024",
+            "link": "https://letterboxd.com/film/dune-part-two/"
+          },
+          {
+            "title": "Anora",
+            "year": "2024",
+            "link": "https://letterboxd.com/film/anora/"
+          },
+          {
+            "title": "The Brutalist",
+            "year": "2024",
+            "link": "https://letterboxd.com/film/the-brutalist/"
+          },
+          {
+            "title": "Challengers",
+            "year": "2024",
+            "link": "https://letterboxd.com/film/challengers/"
+          },
+          {
+            "title": "We Live in Time",
+            "year": "2024",
+            "link": "https://letterboxd.com/film/we-live-in-time/"
+          }
+        ],
+        "poster": "data/list-posters/2024-ranked.jpg"
+      },
+      {
+        "slug": "favorite-horror-movies",
+        "title": "Favorite Horror Movies",
+        "link": "https://letterboxd.com/ThePierpont/list/favorite-horror-movies/",
+        "count": 13,
+        "top": [
+          {
+            "title": "Grave Encounters",
+            "year": "2011",
+            "link": "https://letterboxd.com/film/grave-encounters/"
+          },
+          {
+            "title": "Climax",
+            "year": "2018",
+            "link": "https://letterboxd.com/film/climax-2018/"
+          },
+          {
+            "title": "Hereditary",
+            "year": "2018",
+            "link": "https://letterboxd.com/film/hereditary/"
+          },
+          {
+            "title": "Oddity",
+            "year": "2024",
+            "link": "https://letterboxd.com/film/oddity-2024/"
+          },
+          {
+            "title": "It Follows",
+            "year": "2014",
+            "link": "https://letterboxd.com/film/it-follows/"
+          }
+        ],
+        "poster": "data/list-posters/favorite-horror-movies.jpg"
+      }
     ]
   },
   "goodreads": {
@@ -830,6 +968,51 @@
         "review": "",
         "cover": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/books/1534070896l/17212231.jpg",
         "link": "https://www.goodreads.com/review/show/8554590027"
+      }
+    ]
+  },
+  "news": {
+    "source": "Citadel Wire",
+    "items": [
+      {
+        "title": "CPS Prosecutor Cited Fabricated AI Case in High Court Child-Rape Challenge",
+        "link": "https://citadelwire.com/posts/2026-11-03-070006",
+        "published": "2026-11-03T07:00:06+00:00"
+      },
+      {
+        "title": "UN Western Sahara Mission Ends After 35 Years as Escalation Risk Rises",
+        "link": "https://citadelwire.com/posts/2026-11-03-070006",
+        "published": "2026-11-03T07:00:06+00:00"
+      },
+      {
+        "title": "RBA Signals Pause After Fifth Hike as Board Splits 6-3",
+        "link": "https://citadelwire.com/posts/2026-11-03-070006",
+        "published": "2026-11-03T07:00:06+00:00"
+      },
+      {
+        "title": "First US Midterm Polls Open in Vermont as Senate Control Hinges on Litigation",
+        "link": "https://citadelwire.com/posts/2026-11-03-060006",
+        "published": "2026-11-03T06:00:06+00:00"
+      },
+      {
+        "title": "Russian Guided Bombs Hit Kharkiv Medical Facility",
+        "link": "https://citadelwire.com/posts/2026-11-03-060006",
+        "published": "2026-11-03T06:00:06+00:00"
+      },
+      {
+        "title": "Nvidia Tells Cloud Providers to Cut Chinese Customer Share",
+        "link": "https://citadelwire.com/posts/2026-11-03-060006",
+        "published": "2026-11-03T06:00:06+00:00"
+      },
+      {
+        "title": "RBA Raises Cash Rate to 4.85%, Highest Since 2008",
+        "link": "https://citadelwire.com/posts/2026-11-03-050006",
+        "published": "2026-11-03T05:00:06+00:00"
+      },
+      {
+        "title": "Reddit Opens High Court Fight Against Australia's Under-16 Social Media Ban",
+        "link": "https://citadelwire.com/posts/2026-11-03-050006",
+        "published": "2026-11-03T05:00:06+00:00"
       }
     ]
   }

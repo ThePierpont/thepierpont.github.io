@@ -142,6 +142,60 @@ def goodreads(user_id):
     return {"profile": shelf.group(1).split("&")[0].split("?")[0] if shelf else f"https://www.goodreads.com/user/show/{user_id}", "books": books}
 
 
+MAX_NEWS = 8
+
+
+def news(url, source):
+    """Top headlines from an RSS feed, for the clock app on the 3D apartment's window.
+    Handles digest feeds too (like Citadel Wire's hourly posts): when a post's body is a numbered
+    list ("1. Headline" followed by "-- summary" lines), each numbered line becomes a headline,
+    linked to that post, and posts without one (Citadel Wire's CODE WIRE release notes) are skipped."""
+    root = ET.fromstring(get(url))
+    plain, digest = [], []
+    for item in root.iter("item"):
+        link, published = item.findtext("link", "").strip(), iso(item.findtext("pubDate"))
+        body = text_of(item.findtext("description", "") or "")
+        heads = [m.group(1).strip() for m in re.finditer(r"^\s*\d+\.\s+(.+)$", body, re.M)]
+        digest += [{"title": h, "link": link, "published": published} for h in heads]
+        title = " ".join(text_of(item.findtext("title", "")).split())
+        if title and not heads:
+            plain.append({"title": title, "link": link, "published": published})
+        if len(digest) >= MAX_NEWS:
+            break
+    return {"source": source or "News", "items": (digest or plain)[:MAX_NEWS]}
+
+
+def featured_lists(username, slugs, old):
+    """For the 3D theater's posters: each list's title, size and top 5 (from its page, in order), and a local copy
+    of its #1 film's poster (from that film's page), fetched again only when the #1 changes."""
+    out, before = [], {l["slug"]: l for l in (old or [])}
+    folder = ROOT / "data" / "list-posters"
+    folder.mkdir(parents=True, exist_ok=True)
+    for slug in slugs:
+        page = get(f"https://letterboxd.com/{username}/list/{slug}/").decode("utf-8", "replace")
+        title = html.unescape((re.search(r'<meta property="og:title" content="([^"]+)"', page) or re.search(r"<title>(?:&lrm;)?([^<,]+)", page)).group(1)).strip()
+        count = re.search(r"([\d,]+)\s*films", page)
+        names = re.findall(r'data-item-name="([^"]+)"', page)[:5]
+        links = re.findall(r'data-target-link="(/film/[^"]+)"', page)[:5]
+        top = []
+        for name, link in zip(names, links):
+            name = html.unescape(name)
+            m = re.match(r"(.*) \((\d{4})\)$", name)
+            top.append({"title": m.group(1) if m else name, "year": m.group(2) if m else "", "link": "https://letterboxd.com" + link})
+        entry = {"slug": slug, "title": title, "link": f"https://letterboxd.com/{username}/list/{slug}/",
+                 "count": int(count.group(1).replace(",", "")) if count else len(top), "top": top, "poster": f"data/list-posters/{slug}.jpg"}
+        img, prev = folder / f"{slug}.jpg", before.get(slug)
+        if top and not (prev and prev.get("top") and prev["top"][0]["link"] == top[0]["link"] and img.exists()):
+            film = get(top[0]["link"]).decode("utf-8", "replace")
+            ld = re.search(r'<script type="application/ld\+json">(.*?)</script>', film, re.S)
+            poster = json.loads(re.sub(r"/\*.*?\*/", "", ld.group(1), flags=re.S)).get("image") if ld else None
+            if poster:
+                img.write_bytes(get(poster))
+                print(f"letterboxd: saved the #1 poster for {title} ({top[0]['title']})")
+        out.append(entry)
+    return out
+
+
 def save_now_showing(diary):
     """Keeps a local copy of the latest diary poster (data/now-showing.jpg) for the 3D house's
     theater screen: Letterboxd's image server doesn't allow other sites to draw its images in WebGL."""
@@ -152,6 +206,18 @@ def save_now_showing(diary):
     img.write_bytes(get(poster))
     mark.write_text(poster + "\n")
     print("letterboxd: saved the latest poster for the house theater")
+
+
+def save_latest_book(books):
+    """Keeps a local copy of the latest Goodreads book cover (data/latest-book.jpg) for the copy lying on
+    the 3D house's coffee table: like Letterboxd's, Goodreads' image server won't let other sites draw it in WebGL."""
+    cover = books[0].get("cover", "") if books else ""
+    mark, img = ROOT / "data" / "latest-book.txt", ROOT / "data" / "latest-book.jpg"
+    if not cover or (mark.exists() and mark.read_text().strip() == cover and img.exists()):
+        return
+    img.write_bytes(get(cover))
+    mark.write_text(cover + "\n")
+    print("goodreads: saved the latest cover for the house coffee table")
 
 
 def main():
@@ -169,6 +235,15 @@ def main():
                 save_now_showing(lb["diary"])
             except Exception as e:
                 print(f"letterboxd: couldn't save the latest poster ({e})", file=sys.stderr)
+            slugs = [s.strip() for s in setting("theaterLists").split(",") if s.strip()]
+            if slugs:
+                try:
+                    lb["featured"] = featured_lists(username, slugs, old.get("letterboxd", {}).get("featured"))
+                    print(f"letterboxd: {len(lb['featured'])} featured lists for the theater")
+                except Exception as e:
+                    print(f"letterboxd: couldn't read the featured lists ({e}); keeping the last ones", file=sys.stderr)
+                    if old.get("letterboxd", {}).get("featured"):
+                        lb["featured"] = old["letterboxd"]["featured"]
         except Exception as e:  # keep the last good copy if the fetch fails
             failed = True
             print(f"letterboxd: fetch failed ({e}); keeping previous data", file=sys.stderr)
@@ -182,6 +257,10 @@ def main():
         try:
             out["goodreads"] = goodreads(user_id)
             print(f"goodreads: {len(out['goodreads']['books'])} books")
+            try:
+                save_latest_book(out["goodreads"]["books"])
+            except Exception as e:
+                print(f"goodreads: couldn't save the latest cover ({e})", file=sys.stderr)
         except Exception as e:
             failed = True
             print(f"goodreads: fetch failed ({e}); keeping previous data", file=sys.stderr)
@@ -189,6 +268,19 @@ def main():
                 out["goodreads"] = old["goodreads"]
     else:
         print("goodreads: no user ID set in content.js, skipping")
+
+    news_url = setting("news")
+    if news_url:
+        try:
+            out["news"] = news(news_url, setting("newsSource"))
+            print(f"news: {len(out['news']['items'])} headlines")
+        except Exception as e:
+            failed = True
+            print(f"news: fetch failed ({e}); keeping previous data", file=sys.stderr)
+            if "news" in old:
+                out["news"] = old["news"]
+    else:
+        print("news: no feed set in content.js, skipping")
 
     # Only rewrite the file when the content changed, so the hourly job doesn't commit for nothing.
     if {k: v for k, v in old.items() if k != "updated"} == {k: v for k, v in out.items() if k != "updated"}:

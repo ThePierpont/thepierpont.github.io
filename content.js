@@ -27,6 +27,8 @@ window.SITE = {
   location: "DC",
   // Your time zone, for the live clock. Find yours at https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
   timezone: "America/New_York",
+  // Where the live weather on the apartment window is for (central DC, not a home address).
+  coords: { lat: 38.9072, lon: -77.0369 },
   updated: "2026-11-01",
   portrait: "images/portrait.jpg",
 
@@ -172,6 +174,9 @@ window.SITE = {
   connectors: {
     letterboxd: "ThePierpont", // your Letterboxd username, e.g. "tyler" from letterboxd.com/tyler/
     goodreads: "200617598", // the number in your Goodreads profile URL
+    news: "https://citadelwire.com/feed.xml", // headlines on the apartment window: any RSS feed works
+    newsSource: "Citadel Wire", // the name shown next to each headline
+    theaterLists: "2026-ranked, 2025-ranked, 2024-ranked, favorite-horror-movies", // your Letterboxd lists (from their URLs) whose #1 hangs as a poster in the apartment theater
   },
 
   // "Play me" button under your name: challenges you to a game on Chess.com.
