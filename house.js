@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793685502";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793685852";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -441,6 +441,80 @@ const buildDecor = () => {
   for (const zz of [-9.6, -14.9]) tube(0.04, 0.6, 0.04, 0x05d9e8, -0.12, 1.9, zz, { k: 1.4 });
   for (const zz of [-9.0, -11.4]) tube(0.04, 0.6, 0.04, 0x05d9e8, -8.88, 1.9, zz, { k: 1.4 }); // clear of the shelf and the IMAX stand
   sign("EXIT", 0.2, -4.5, 2.78, -7.12, { color: "#2bff88", rotY: Math.PI, k: 1.5 });
+};
+
+// ---------- the cats: two of them, napping, plus their trees and toys ----------
+// A cartoon cat curled up asleep. Local space: it faces +x, curled on the spot it's placed.
+const cat = (fur, stripe, x, y, z, rotY = 0, size = 1) => {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; g.scale.setScalar(size); scene.add(g);
+  const body = ball(0.2, fur, 0, 0.1, 0, { parent: g }); body.scale.set(1.3, 0.62, 1.05);
+  for (const dz of [-0.09, 0, 0.09]) { const st = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 4, 20, Math.PI * 0.8), toon(stripe)); st.rotation.set(0, Math.PI / 2, Math.PI * 0.1); st.position.set(-0.02 + dz * 0.6, 0.1, dz); st.scale.set(1.05, 0.62, 1.3); body.parent.add(st); } // tabby stripes over the back
+  const head = new THREE.Group(); head.position.set(0.27, 0.09, 0.06); g.add(head); // chin resting on the front of the curl
+  ball(0.1, fur, 0, 0, 0, { parent: head });
+  const ears = [];
+  for (const dz of [-0.055, 0.055]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.07, 4), toon(fur)); ear.position.set(-0.01, 0.09, dz); ear.rotation.x = dz > 0 ? -0.3 : 0.3; head.add(ear);
+    const ink = new THREE.Mesh(ear.geometry, inkMat); ink.scale.setScalar(1.3); ear.add(ink); ears.push(ear);
+    const lid = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.005, 4, 10, Math.PI), new THREE.MeshBasicMaterial({ color: 0x1a1020 })); lid.position.set(0.085, 0.015, dz * 0.7); lid.rotation.set(0, Math.PI / 2, Math.PI); head.add(lid); // closed eyes
+  }
+  ball(0.014, 0xff8fb1, 0.1, -0.012, 0, { parent: head }); // nose
+  const tail = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.035, 8, 20, Math.PI * 1.1), toon(stripe)); tail.rotation.x = Math.PI / 2; tail.position.set(0.02, 0.03, 0); tail.rotation.z = 0.6; g.add(tail);
+  const tink = new THREE.Mesh(tail.geometry, inkMat); tink.scale.setScalar(1.06); tail.add(tink);
+  // z's drifting up out of a nap
+  const zs = [0, 1, 2].map((i) => { const z1 = sign("z", 0.07 + i * 0.015, 0.25, 0.3, 0.05, { parent: g, color: "#d6d6e7", font: "700 90px Rajdhani", k: 1.1 }); z1.material.opacity = 0; return z1; });
+  const phase = Math.random() * 10;
+  animators.push((now) => {
+    const b = Math.sin(now / 1100 + phase); body.scale.y = 0.62 + b * 0.025; head.position.y = 0.09 + b * 0.006; // breathing
+    zs.forEach((z1, i) => { const t = ((now / 2600 + phase + i / 3) % 1); z1.position.set(0.25 + t * 0.12, 0.25 + t * 0.35, 0.05 - t * 0.05); z1.material.opacity = Math.sin(t * Math.PI) * 0.9; z1.lookAt(camera.position); });
+    if (g.userData.twitch) { const k = (now - g.userData.twitch) / 500; ears.forEach((e, i) => { e.rotation.z = k < 1 ? Math.sin(k * Math.PI * 4) * 0.5 * (i ? 1 : -1) : 0; }); if (k >= 1) g.userData.twitch = 0; }
+  });
+  return g;
+};
+// A carpeted cat tree: sisal posts, a platform, and a cupped perch on top.
+const catTree = (x, z, { tall = 1.3, parentRot = 0 } = {}) => {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = parentRot; scene.add(g);
+  block(0.72, 0.08, 0.72, 0x5b3a8a, 0, 0.04, 0, { parent: g, r: 0.03 });
+  const post = (px, pz, y0, h) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, h, 12), toon(0xc9a46a)); m.position.set(px, y0 + h / 2, pz); g.add(m); const ink = new THREE.Mesh(m.geometry, inkMat); ink.scale.set(1.25, 1.01, 1.25); m.add(ink); for (let yy = y0 + 0.06; yy < y0 + h; yy += 0.09) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.066, 0.006, 4, 14), toon(0xa88550)); r.rotation.x = Math.PI / 2; r.position.set(px, yy, pz); g.add(r); } };
+  post(-0.15, -0.12, 0.08, tall * 0.5); post(0.18, 0.15, 0.08, tall * 0.85);
+  block(0.6, 0.06, 0.48, 0x5b3a8a, -0.05, 0.08 + tall * 0.5, -0.05, { parent: g, r: 0.03 });
+  post(-0.05, -0.05, 0.11 + tall * 0.5, tall * 0.42);
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.2, 0.12, 20, 1, true), toon(0x7b4fc0, { side: THREE.DoubleSide })); cup.position.set(-0.05, 0.14 + tall * 0.92, -0.05); g.add(cup);
+  block(0.44, 0.04, 0.44, 0x5b3a8a, -0.05, 0.09 + tall * 0.92, -0.05, { parent: g, r: 0.02 });
+  // a pom on a string, swinging a little
+  const pom = new THREE.Group(); pom.position.set(0.22, 0.06 + tall * 0.5, -0.05); g.add(pom);
+  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 4), new THREE.MeshBasicMaterial({ color: 0xd6d6e7 })); str.position.y = -0.11; pom.add(str);
+  ball(0.04, 0xff2a6d, 0, -0.24, 0, { parent: pom });
+  const ph = Math.random() * 10; animators.push((now) => { pom.rotation.z = Math.sin(now / 900 + ph) * 0.25; });
+  return { g, perchY: 0.15 + tall * 0.92 };
+};
+const yarn = (x, y, z, color) => {
+  const b = ball(0.07, color, x, y + 0.07, z);
+  for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.071, 0.005, 4, 20), toon(new THREE.Color(color).multiplyScalar(0.7))); r.rotation.set(i * 1.1, i * 0.7, 0); b.add(r); }
+  const tail = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(x, y + 0.01, z + 0.06), V(x + 0.08, y + 0.005, z + 0.16), V(x + 0.02, y + 0.005, z + 0.28)]), 12, 0.006, 4), toon(color)); scene.add(tail);
+  return b;
+};
+const toyMouse = (x, y, z, rotY = 0) => {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; scene.add(g);
+  const b = ball(0.045, 0x9d9dc0, 0, 0.03, 0, { parent: g }); b.scale.set(1.5, 0.8, 1);
+  for (const dz of [-0.025, 0.025]) ball(0.016, 0xff8fb1, 0.04, 0.06, dz, { parent: g });
+  const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(-0.06, 0.02, 0), V(-0.12, 0.01, 0.04), V(-0.17, 0.01, -0.02)]), 10, 0.005, 4), toon(0xff8fb1)); g.add(t);
+  return g;
+};
+const buildCats = () => {
+  // living room: one on the couch back, one in the cat tree's perch beside the couch
+  const napper = (g, label) => { addHot(g, "living", label, "Shh… napping", () => { g.userData.twitch = performance.now(); toast("Shh… napping. (Yes, I have two cats.)"); }); };
+  napper(cat(0xc29a6c, 0x6b4f35, 0.7, 1.1, -4.22, -1.25, 1.25), "Sleeping cat"); // a tabby, face turned toward the room
+  const t1 = catTree(-2.6, -5.35, { tall: 1.3 });
+  napper(cat(0xb4b8cc, 0x767a96, -2.65, t1.perchY + 0.03, -5.4, -1.0, 1.15), "Sleeping cat");
+  yarn(-2.05, 0, -4.75, 0xff2a6d); toyMouse(-2.2, 0, -4.35, 0.8);
+  yarn(2.0, 0, -5.4, 0x05d9e8);
+  // theater: a tree by the popcorn machine, yarn on the stage
+  const t2 = catTree(-0.85, -13.65, { tall: 1.1 });
+  yarn(-0.9, t2.perchY - 0.06, -13.7, 0xf9f002);
+  yarn(-3.1, 0.25, -15.95, 0xff2a6d);
+  toyMouse(-5.6, 0, -11.6, 2.2);
+  // hallway: a toy mouse left on the doormat
+  toyMouse(0.38, 0.03, 0.9, -0.5);
 };
 
 // ---------- live canvases ----------
@@ -975,7 +1049,7 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
     Promise.all(["700 140px Rajdhani", "500 34px 'JetBrains Mono'", "500 38px Inter", "600 40px Inter", "italic 400 38px Inter"].map((f) => document.fonts.load(f))),
     new Promise((r) => setTimeout(r, 2500)),
   ]);
-  buildOutside(); buildLiving(); buildTheater(); buildDecor();
+  buildOutside(); buildLiving(); buildTheater(); buildDecor(); buildCats();
   scene.add(new THREE.AmbientLight(0x5b4a9a, 0.9));
   scene.add(new THREE.HemisphereLight(0x9d8cff, 0x1a0f30, 0.7));
   const key = new THREE.DirectionalLight(0xffffff, 0.7); key.position.set(3, 6, 4); scene.add(key);
