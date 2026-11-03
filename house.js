@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793687163";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793687372";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -732,7 +732,8 @@ const loadLive = () => {
 // ---------- camera: fixed spots, glided between along curves ----------
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const VIEWS = {
-  outside: { pos: V(1.9, 1.65, 4.75), look: V(-0.6, 1.45, 0), // a little off to one side, so the hall runs away past my door name: "Front door", yaw: 1.25,
+  // a little off to one side of my door, so the hall visibly runs away past it
+  outside: { pos: V(1.9, 1.65, 4.75), look: V(-0.6, 1.45, 0), name: "Front door", yaw: 1.25,
     hint: touch ? "Tap the door to come in" : "Click the door to come in" },
   living: { pos: V(0, 1.72, -0.6), look: V(0, 1.45, -7), name: "Living room", yaw: 0.8,
     hint: touch ? "Tap a doorway · swipe to look around" : "Click a doorway · drag to look around" },
@@ -1032,7 +1033,7 @@ canvas.addEventListener("pointermove", (e) => {
       return;
     }
     if (down.drag && !flight) {
-      const lim = view().yaw;
+      const lim = view().yaw ?? 0.4;
       yaw = THREE.MathUtils.clamp(yaw + (e.clientX - down.lx) * 0.004, -lim, lim);
       pitch = THREE.MathUtils.clamp(pitch + (e.clientY - down.ly) * 0.003, -0.3, 0.3);
       down.lx = e.clientX; down.ly = e.clientY;
