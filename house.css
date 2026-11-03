@@ -1,0 +1,58 @@
+/* The 3D apartment (house.html). Shares the site's tokens and fonts from style.css. */
+body.house { margin: 0; height: 100vh; height: 100dvh; overflow: hidden; background: #07050f; }
+#house { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.h-top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px;
+  padding: max(12px, env(safe-area-inset-top)) max(16px, 3vw) 22px; background: linear-gradient(rgb(7 5 15 / .9), transparent);
+}
+.h-brand { font: 700 1.3rem var(--display); letter-spacing: .04em; color: var(--mag); text-decoration: none; text-shadow: 0 0 10px rgb(255 42 109 / .55); }
+.h-brand span { margin-left: 8px; font: 500 .78rem var(--mono); color: var(--muted); text-shadow: none; }
+.h-room { font: 500 .82rem var(--mono); color: var(--cyan); }
+.h-btns { display: flex; gap: 8px; margin-left: auto; }
+.h-btns button, .h-btns a {
+  padding: 7px 12px; font: 600 .86rem var(--sans); color: var(--white); text-decoration: none; cursor: pointer;
+  border: 1px solid var(--line); background: rgb(20 20 43 / .8); transition: border-color .2s;
+}
+.h-btns button:hover, .h-btns a:hover { border-color: var(--mag); }
+
+.h-hint {
+  position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 5; margin: 0;
+  text-align: center; font: .8rem var(--mono); color: var(--muted); pointer-events: none; transition: opacity .3s;
+}
+.h-tip {
+  position: fixed; left: 0; top: 0; z-index: 6; display: grid; gap: 2px; max-width: 250px; padding: 8px 12px; pointer-events: none;
+  background: rgb(10 10 18 / .92); border: 1px solid var(--cyan); box-shadow: 0 0 14px rgb(5 217 232 / .25);
+}
+.h-tip strong { font: 700 1.05rem/1.15 var(--display); color: var(--white); }
+.h-tip span { font-size: .82rem; color: var(--muted); }
+.h-toast {
+  position: fixed; left: 50%; top: 84px; z-index: 6; transform: translateX(-50%); max-width: calc(100vw - 32px);
+  padding: 10px 16px; font: 500 .84rem var(--mono); color: var(--acid); text-align: center;
+  background: rgb(10 10 18 / .94); border: 1px solid var(--acid);
+}
+
+/* Keyboard route: hidden until something in it has focus. */
+.h-nav { position: fixed; left: 16px; bottom: 56px; z-index: 7; display: grid; gap: 6px; }
+.h-nav button { padding: 8px 12px; font: 600 .86rem var(--sans); color: var(--white); background: var(--panel); border: 1px solid var(--cyan); cursor: pointer; text-align: left; }
+.h-nav:not(:focus-within) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+.h-load { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; background: #07050f; transition: opacity .7s; }
+.h-load p { font: 500 .95rem var(--mono); color: var(--cyan); text-shadow: 0 0 10px rgb(5 217 232 / .5); }
+.h-load.done { opacity: 0; pointer-events: none; }
+.h-fallback { display: none; }
+body.no-3d .h-fallback { position: fixed; inset: 0; z-index: 10; display: grid; place-content: center; gap: 16px; padding: 24px; text-align: center; background: #07050f; }
+body.no-3d .h-load { display: none; }
+
+/* The movie shelf pop-up */
+dialog.h-shelf {
+  width: min(1100px, 96vw); height: min(88vh, 820px); padding: 0; overflow: hidden;
+  display: none; grid-template-rows: auto 1fr; background: var(--void); color: var(--text); border: 1px solid var(--cyan);
+  box-shadow: 0 0 40px rgb(5 217 232 / .25);
+}
+dialog.h-shelf[open] { display: grid; }
+dialog.h-shelf::backdrop { background: rgb(5 3 10 / .72); backdrop-filter: blur(3px); }
+.h-shelf-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); font: .8rem var(--mono); color: var(--muted); }
+.h-close { padding: 6px 12px; font: 600 .86rem var(--sans); color: var(--white); background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
+.h-close:hover { border-color: var(--mag); }
+dialog.h-shelf .shelf3d { height: 100%; margin: 0; }

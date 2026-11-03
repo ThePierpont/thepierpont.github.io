@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pierpont's apartment</title>
+<meta name="description" content="Come on in: a cartoon cyberpunk apartment where each room shows what I'm watching, reading and up to.">
+<meta name="theme-color" content="#07050f">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pierpont's apartment">
+<meta property="og:description" content="Come on in.">
+<meta property="og:url" content="https://pierpont.blog/house">
+<meta property="og:image" content="https://pierpont.blog/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css?v=1793682438">
+<link rel="stylesheet" href="house.css?v=1793682438">
+</head>
+<body class="house">
+<canvas id="house" aria-hidden="true"></canvas>
+
+<header class="h-top">
+  <a class="h-brand" href="./">PIERPONT<span>// HOME</span></a>
+  <span class="h-room" id="h-room" aria-live="polite">Front door</span>
+  <div class="h-btns">
+    <button type="button" id="h-back" hidden>← Back</button>
+    <a href="./">Exit to site</a>
+  </div>
+</header>
+<p class="h-hint" id="h-hint"></p>
+<div class="h-tip" id="h-tip" hidden></div>
+<div class="h-toast" id="h-toast" role="status" hidden></div>
+
+<!-- Keyboard and screen-reader way around the apartment (shown when focused). -->
+<nav class="h-nav" aria-label="Rooms">
+  <button type="button" data-go="living">Open the door and go inside</button>
+  <button type="button" data-go="theater">Go to the theater</button>
+  <button type="button" data-go="screen">Read my latest movie review</button>
+  <button type="button" data-go="shelf">Open my movie shelf</button>
+  <button type="button" data-go="outside">Back outside</button>
+</nav>
+
+<div class="h-load" id="h-load"><p>&gt;&gt; BOOTING APARTMENT…</p></div>
+<div class="h-fallback"><p>The apartment needs WebGL, which this browser doesn't have on.</p><a class="btn btn-hot" href="./">Go to the regular site</a></div>
+
+<!-- The movie shelf from the main page, opened from the theater's bookcase. -->
+<dialog class="h-shelf" id="h-shelf" aria-label="My movie shelf">
+  <div class="h-shelf-bar"><span>My shelf · every movie links to my Letterboxd</span><button type="button" class="h-close" id="h-shelf-close">Close ✕</button></div>
+  <div class="shelf3d" id="shelf3d" tabindex="0" aria-label="3D model of my movie shelf.">
+    <canvas aria-hidden="true"></canvas>
+    <div class="shelf-bar">
+      <span class="shelf-label">My shelf</span>
+      <div class="shelf-btns">
+        <button type="button" data-act="prev" aria-label="Shelf above">▲</button>
+        <button type="button" data-act="next" aria-label="Shelf below">▼</button>
+        <button type="button" data-act="back">Whole shelf</button>
+      </div>
+    </div>
+    <p class="shelf-hint"></p>
+    <div class="shelf-tip" hidden></div>
+    <div class="case-ui" aria-live="polite">
+      <div class="case-info"><strong class="case-title"></strong><span class="case-sub"></span></div>
+      <p class="case-hint"></p>
+    </div>
+    <p class="shelf-fallback">The 3D shelf needs WebGL.</p>
+  </div>
+</dialog>
+
+<script src="content.js?v=1793682438"></script>
+<script src="shelf-data.js?v=1793682438"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<script type="module" src="house.js?v=1793682438"></script>
+</body>
+</html>

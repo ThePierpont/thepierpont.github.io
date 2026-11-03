@@ -142,6 +142,18 @@ def goodreads(user_id):
     return {"profile": shelf.group(1).split("&")[0].split("?")[0] if shelf else f"https://www.goodreads.com/user/show/{user_id}", "books": books}
 
 
+def save_now_showing(diary):
+    """Keeps a local copy of the latest diary poster (data/now-showing.jpg) for the 3D house's
+    theater screen: Letterboxd's image server doesn't allow other sites to draw its images in WebGL."""
+    poster = diary[0].get("poster", "") if diary else ""
+    mark, img = ROOT / "data" / "now-showing.txt", ROOT / "data" / "now-showing.jpg"
+    if not poster or (mark.exists() and mark.read_text().strip() == poster and img.exists()):
+        return
+    img.write_bytes(get(poster))
+    mark.write_text(poster + "\n")
+    print("letterboxd: saved the latest poster for the house theater")
+
+
 def main():
     old = json.loads(OUT.read_text()) if OUT.exists() else {}
     out = {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds")}
@@ -153,6 +165,10 @@ def main():
             out["letterboxd"] = letterboxd(username)
             lb = out["letterboxd"]
             print(f"letterboxd: {len(lb['diary'])} diary entries, {len(lb['lists'])} lists")
+            try:
+                save_now_showing(lb["diary"])
+            except Exception as e:
+                print(f"letterboxd: couldn't save the latest poster ({e})", file=sys.stderr)
         except Exception as e:  # keep the last good copy if the fetch fails
             failed = True
             print(f"letterboxd: fetch failed ({e}); keeping previous data", file=sys.stderr)
