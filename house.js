@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793690123";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793690421";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -382,6 +382,77 @@ const buildDecor = () => {
     for (let y = 0; y < h; y += 6) { x.fillStyle = "rgba(255,255,255,.05)"; x.fillRect(0, y, w, 2); }
   }), -2.75, 1.75, 0.12, { transparent: true, k: 1.1 }); // on the wall between my door and 1A
   animators.push((now) => { ad.material.opacity = Math.sin(now / 90) > 0.96 ? 0.35 : 0.92; }); // holo flicker
+  // the rest of the building's ads, up and down the hall: food, fun and services downstairs
+  const ICONS = {
+    bowl: (x, c) => { x.fillStyle = c; x.beginPath(); x.arc(0, 0, 70, 0, Math.PI); x.fill(); x.fillRect(-80, -8, 160, 12);
+      x.strokeStyle = "#f4f3ff"; x.lineWidth = 6; x.beginPath(); x.moveTo(20, -10); x.lineTo(70, -90); x.moveTo(40, -10); x.lineTo(90, -80); x.stroke();
+      x.strokeStyle = "rgba(255,255,255,.6)"; x.lineWidth = 4; for (const dx of [-35, -5, 25]) { x.beginPath(); x.moveTo(dx, -25); x.bezierCurveTo(dx - 15, -45, dx + 15, -60, dx, -80); x.stroke(); } },
+    joystick: (x, c) => { x.fillStyle = "#2a2450"; x.fillRect(-75, 20, 150, 50); x.fillStyle = c; x.fillRect(-10, -50, 20, 75); x.beginPath(); x.arc(0, -60, 28, 0, Math.PI * 2); x.fill();
+      x.fillStyle = "#f9f002"; x.beginPath(); x.arc(45, 45, 12, 0, Math.PI * 2); x.fill(); x.fillStyle = "#05d9e8"; x.beginPath(); x.arc(-45, 45, 12, 0, Math.PI * 2); x.fill(); },
+    coin: (x, c) => { x.fillStyle = c; x.beginPath(); x.arc(0, 0, 75, 0, Math.PI * 2); x.fill(); x.fillStyle = "#fff"; x.font = "700 110px Rajdhani"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("₿", 0, 6); x.textAlign = "left"; x.textBaseline = "top"; },
+    film: (x, c) => { x.strokeStyle = c; x.lineWidth = 10; x.beginPath(); x.arc(0, 0, 70, 0, Math.PI * 2); x.stroke(); x.fillStyle = c; for (let i = 0; i < 6; i++) { const a2 = (i / 6) * Math.PI * 2; x.beginPath(); x.arc(Math.cos(a2) * 38, Math.sin(a2) * 38, 13, 0, Math.PI * 2); x.fill(); } },
+    burger: (x, c) => { x.fillStyle = "#e9a04a"; x.beginPath(); x.arc(0, -15, 72, Math.PI, 0); x.fill(); x.fillStyle = "#4cb54a"; x.fillRect(-78, -12, 156, 14); x.fillStyle = "#7a3a22"; x.fillRect(-74, 4, 148, 26); x.fillStyle = c; x.fillRect(-70, 30, 140, 10); x.fillStyle = "#e9a04a"; x.fillRect(-72, 40, 144, 24); },
+    mic: (x, c) => { x.fillStyle = c; x.beginPath(); x.ellipse(0, -35, 32, 45, 0, 0, Math.PI * 2); x.fill(); x.fillStyle = "#d6d6e7"; x.fillRect(-7, 10, 14, 70); x.strokeStyle = "#d6d6e7"; x.lineWidth = 6; x.beginPath(); x.arc(0, -20, 52, 0.2, Math.PI - 0.2); x.stroke(); },
+    drone: (x, c) => { x.fillStyle = "#d6d6e7"; x.fillRect(-45, -12, 90, 24); x.strokeStyle = c; x.lineWidth = 6; for (const dx of [-70, 70]) { x.beginPath(); x.ellipse(dx, -22, 34, 8, 0, 0, Math.PI * 2); x.stroke(); x.beginPath(); x.moveTo(dx * 0.6, -10); x.lineTo(dx, -20); x.stroke(); }
+      x.fillStyle = "#c48f55"; x.fillRect(-28, 18, 56, 44); x.strokeStyle = "#f4f3ff"; x.lineWidth = 3; x.strokeRect(-28, 18, 56, 44); },
+  };
+  const adCanvas = (a) => canvasTex(a.vert ? 300 : 640, a.vert ? 940 : 400, (x, w, h) => {
+    x.fillStyle = "rgba(10,4,24,.62)"; x.fillRect(0, 0, w, h);
+    x.strokeStyle = a.col; x.lineWidth = 6; x.shadowColor = a.col; x.shadowBlur = 14; x.strokeRect(8, 8, w - 16, h - 16); x.shadowBlur = 0;
+    x.textBaseline = "top"; x.textAlign = "left";
+    if (a.vert) { // a tall banner: one letter per line
+      x.textAlign = "center"; const letters = [...a.title.replace(/ /g, "")], size = Math.min(120, 760 / letters.length);
+      x.font = `700 ${size}px Rajdhani`; x.fillStyle = a.col; x.shadowColor = a.col; x.shadowBlur = 18;
+      letters.forEach((ch, i) => x.fillText(ch, w / 2, 40 + i * size * 0.95)); x.shadowBlur = 0;
+      x.font = "500 24px 'JetBrains Mono'"; x.fillStyle = "#d6d6e7"; x.fillText(a.tag, w / 2, h - 70);
+    } else {
+      x.save(); x.translate(130, h / 2 + 10); ICONS[a.icon]?.(x, a.col); x.restore();
+      let size = 88; x.font = `700 ${size}px Rajdhani`; while (x.measureText(a.title).width > w - 280 && size > 40) x.font = `700 ${--size}px Rajdhani`;
+      x.fillStyle = a.col; x.shadowColor = a.col; x.shadowBlur = 20; x.fillText(a.title, 250, 70); x.shadowBlur = 0;
+      const fit = (t, weight, px, fam) => { let z = px; x.font = `${weight} ${z}px ${fam}`; while (x.measureText(t).width > w - 280 && z > 14) x.font = `${weight} ${--z}px ${fam}`; };
+      fit(a.sub, 600, 30, "Inter"); x.fillStyle = "#f4f3ff"; x.fillText(a.sub, 252, 82 + size);
+      fit(a.tag, 500, 26, "'JetBrains Mono'"); x.fillStyle = a.tagCol || "#05d9e8"; x.fillText(a.tag, 252, 300);
+    }
+    for (let y = 0; y < h; y += 6) { x.fillStyle = "rgba(255,255,255,.05)"; x.fillRect(0, y, w, 2); }
+  });
+  const ADS = [
+    // the near wall (my side)
+    { x: -7.75, title: "NEON NOODLE", sub: "Hand-pulled · broth on tap", tag: "B1 · FOOD HALL", col: "#ff2a6d", icon: "bowl" },
+    { x: 7.8, title: "ORBITAL ARCADE", sub: "VR pods · retro cabinets", tag: "B2 · OPEN LATE", col: "#05d9e8", icon: "joystick", tagCol: "#f9f002" },
+    { x: 13.4, vert: true, title: "KILOWATT COFFEE", tag: "LOBBY · 24/7", col: "#f9f002" },
+    { x: -13.6, title: "SATS ATM", sub: "Buy · sell · stack", tag: "LOBBY · 24/7", col: "#f7931a", icon: "coin" },
+    // across the hall (behind you)
+    { x: -5.5, back: true, title: "DREAMLOOP CINEMA", sub: "Midnight double feature", tag: "B3 · TICKETS AT THE DOOR", col: "#b98cff", icon: "film" },
+    { x: 5.7, back: true, title: "BYTE BURGER", sub: "Printed fresh in 90 seconds", tag: "B1 · FOOD HALL", col: "#ff7a1a", icon: "burger" },
+    { x: 11.6, back: true, vert: true, title: "BOBA.EXE", tag: "B1 · BUBBLE TEA", col: "#ff6bd5" },
+    { x: -11.6, back: true, title: "HOLO KARAOKE", sub: "Sing with your hologram", tag: "B2 · PRIVATE ROOMS", col: "#ff2a6d", icon: "mic" },
+    { x: 0.1, back: true, title: "SKYDROP", sub: "Food at your door in 4 min", tag: "DRONE DELIVERY · ALL FLOORS", col: "#05d9e8", icon: "drone" },
+    { x: -14.6, back: true, vert: true, title: "GRAV GYM", tag: "ROOF · LOW-G", col: "#2bff88" },
+  ];
+  ADS.forEach((a, i) => {
+    const w = a.vert ? 0.5 : 1.5, h = a.vert ? 1.57 : 0.94, z = a.back ? 5.2 - 0.115 : 0.125;
+    const m = panel(w, h, adCanvas(a), a.x, a.vert ? 1.6 : 1.75, z, { transparent: true, k: 1.05, rotY: a.back ? Math.PI : 0 });
+    const ph = i * 1.37; animators.push((now) => { m.material.opacity = Math.sin(now / 110 + ph * 7) > 0.97 ? 0.35 : 0.92; }); // each flickers on its own beat
+  });
+  // a news ticker running along the top of the far wall
+  const tickerText = "TONIGHT ON B3: DREAMLOOP MIDNIGHT DOUBLE FEATURE  ✦  NEON NOODLE: 2-FOR-1 BOWLS AFTER MIDNIGHT  ✦  ORBITAL ARCADE HIGH-SCORE NIGHT  ✦  ROOFTOP NIGHT MARKET FRIDAY  ✦  LIFT 2 BACK IN SERVICE  ✦  ";
+  // the canvas is exactly a whole number of copies wide, so the loop has no seam
+  const tm = document.createElement("canvas").getContext("2d"); tm.font = "500 56px 'JetBrains Mono'";
+  const tw = Math.ceil(tm.measureText(tickerText).width), copies = Math.max(1, Math.floor(4096 / tw));
+  const tickTex = canvasTex(tw * copies, 96, (x, w, h) => {
+    x.fillStyle = "rgba(10,4,24,.8)"; x.fillRect(0, 0, w, h);
+    x.font = "500 56px 'JetBrains Mono'"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 10; x.textBaseline = "middle";
+    for (let i = 0; i < copies; i++) x.fillText(tickerText, i * tw, h / 2 + 2);
+  });
+  tickTex.wrapS = THREE.RepeatWrapping; tickTex.repeat.set(1.6, 1);
+  const ticker = panel(24, 0.22, tickTex, 0, 2.98, 5.2 - 0.11, { k: 1.0, rotY: Math.PI });
+  tube(24.2, 0.02, 0.02, 0x05d9e8, 0, 3.1, 5.2 - 0.11, { k: 1.3 }); tube(24.2, 0.02, 0.02, 0x05d9e8, 0, 2.86, 5.2 - 0.11, { k: 1.3 });
+  animators.push((now, dt) => { tickTex.offset.x += dt * 0.00004; });
+  // a sign hanging from the ceiling, pointing the way
+  const hang = new THREE.Group(); hang.position.set(-3.6, 2.85, 2.6); hang.rotation.y = Math.PI / 2; scene.add(hang);
+  for (const dz of [-0.45, 0.45]) block(0.02, 0.4, 0.02, 0x16102e, dz, 0.32, 0, { parent: hang, ink: false });
+  block(1.2, 0.34, 0.06, 0x0c0818, 0, 0, 0, { parent: hang, r: 0.02 });
+  for (const side of [1, -1]) sign(side > 0 ? "◄ LIFT · FOOD HALL B1" : "4C – 4H ►", 0.16, 0, 0, side * 0.035, { parent: hang, color: "#05d9e8", font: "700 90px Rajdhani", k: 1.2, glow: 0.1, core: 0, rotY: side > 0 ? 0 : Math.PI });
   panel(1.0, 0.62, canvasTex(500, 310, (x, w, h) => { // a spray-paint tag
     x.lineCap = "round"; x.lineJoin = "round";
     const stroke = (col, wd, path) => { x.strokeStyle = col; x.lineWidth = wd; x.shadowColor = col; x.shadowBlur = 14; x.beginPath(); path(); x.stroke(); };
