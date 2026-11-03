@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793692241";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793692423";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -862,15 +862,16 @@ const loadLive = () => {
 
 // ---------- camera: fixed spots, glided between along curves ----------
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+// Each room lets you turn all the way round (yaw: Infinity); close-up views keep a small limit.
 const VIEWS = {
   // a little off to one side of my door, so the hall visibly runs away past it
-  outside: { pos: V(1.9, 1.65, 4.75), look: V(-0.6, 1.45, 0), name: "Front door", yaw: 1.25,
+  outside: { pos: V(1.75, 1.65, 4.0), look: V(-0.6, 1.45, 0), name: "Front door", yaw: Infinity,
     hint: touch ? "Tap the door to come in" : "Click the door to come in" },
-  living: { pos: V(0, 1.72, -0.6), look: V(0, 1.45, -7), name: "Living room", yaw: 0.8,
+  living: { pos: V(0, 1.72, -1.1), look: V(0, 1.45, -7), name: "Living room", yaw: Infinity,
     hint: touch ? "Tap a doorway · swipe to look around" : "Click a doorway · drag to look around" },
-  theater: { pos: V(-4.5, 2.15, -8.2), look: V(-4.5, 1.85, -17), name: "Theater", yaw: 0.65,
+  theater: { pos: V(-4.5, 2.15, -8.2), look: V(-4.5, 1.85, -17), name: "Theater", yaw: Infinity,
     hint: touch ? "Tap the screen for my review · tap the shelf to browse it" : "Click the screen for my review · click the shelf to browse it" },
-  shelf: { pos: V(-4.6, 1.72, -13.7), look: V(-8.75, 1.65, -13.7), name: "Movie shelf", yaw: 0.35,
+  shelf: { pos: V(-4.6, 1.72, -13.7), look: V(-8.75, 1.65, -13.7), name: "Movie shelf", yaw: Infinity,
     hint: touch ? "Tap a shelf to look closer" : "Click a shelf to look closer" },
 };
 const ORDER = ["outside", "living", "theater", "shelf"]; // the rooms, in walking order
@@ -920,9 +921,10 @@ const go = (to) => {
   const step = (i, cur) => {
     if (i >= route.length) return;
     const nxt = route[i];
-    // back outside, the door shuts and locks behind you
-    const launch = () => fly(cur, nxt, () => { room = nxt; setRoomUI(); if (nxt === "outside") { doorTo = 0; lockDoor(); } step(i + 1, nxt); });
-    if (cur === "outside" && nxt === "living" && doorOpen < 0.99) { doorTo = 1; setTimeout(launch, reduce ? 0 : 650); } else launch();
+    // the door slides up to let you through and shuts behind you (and locks, once you're back outside)
+    const through = (cur === "outside" && nxt === "living") || (cur === "living" && nxt === "outside");
+    const launch = () => fly(cur, nxt, () => { room = nxt; setRoomUI(); if (through) doorTo = 0; if (nxt === "outside") lockDoor(); step(i + 1, nxt); });
+    if (through && doorOpen < 0.99) { doorTo = 1; setTimeout(launch, reduce ? 0 : 650); } else launch();
   };
   ui.hint.textContent = "";
   step(0, from);
@@ -1368,7 +1370,9 @@ canvas.addEventListener("pointermove", (e) => {
     }
     if (down.drag && !flight) {
       const lim = view().yaw ?? 0.4;
-      yaw = THREE.MathUtils.clamp(yaw + (e.clientX - down.lx) * 0.004, -lim, lim);
+      yaw += (e.clientX - down.lx) * 0.004;
+      // a full turn wraps round, so walking on straightens up the short way
+      yaw = lim === Infinity ? Math.atan2(Math.sin(yaw), Math.cos(yaw)) : THREE.MathUtils.clamp(yaw, -lim, lim);
       pitch = THREE.MathUtils.clamp(pitch + (e.clientY - down.ly) * 0.003, -0.3, 0.3);
       down.lx = e.clientX; down.ly = e.clientY;
       canvas.style.cursor = "grabbing";
