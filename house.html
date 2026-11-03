@@ -16,8 +16,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="style.css?v=1793692971">
-<link rel="stylesheet" href="house.css?v=1793692971">
+<link rel="stylesheet" href="style.css?v=1793693448">
+<link rel="stylesheet" href="house.css?v=1793693448">
 </head>
 <body class="house">
 <canvas id="house" aria-hidden="true"></canvas>
@@ -59,13 +59,30 @@
   </div>
 </div>
 
+<!-- Up close to a sleeping cat: an offer of pictures instead, and the pictures. -->
+<div class="h-ask" id="h-ask" hidden role="dialog" aria-modal="true" aria-labelledby="ask-text">
+  <div class="h-ask-box">
+    <p class="ask-tag">// SHH</p>
+    <p class="ask-text" id="ask-text"></p>
+    <div class="ask-btns"><button type="button" data-a="yes">Yes</button><button type="button" data-a="no">No</button></div>
+  </div>
+</div>
+<div class="h-photos" id="h-photos" hidden role="dialog" aria-modal="true" aria-labelledby="ph-title">
+  <div class="h-photos-box">
+    <p class="ph-title" id="ph-title"></p>
+    <figure><img id="ph-img" alt=""><figcaption id="ph-cap"></figcaption></figure>
+    <div class="ph-nav"><button type="button" data-p="prev" aria-label="Previous photo">←</button><span id="ph-count"></span><button type="button" data-p="next" aria-label="Next photo">→</button></div>
+    <button type="button" class="ph-close" data-p="close">Close</button>
+  </div>
+</div>
+
 <div class="h-load" id="h-load"><p>&gt;&gt; BOOTING APARTMENT…</p></div>
 <div class="h-fallback"><p>The apartment needs WebGL, which this browser doesn't have on.</p><a class="btn btn-hot" href="./">Go to the regular site</a></div>
 
 
-<script src="content.js?v=1793692971"></script>
-<script src="shelf-data.js?v=1793692971"></script>
+<script src="content.js?v=1793693448"></script>
+<script src="shelf-data.js?v=1793693448"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
-<script type="module" src="house.js?v=1793692971"></script>
+<script type="module" src="house.js?v=1793693448"></script>
 </body>
 </html>

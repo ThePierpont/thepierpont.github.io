@@ -50,9 +50,10 @@ window.SITE = {
 
   // Newest first. The first one shows as "Latest photo" at the top.
   // Set `ratio` (like "3/2" or "4/5") only for placeholders; real photos use their own shape.
+  // `cats: ["fin", "phoebe"]` says who's in a photo; the cats in the 3D apartment show theirs.
   photos: [
     { src: "images/archives-fountain.jpg", caption: "Fountain at the Archives", place: "Washington, DC", date: "2026-11-01" },
-    { src: "images/cats-window-crop.jpg", caption: "Window watch", place: "Home", date: "2026-11-01", album: "cats" },
+    { src: "images/cats-window-crop.jpg", caption: "Window watch", place: "Home", date: "2026-11-01", album: "cats", cats: ["fin", "phoebe"] },
     { src: "images/old-post-office-tower.jpg", caption: "Old Post Office, last light", place: "Washington, DC", date: "2026-11-01" },
     { src: "images/penn-ave-fall.jpg", caption: "Fall on Pennsylvania Ave", place: "Washington, DC", date: "2026-11-01" },
     { src: "images/blue-hour-concrete.jpg", caption: "Brutalism and blue sky", place: "Washington, DC", date: "2026-11-01" },
@@ -60,10 +61,10 @@ window.SITE = {
     { src: "images/steeple-night.jpg", caption: "Steeple, overcast night", place: "Washington, DC", date: "2026-10-29" },
     { src: "images/before-doors.jpg", caption: "Lighting candles before doors", place: "", date: "2026-09-22" },
     { src: "images/behind-the-mic.jpg", caption: "Behind the mic", place: "", date: "2026-09-12" },
-    { src: "images/cactus-nap.jpg", caption: "Nap with the cactus", place: "Home", date: "2026-09-11", album: "cats" },
+    { src: "images/cactus-nap.jpg", caption: "Nap with the cactus", place: "Home", date: "2026-09-11", album: "cats", cats: ["fin"] },
     { src: "images/wedding-us.jpg", caption: "Wedding guests", place: "", date: "2026-09-05" },
     { src: "images/wedding-mom.jpg", caption: "Suited up", place: "", date: "2026-09-05" },
-    { src: "images/yawn.jpg", caption: "Mid-yawn", place: "Home", date: "2026-07-27", album: "cats" },
+    { src: "images/yawn.jpg", caption: "Mid-yawn", place: "Home", date: "2026-07-27", album: "cats", cats: ["phoebe"] },
     { src: "images/movie-night.jpg", caption: "Projector movie night", place: "Home", date: "2026-06-15" },
   ],
 

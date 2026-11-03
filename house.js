@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793692971";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793693448";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -433,8 +433,25 @@ const buildKitchen = () => {
     x.shadowBlur = 0; x.fillStyle = "#05d9e8"; for (let i = 0; i < 5; i++) x.fillRect(60 + i * 30, 345, 14, 6); // touch controls
   }), 1.8, 1.003, -0.85, { k: 1 });
   hob.rotation.x = -Math.PI / 2; // flat on the counter, its long side along the stretch
-  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.13, 20), steelM(0xc4cad8)); pot.position.set(1.9, 1.07, -0.76); scene.add(pot); // on the front ring
-  block(0.03, 0.02, 0.14, 0x2a2e3a, 1.9, 1.11, -0.6, { r: 0.008 }); // its handle
+  // a steel pan on the front ring with a steak searing in it
+  const pan = new THREE.Group(); pan.position.set(1.9, 1.005, -0.76); scene.add(pan);
+  const panBody = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.12, 0.035, 28), steelM(0x8a92a6)); panBody.position.y = 0.018; pan.add(panBody);
+  const panInk = new THREE.Mesh(panBody.geometry, inkMat); panInk.scale.set(1.06, 1.15, 1.06); panBody.add(panInk);
+  const panIn = new THREE.Mesh(new THREE.CylinderGeometry(0.122, 0.122, 0.004, 28), toon(0x23262f)); panIn.position.y = 0.034; pan.add(panIn);
+  block(0.028, 0.02, 0.2, 0x1b1e27, 0, 0.03, 0.22, { parent: pan, r: 0.008 }); // the handle, toward the wall
+  const steak = new THREE.Group(); steak.position.y = 0.046; steak.rotation.y = 0.5; pan.add(steak);
+  block(0.17, 0.028, 0.11, 0x8a4326, 0, 0, 0, { parent: steak, r: 0.012 });
+  for (const dx of [-0.05, 0, 0.05]) block(0.012, 0.004, 0.1, 0x3a1a0e, dx, 0.015, 0, { parent: steak, rot: [0, 0.5, 0], r: 0.002, ink: false }); // sear marks
+  block(0.06, 0.006, 0.03, 0xf2ece0, 0.07, 0.016, 0.03, { parent: steak, r: 0.003, ink: false }); // a pat of butter
+  // a little steam curling up off it
+  const puffs = [0, 1, 2, 3].map((i) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshBasicMaterial({ color: 0xe8ecf4, transparent: true, opacity: 0, depthWrite: false }));
+    m.raycast = () => {}; pan.add(m); return { m, ph: i / 4 };
+  });
+  animators.push((now) => { if (reduce) return; for (const p of puffs) {
+    const t = (now / 2400 + p.ph) % 1; p.m.position.set(Math.sin(t * 6 + p.ph * 9) * 0.04, 0.07 + t * 0.42, Math.cos(t * 5 + p.ph * 7) * 0.03);
+    p.m.scale.setScalar(0.6 + t * 1.4); p.m.material.opacity = Math.sin(t * Math.PI) * 0.22;
+  } });
   // a slim hood hanging over it, lit underneath
   block(0.7, 0.1, 0.95, 0, 1.8, 2.35, -0.85, { r: 0.02, mat: steelM(0x9aa2b4) });
   tube(0.6, 0.01, 0.85, 0xffe2b8, 1.8, 2.295, -0.85, { k: 0.75 });
@@ -819,7 +836,7 @@ const toyMouse = (x, y, z, rotY = 0, color = 0x9b3dd6) => {
 const FIN = { fur: 0x9a8670, stripe: 0x3e342a, chin: 0xf2ece0, size: 1.15, fluffy: true };
 const PHOEBE = { fur: 0xe39a4f, stripe: 0xb8692a, chin: 0xf6efe4, size: 0.62, lean: true };
 const buildCats = () => {
-  const napper = (g, name) => addHot(g, "living", name, "Shh… napping", () => { g.userData.twitch = performance.now(); toast(`Shh… ${name}'s napping.`); });
+  const napper = (g, name) => addHot(g, "living", name, ["Shh… napping", touch ? "Tap to tiptoe closer" : "Click to tiptoe closer"], () => { g.userData.twitch = performance.now(); catFocus?.g === g ? askCat() : openCat(g, name); });
   // living room: Phoebe on top of the cat tree (back wall, left of the window), Fin in his bed (back wall, right)
   const tree = catTree(-3.2, -6.58, 0, { tall: 1.5 });
   napper(cat(PHOEBE, -3.22, tree.perch, -6.56, -1.2), "Phoebe");
@@ -976,13 +993,14 @@ const flyTo = (pos, look, dur, after) => {
   flight = { t0: performance.now(), dur, pos: new THREE.CatmullRomCurve3([camera.position.clone(), pos]), look: new THREE.CatmullRomCurve3([lookAt.clone(), look]), yaw0: yaw, pitch0: pitch, after };
 };
 let peekView = null; // ?debug only: a close-up camera for checking details
-const view = () => peekView || focusRow?.view || nodeFocus?.view || winFocus?.view || VIEWS[room];
+const view = () => peekView || focusRow?.view || nodeFocus?.view || winFocus?.view || catFocus?.view || VIEWS[room];
 const setRoomUI = () => {
   const v = VIEWS[room];
-  ui.room.textContent = focusRow ? `${v.name} · ${NAMES[focusRow.f.row.id] || ""}` : nodeFocus ? `${v.name} · Node` : winFocus ? `${v.name} · Clock` : v.name;
+  ui.room.textContent = focusRow ? `${v.name} · ${NAMES[focusRow.f.row.id] || ""}` : nodeFocus ? `${v.name} · Node` : winFocus ? `${v.name} · Clock` : catFocus ? `${v.name} · ${catFocus.name}` : v.name;
   ui.hint.textContent = focusRow ? (focusRow.pan ? "Swipe along the shelf · tap a movie to pull it out" : touch ? "Tap a movie to pull it out" : "Click a movie to pull it out")
     : nodeFocus ? (touch ? "Tap a block to open it · tap away to step back" : "Click a block to open it on mempool.space · click away to step back")
     : winFocus ? (touch ? "Tap off the window to close" : "Esc or click off the window to close")
+    : catFocus ? `${touch ? "Tap" : "Click"} ${catFocus.name} again · ${touch ? "tap" : "click"} away to step back`
     : v.hint;
   ui.back.hidden = room === "outside";
   document.title = room === "outside" ? "Pierpont's apartment" : `${v.name} · Pierpont's apartment`;
@@ -994,6 +1012,7 @@ const go = (to) => {
   if (focusRow) return unfocus(() => go(to));
   if (winFocus) return closeWindowApp(() => go(to));
   if (nodeFocus) return closeNode(() => go(to));
+  if (catFocus) return closeCat(() => go(to));
   if (to === room) return;
   hideTip();
   const from = room, a = ORDER.indexOf(from), b = ORDER.indexOf(to), route = [];
@@ -1014,6 +1033,7 @@ const back = () => {
   if (focusRow) return unfocus();
   if (winFocus) return closeWindowApp();
   if (nodeFocus) return closeNode();
+  if (catFocus) return closeCat();
   if (room !== "outside") go(ORDER[ORDER.indexOf(room) - 1]);
 };
 ui.back.addEventListener("click", back);
@@ -1026,6 +1046,8 @@ addEventListener("keydown", (e) => {
     else if (e.key === "Escape") closePad();
     return;
   }
+  if (!photos.hidden) { if (e.key === "Escape") closePhotos(); else if (e.key === "ArrowLeft") showPhoto(albumAt - 1); else if (e.key === "ArrowRight") showPhoto(albumAt + 1); return; }
+  if (!ask.hidden) { if (e.key === "Escape") closeAsk(); return; }
   if (e.key === "Escape") back();
   if (e.key === "Enter" && cv.active) cv.openReview();
 });
@@ -1342,6 +1364,52 @@ const closeNode = (after) => {
   holoAnim = { t0: performance.now(), from: holoK, to: 0 };
   flyTo(VIEWS.living.pos, VIEWS.living.look, 1000, after);
 };
+// ---------- the cats: tiptoe up to one, and you're offered pictures instead of a pet ----------
+let catFocus = null; // { name, g, view }
+const openCat = (g, name) => {
+  if (catFocus || nodeFocus || flight) return;
+  const c = new THREE.Vector3(); g.getWorldPosition(c);
+  // a little in front and above, so you look down at them curled up
+  catFocus = { name, g, view: { pos: c.clone().add(V(0.4, 0.75, 1.3)), look: c.clone().add(V(0, 0.12, 0)), yaw: 0.3 } };
+  hideTip(); setRoomUI();
+  flyTo(catFocus.view.pos, catFocus.view.look, 1100);
+};
+const closeCat = (after) => {
+  if (!catFocus) return after?.();
+  catFocus = null; hideTip(); setRoomUI();
+  flyTo(VIEWS.living.pos, VIEWS.living.look, 1000, after);
+};
+const ask = $("#h-ask"), photos = $("#h-photos");
+let album = [], albumAt = 0, catPhotos = [];
+const askCat = () => {
+  const name = catFocus.name;
+  catPhotos = (S.photos || []).filter((p) => p.src && (p.cats || []).includes(name.toLowerCase()));
+  if (!catPhotos.length) return toast(`Shh… ${name}'s napping.`);
+  $("#ask-text").textContent = `Let ${name} sleep. I can show you some pictures though.`;
+  ask.dataset.name = name; ask.hidden = false; hideTip();
+  ask.querySelector('[data-a="yes"]').focus({ preventScroll: true });
+};
+const closeAsk = () => { ask.hidden = true; };
+const showPhoto = (i) => {
+  albumAt = (i + album.length) % album.length; const p = album[albumAt];
+  const img = $("#ph-img"); img.src = p.src; img.alt = p.caption || "";
+  $("#ph-cap").textContent = [p.caption, p.date && new Date(`${p.date}T12:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })].filter(Boolean).join(" · ");
+  $("#ph-count").textContent = `${albumAt + 1} / ${album.length}`;
+  photos.querySelector(".ph-nav").hidden = album.length < 2;
+};
+const openPhotos = (name, list) => {
+  album = list; $("#ph-title").textContent = `>> ${name.toUpperCase()} // PHOTOS`;
+  showPhoto(0); photos.hidden = false; photos.querySelector('[data-p="close"]').focus({ preventScroll: true });
+};
+const closePhotos = () => { photos.hidden = true; };
+ask.addEventListener("click", (e) => {
+  const a = e.target.closest("[data-a]")?.dataset.a; if (!a && e.target !== ask) return;
+  closeAsk(); if (a === "yes") openPhotos(ask.dataset.name, catPhotos);
+});
+photos.addEventListener("click", (e) => {
+  const p = e.target.closest("[data-p]")?.dataset.p;
+  if (p === "prev") showPhoto(albumAt - 1); else if (p === "next") showPhoto(albumAt + 1); else if (p === "close" || e.target === photos) closePhotos();
+});
 // Which block tile on the projection is under the pointer?
 const holoAt = (e) => {
   const hit = setRay(e).intersectObject(holo.plane, false)[0];
@@ -1467,6 +1535,11 @@ canvas.addEventListener("pointermove", (e) => {
     return;
   }
   if (winFocus) { hideTip(); canvas.style.cursor = tileAt(e).off ? "zoom-out" : "default"; return; }
+  if (catFocus) {
+    const h = pickAt(e);
+    if (h?.obj === catFocus.g) { showTip(e, { label: catFocus.name, sub: "Click to say hi" }); canvas.style.cursor = "pointer"; } else { hideTip(); canvas.style.cursor = "zoom-out"; }
+    return;
+  }
   if (room === "shelf") {
     const s = shelfPick(e);
     if (!s) { hideTip(); canvas.style.cursor = focusRow ? "zoom-out" : "grab"; return; }
@@ -1495,6 +1568,7 @@ canvas.addEventListener("pointerup", (e) => {
     return;
   }
   if (winFocus) { if (tileAt(e).off) closeWindowApp(); return; } // off the glass: close the app
+  if (catFocus) { const h = pickAt(e); h?.obj === catFocus.g ? h.act() : closeCat(); return; } // off the cat: step back
   if (room === "shelf") {
     const s = shelfPick(e);
     if (!s) return focusRow && unfocus(); // clicking off the shelf steps back from the row
