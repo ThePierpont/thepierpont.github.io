@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793691744";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793692038";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -143,13 +143,22 @@ const buildOutside = () => {
   // my door: a single steel panel that slides straight up into the wall above the opening
   doorPivot = new THREE.Group(); doorPivot.position.set(-0.68, 0, 0); scene.add(doorPivot);
   block(1.36, 2.36, 0.08, 0, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03, mat: steel(0x6c7389) }); // gunmetal, a shade darker so the neon P stands out
-  block(0.92, 0.92, 0.02, 0x1b1e27, 0.68, 1.68, 0.045, { parent: doorPivot, r: 0.02 }); // a smoked inset behind the P
   steelDetail(doorPivot, 1.36, 0.68, 0.045, 0x6c7389);
-  tube(0.03, 0.5, 0.02, 0xf9f002, 1.22, 1.12, 0.05, { parent: doorPivot, k: 1.2 }); // a flush light strip instead of a knob
-  sign("4B", 0.16, 0.68, 2.08, 0.07, { parent: doorPivot, color: "#f9f002", font: "700 100px Rajdhani", k: 1.1 });
+  // a tall pin pad set into the door where a handle would be: a little readout, keys running down, a status light
+  block(0.17, 0.5, 0.025, 0x101219, 1.2, 1.15, 0.045, { parent: doorPivot, r: 0.012 });
+  tube(0.12, 0.035, 0.01, 0x05d9e8, 1.2, 1.35, 0.06, { parent: doorPivot, k: 0.9 });
+  for (let i = 0; i < 12; i++) tube(0.028, 0.028, 0.01, 0x05d9e8, 1.155 + (i % 3) * 0.045, 1.28 - Math.floor(i / 3) * 0.055, 0.06, { parent: doorPivot, k: 1.3 });
+  keypadLed = tube(0.05, 0.012, 0.01, unlocked ? 0x2bff88 : 0xff3b5c, 1.2, 0.96, 0.06, { parent: doorPivot, k: 2.2 }); // red while locked
+  blinkers.push({ m: keypadLed, rate: 0.25, phase: 0 });
+  sign("4B", 0.16, 0.68, 2.16, 0.05, { parent: doorPivot, color: "#f9f002", font: "700 100px Rajdhani", k: 1.1 });
   addHot(doorPivot, "outside", "Come on in", touch ? "Tap to open the door" : "Click to open the door", () => go("living"));
   // a neon P on the door itself (it rides up with the door)
-  sign("P", 0.95, 0.68, 1.62, 0.075, { parent: doorPivot, color: "#ff2a6d", font: "700 260px Rajdhani", k: 1.9, glow: 0.3 }).userData.flicker = true;
+  // a bare neon P held on by magnets: it stands just off the steel on little chrome pucks, its shadow on the door behind
+  for (const [mx, my] of [[0.56, 1.48], [0.56, 1.84], [0.78, 1.74]]) { // behind the stem and the bowl, so they only catch the light from an angle
+    const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 16), toon(0xd4d8e2)); puck.rotation.x = Math.PI / 2; puck.position.set(mx, my, 0.06); doorPivot.add(puck);
+  }
+  const pShadow = sign("P", 1.5, 0.715, 1.625, 0.042, { parent: doorPivot, color: "#05060a", font: "700 260px Rajdhani", k: 1, glow: 0, core: 0 }); pShadow.material.opacity = 0.6;
+  sign("P", 1.5, 0.68, 1.66, 0.082, { parent: doorPivot, color: "#ff2a6d", font: "700 260px Rajdhani", k: 1.9, glow: 0.3 }).userData.flicker = true;
   sign("APT 4B · DC", 0.12, -1.15, 1.7, 0.11, { color: "#05d9e8", font: "500 70px 'JetBrains Mono'", k: 1.2 });
   for (const s of [-1, 1]) { block(0.12, 0.34, 0.08, 0x14161f, s * 1.25, 2.1, 0.12, { r: 0.02 }); tube(0.05, 0.28, 0.02, 0x05d9e8, s * 1.25, 2.1, 0.165, { k: 1.1 }); } // sconces
   const lamp = new THREE.PointLight(0x05d9e8, 3.5, 6); lamp.position.set(0, 2.3, 1.4); scene.add(lamp);
@@ -395,9 +404,6 @@ const led = (x, y, z, color, rate = 1, size = 0.03) => {
 };
 const buildDecor = () => {
   // ---- hallway (on the front wall, where the doorstep camera can see it)
-  block(0.17, 0.27, 0.04, 0x16102e, 0.98, 1.28, 0.12, { r: 0.02 }); // keypad
-  for (let i = 0; i < 9; i++) tube(0.032, 0.032, 0.01, 0x05d9e8, 0.94 + (i % 3) * 0.04, 1.34 - Math.floor(i / 3) * 0.045, 0.145, { k: 1.4 });
-  keypadLed = led(0.98, 1.17, 0.145, unlocked ? 0x2bff88 : 0xff3b5c, 0.25); // red while locked
   const cam = new THREE.Group(); cam.position.set(1.6, 3.05, 0.25); cam.rotation.set(0.35, -0.5, 0); scene.add(cam);
   block(0.08, 0.2, 0.08, 0x221a40, 0, 0.1, -0.06, { parent: cam, r: 0.02 });
   block(0.34, 0.17, 0.17, 0xd9d7e6, 0, -0.02, 0.06, { parent: cam, r: 0.05 });
@@ -1092,8 +1098,8 @@ const showDots = () => padDots.forEach((d, i) => d.classList.toggle("on", i < en
 const openPad = (after) => {
   padAfter = after; entry = ""; showDots(); padMsg.textContent = "Residents and guests only";
   pad.className = "h-pad"; pad.hidden = false; hideTip();
-  if (!reduce) { // pop out of the keypad on the wall
-    const q = V(0.98, 1.28, 0.14).project(camera), r = canvas.getBoundingClientRect(), b = padBox.getBoundingClientRect();
+  if (!reduce) { // pop out of the pin pad on the door
+    const q = V(0.52, 1.15, 0.07).project(camera), r = canvas.getBoundingClientRect(), b = padBox.getBoundingClientRect();
     const px = r.left + ((q.x + 1) / 2) * r.width, py = r.top + ((1 - q.y) / 2) * r.height;
     padBox.classList.remove("pop"); padBox.style.transform = `translate(${px - (b.left + b.width / 2)}px, ${py - (b.top + b.height / 2)}px) scale(0.06)`;
     padBox.getBoundingClientRect(); padBox.classList.add("pop"); padBox.style.transform = "";
