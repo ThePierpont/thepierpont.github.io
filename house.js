@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793690421";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793690669";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -109,13 +109,14 @@ const buildOutside = () => {
   tube(1.52, 0.04, 0.04, 0x05d9e8, 0, 2.44, 0.12, { k: 1.3 });
   // my door, on a hinge at its left edge
   doorPivot = new THREE.Group(); doorPivot.position.set(-0.68, 0, 0); scene.add(doorPivot);
-  block(1.36, 2.36, 0.08, 0xb3195a, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03 });
-  block(1.0, 0.9, 0.03, 0x8e1248, 0.68, 1.75, 0.05, { parent: doorPivot, r: 0.02 });
-  block(1.0, 0.9, 0.03, 0x8e1248, 0.68, 0.62, 0.05, { parent: doorPivot, r: 0.02 });
+  block(1.36, 2.36, 0.08, 0x1d1638, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03 }); // dark, so the neon P stands out (like the site icon)
+  block(1.0, 0.9, 0.03, 0x16112c, 0.68, 1.75, 0.05, { parent: doorPivot, r: 0.02 });
+  block(1.0, 0.9, 0.03, 0x16112c, 0.68, 0.62, 0.05, { parent: doorPivot, r: 0.02 });
   ball(0.055, 0xf9f002, 1.2, 1.12, 0.09, { parent: doorPivot });
   sign("4B", 0.16, 0.68, 2.08, 0.07, { parent: doorPivot, color: "#f9f002", font: "700 100px Rajdhani", k: 1.1 });
   addHot(doorPivot, "outside", "Come on in", touch ? "Tap to open the door" : "Click to open the door", () => go("living"));
-  sign("PIERPONT", 0.55, 0, 2.93, 0.12, { color: "#ff2a6d", k: 1.7 }).userData.flicker = true;
+  // a neon P on the door itself (it swings open with the door)
+  sign("P", 0.95, 0.68, 1.62, 0.075, { parent: doorPivot, color: "#ff2a6d", font: "700 260px Rajdhani", k: 1.9, glow: 0.3 }).userData.flicker = true;
   sign("APT 4B · DC", 0.12, -1.15, 1.7, 0.11, { color: "#05d9e8", font: "500 70px 'JetBrains Mono'", k: 1.2 });
   for (const s of [-1, 1]) tube(0.07, 0.32, 0.04, 0x05d9e8, s * 1.25, 2.1, 0.12, { k: 1.6 });
   const lamp = new THREE.PointLight(0x05d9e8, 5, 7); lamp.position.set(0, 2.3, 1.4); scene.add(lamp);
