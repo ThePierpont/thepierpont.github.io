@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793701411";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793701984";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -911,9 +911,10 @@ const buildGallery = () => {
   // the desk can be sat at: a close-up over the camera and the phone
   const deskHit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.9), new THREE.MeshBasicMaterial({ visible: false })); deskHit.position.set(11.6, 0.6, Z0 - 0.45); scene.add(deskHit);
   addHot(deskHit, "gallery", "My desk", touch ? "Tap to sit at it" : "Click to sit at it", () => openSpot(deskHit, "Desk", { pos: V(11.6, 1.35, Z0 - 1.35), look: V(11.6, 0.9, Z0 - 0.35) }, {
-    hint: `${tapWord} the camera, the phone or a photo · ${tapWord.toLowerCase()} anywhere else to get up`,
+    hint: `${tapWord} the computer, the camera or the phone · ${tapWord.toLowerCase()} anywhere else to get up`,
     hover: (h) => (h && h.obj !== deskHit ? h : null), click: (h) => (h && h.obj !== deskHit ? h.act() : closeSpot()) }));
-  const slideshow = () => { if (photos.length) { openPhotos("Gallery", photos); showPhoto(0); } };
+  const slideshow = () => { if (sitePhotos.length) { openPhotos("Gallery", sitePhotos); showPhoto(0); } };
+  addHot(screen, "gallery", "Photo library", `Every photo on the site · ${tapWord.toLowerCase()} to browse`, () => openLibrary());
   addHot(cam, "gallery", "Film camera", `${tapWord} for a slideshow`, slideshow); addHot(ph, "gallery", "iPhone 17 Pro Max", `Cosmic Orange · ${tapWord.toLowerCase()} for a slideshow`, slideshow);
 };
 // the kitchen, lived in: a back counter along the wall with the sink and a coffee machine, cabinets over it lit
@@ -1801,6 +1802,7 @@ addEventListener("keydown", (e) => {
   if (!recipeDlg.hidden) { if (e.key === "Escape") closeRecipe(); return; }
   if (!listDlg.hidden) { if (e.key === "Escape") closeList(); return; }
   if (!photos.hidden) { if (e.key === "Escape") closePhotos(); else if (e.key === "ArrowLeft") showPhoto(albumAt - 1); else if (e.key === "ArrowRight") showPhoto(albumAt + 1); return; }
+  if (!libDlg.hidden) { if (e.key === "Escape") closeLibrary(); return; }
   if (!ask.hidden) { if (e.key === "Escape") closeAsk(); return; }
   if (e.key === "Escape") back();
   if (e.key === "Enter" && cv.active) cv.openReview();
@@ -2268,6 +2270,53 @@ const openPhotos = (name, list) => {
   showPhoto(0); photos.hidden = false; photos.querySelector('[data-p="close"]').focus({ preventScroll: true });
 };
 const closePhotos = () => { photos.hidden = true; };
+// Every photo on the site: the ones in content.js plus every image posted on Nostr, newest first (the same wall as the main page).
+// Nostr posts come from the relays and Primal's archive, and each is checked against my signature before it's used.
+const fileKey = (src) => (src.match(/[0-9a-f]{64}/i)?.[0] || src).toLowerCase(); // media hosts name files by their SHA-256
+let sitePhotos = (S.photos || []).filter((p) => p.src).map((p) => ({ ...p, ts: Date.parse((p.date || "1970-01-01") + "T12:00:00") }));
+const primalPage = (pk, until) => new Promise((resolve) => {
+  const ws = new WebSocket("wss://cache2.primal.net/v1"), sub = "apt" + Math.random().toString(36).slice(2, 8), out = [];
+  const done = () => { clearTimeout(timer); try { ws.close(); } catch {} resolve(out); }, timer = setTimeout(done, 6000);
+  ws.onopen = () => ws.send(JSON.stringify(["REQ", sub, { cache: ["feed", { pubkey: pk, notes: "authored", limit: 100, ...(until ? { until } : {}) }] }]));
+  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d[1] !== sub) return; if (d[0] === "EVENT" && d[2]?.pubkey === pk) out.push(d[2]); if (d[0] === "EOSE") done(); };
+  ws.onerror = () => done();
+});
+const loadNostrPhotos = async () => {
+  const NT = window.NostrTools, N = S.nostr || {}; if (!NT || !N.npub) return;
+  const pk = NT.nip19.decode(N.npub.trim()).data, relays = N.relays?.length ? N.relays : ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
+  const fromPrimal = []; let until;
+  for (let i = 0; i < 5; i++) { const page = await primalPage(pk, until); fromPrimal.push(...page); if (page.length < 100) break; until = Math.min(...page.map((e) => e.created_at)) - 1; }
+  const fromRelays = await new NT.SimplePool().querySync(relays, { kinds: [1, 20], authors: [pk], limit: 100 }, { maxWait: 4000 }).catch(() => []);
+  const since = N.photosSince ? Date.parse(N.photosSince + "T00:00:00") / 1000 : 0, seen = new Set(), IMG = /\.(jpe?g|png|gif|webp|avif)(\?|$)/i;
+  const posts = fromRelays.concat(fromPrimal).filter((e) => (e.kind === 1 || e.kind === 20) && e.pubkey === pk && e.created_at >= since && !e.tags.some((t) => t[0] === "e") && !seen.has(e.id) && seen.add(e.id) && NT.verifyEvent(e));
+  const found = posts.flatMap((ev) => {
+    const imeta = ev.tags.filter((t) => t[0] === "imeta").map((t) => Object.fromEntries(t.slice(1).map((x) => [x.slice(0, x.indexOf(" ")), x.slice(x.indexOf(" ") + 1)])));
+    const urls = new Set(imeta.filter((m) => m.url && (!m.m || m.m.startsWith("image/"))).map((m) => m.url));
+    (ev.content.match(/https?:\/\/[^\s]+/g) || []).filter((u) => IMG.test(u)).forEach((u) => urls.add(u));
+    const caption = ev.content.replace(/https?:\/\/\S+/g, "").replace(/nostr:\S+/g, "").trim().split("\n")[0].slice(0, 80);
+    return [...urls].map((src) => ({ src, caption, date: new Date(ev.created_at * 1000).toISOString().slice(0, 10), ts: ev.created_at * 1000 }));
+  });
+  const known = new Set([...(N.hidePhotos || []), ...sitePhotos.map((p) => p.src)].map(fileKey));
+  sitePhotos = sitePhotos.concat(found.filter((p) => { const k = fileKey(p.src); if (known.has(k)) return false; known.add(k); return true; })).sort((a, b) => b.ts - a.ts);
+};
+addEventListener("DOMContentLoaded", () => loadNostrPhotos().catch((e) => console.warn("nostr photos:", e)));
+// the desk computer: a photo library of everything, by album; a thumbnail opens the viewer on top of it
+const libDlg = $("#h-lib"); let libAt = 0; // when it opened: the click that opened it must not land on a thumbnail under the cursor
+const openLibrary = () => {
+  const albums = [["All photos", sitePhotos], ["Fin & Phoebe", APT_CAT_PHOTOS]].filter(([, l]) => l.length);
+  const body = $("#lib-body"); body.replaceChildren();
+  for (const [name, list] of albums) {
+    const sec = document.createElement("section"), h = document.createElement("h3"), grid = document.createElement("div");
+    h.textContent = `${name} · ${list.length}`; grid.className = "lib-grid";
+    // (a thumbnail whose image fails to load is dropped: old Nostr images sometimes vanish from their hosts)
+    list.forEach((p, i) => { const b = document.createElement("button"), im = document.createElement("img"); b.type = "button"; b.setAttribute("aria-label", p.caption || "Photo");
+      im.src = p.src; im.alt = ""; im.loading = "lazy"; im.onerror = () => b.remove(); b.append(im); b.addEventListener("click", () => { if (performance.now() - libAt > 400) { openPhotos(name, list); showPhoto(i); } }); grid.append(b); });
+    sec.append(h, grid); body.append(sec);
+  }
+  libDlg.hidden = false; libAt = performance.now(); hideTip(); libDlg.querySelector('[data-b="close"]').focus({ preventScroll: true });
+};
+const closeLibrary = () => { libDlg.hidden = true; };
+libDlg.addEventListener("click", (e) => { if (performance.now() - libAt < 400) return; if (e.target === libDlg || e.target.closest("[data-b=close]")) closeLibrary(); });
 ask.addEventListener("click", (e) => {
   const a = e.target.closest("[data-a]")?.dataset.a; if (!a && e.target !== ask) return;
   closeAsk(); if (a === "yes") askYes?.();
