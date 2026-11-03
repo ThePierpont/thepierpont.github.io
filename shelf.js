@@ -2,7 +2,7 @@
 // Full view → click a shelf to fly in → hover/click (or tap) a movie for my Letterboxd entry.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { createCaseViewer, columns, shearAt, lean, bounds, pick } from "./case-viewer.js?v=1793686901";
+import { createCaseViewer, columns, shearAt, lean, bounds, pick } from "./case-viewer.js?v=1793687163";
 
 const ROWS = window.SHELF || [];
 const box = document.getElementById("shelf3d");

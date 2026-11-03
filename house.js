@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793686901";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793687163";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -96,42 +96,58 @@ const addHot = (obj, room, label, sub, act) => { obj.userData.hot = hot.length; 
 // ---------- the front hallway (outside the apartment, +z) ----------
 let doorPivot;
 const buildOutside = () => {
-  // A narrow corridor running back from my door (+z), the way an apartment hallway does.
-  const wallC = 0x2d2160, sideC = 0x251b4d, HW = 1.6;
-  slab(2 * HW, 0.1, 12, 0x1b1430, 0, -0.05, 6); slab(2 * HW, 0.1, 12, 0x120d24, 0, H + 0.05, 6);
-  slab(0.2, H, 12, sideC, -HW - 0.1, H / 2, 6); slab(0.2, H, 12, sideC, HW + 0.1, H / 2, 6); slab(2 * HW, H, 0.2, sideC, 0, H / 2, 12);
-  // the front wall, with the door opening in the middle (it's also the living room's front wall)
-  slab(5.3, H, 0.2, wallC, -3.35, H / 2, 0); slab(5.3, H, 0.2, wallC, 3.35, H / 2, 0);
+  // The building's hallway: it runs left and right (x), my door is partway along the near wall,
+  // and there are neighbours on both sides and across the hall behind you. It fades out both ways.
+  const wallC = 0x2d2160, L = 16, Dp = 5.2; // half its length, and its depth (door wall z = 0, opposite wall z = Dp)
+  slab(2 * L, 0.1, Dp, 0x1b1430, 0, -0.05, Dp / 2); slab(2 * L, 0.1, Dp, 0x120d24, 0, H + 0.05, Dp / 2);
+  slab(2 * L, H, 0.2, 0x251b4d, 0, H / 2, Dp + 0.1); // across the hall
+  for (const s of [-1, 1]) slab(0.2, H, Dp, 0x251b4d, s * (L + 0.1), H / 2, Dp / 2);
+  // the near wall, with my door's opening in the middle (it's also the living room's front wall)
+  slab(L - 0.7, H, 0.2, wallC, -(L + 0.7) / 2, H / 2, 0); slab(L - 0.7, H, 0.2, wallC, (L + 0.7) / 2, H / 2, 0);
   slab(1.4, H - 2.4, 0.2, wallC, 0, 2.4 + (H - 2.4) / 2, 0);
   for (const s of [-1, 1]) tube(0.04, 2.44, 0.04, 0x05d9e8, s * 0.74, 1.22, 0.12, { k: 1.3 });
   tube(1.52, 0.04, 0.04, 0x05d9e8, 0, 2.44, 0.12, { k: 1.3 });
-  // the door, on a hinge at its left edge
+  // my door, on a hinge at its left edge
   doorPivot = new THREE.Group(); doorPivot.position.set(-0.68, 0, 0); scene.add(doorPivot);
   block(1.36, 2.36, 0.08, 0xb3195a, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03 });
   block(1.0, 0.9, 0.03, 0x8e1248, 0.68, 1.75, 0.05, { parent: doorPivot, r: 0.02 });
   block(1.0, 0.9, 0.03, 0x8e1248, 0.68, 0.62, 0.05, { parent: doorPivot, r: 0.02 });
   ball(0.055, 0xf9f002, 1.2, 1.12, 0.09, { parent: doorPivot });
-  sign("1B", 0.16, 0.68, 2.08, 0.07, { parent: doorPivot, color: "#f9f002", font: "700 100px Rajdhani", k: 1.1 });
+  sign("4B", 0.16, 0.68, 2.08, 0.07, { parent: doorPivot, color: "#f9f002", font: "700 100px Rajdhani", k: 1.1 });
   addHot(doorPivot, "outside", "Come on in", touch ? "Tap to open the door" : "Click to open the door", () => go("living"));
   sign("PIERPONT", 0.55, 0, 2.93, 0.12, { color: "#ff2a6d", k: 1.7 }).userData.flicker = true;
-  sign("APT 1B · DC", 0.12, -1.15, 1.7, 0.11, { color: "#05d9e8", font: "500 70px 'JetBrains Mono'", k: 1.2 });
+  sign("APT 4B · DC", 0.12, -1.15, 1.7, 0.11, { color: "#05d9e8", font: "500 70px 'JetBrains Mono'", k: 1.2 });
   for (const s of [-1, 1]) tube(0.07, 0.32, 0.04, 0x05d9e8, s * 1.25, 2.1, 0.12, { k: 1.6 });
   const lamp = new THREE.PointLight(0x05d9e8, 5, 7); lamp.position.set(0, 2.3, 1.4); scene.add(lamp);
   const warm = new THREE.PointLight(0xff2a6d, 4, 7); warm.position.set(0, 2.9, 0.8); scene.add(warm);
   block(1.4, 0.03, 0.8, 0x3a2d63, 0, 0.015, 0.75, { r: 0.012 }); // doormat
   const mat = sign("WELCOME", 0.24, 0, 0.034, 0.75, { color: "#f9f002", k: 1.05 }); mat.rotation.x = -Math.PI / 2;
-  // down the corridor: a runner, light strips overhead, glowing baseboards, a neighbour's door
-  block(1.3, 0.02, 10.6, 0x3a1a4a, 0, 0.011, 6.6, { ink: false, r: 0.005 });
-  for (const s of [-1, 1]) tube(0.02, 0.02, 10.6, 0x05d9e8, s * 0.66, 0.025, 6.6, { k: 1.1 });
-  for (const zz of [1.4, 4.2, 7.0, 9.8]) tube(1.4, 0.03, 0.16, 0x9d8cff, 0, H - 0.03, zz, { k: 0.95 }); // soft violet strips, not glare
-  tube(0.03, 0.03, 12, 0x05d9e8, -HW + 0.02, 0.03, 6, { k: 1.4 }); tube(0.03, 0.03, 12, 0xff2a6d, HW - 0.02, 0.03, 6, { k: 1.4 });
-  const hall = new THREE.PointLight(0x9d8cff, 3, 9); hall.position.set(0, 3.0, 5.5); scene.add(hall);
-  block(0.08, 2.3, 1.2, 0x3b2a75, HW - 0.04, 1.15, 3.1, { r: 0.03 }); // 1C, across the hall
-  for (const dz of [-0.62, 0.62]) tube(0.03, 2.36, 0.03, 0x7b2cbf, HW - 0.06, 1.18, 3.1 + dz, { k: 1.3 });
-  ball(0.045, 0xf9f002, HW - 0.1, 1.1, 2.6);
-  sign("1C", 0.16, HW - 0.09, 2.6, 3.1, { color: "#b98cff", rotY: -Math.PI / 2, font: "700 100px Rajdhani", k: 1.2 });
-  block(0.08, 2.3, 1.2, 0x3b2a75, -HW + 0.04, 1.15, 8.4, { r: 0.03 }); // 1A, further down
-  sign("1A", 0.16, -HW + 0.09, 2.6, 8.4, { color: "#b98cff", rotY: Math.PI / 2, font: "700 100px Rajdhani", k: 1.2 });
+  // the neighbours: plain doors with violet frames and their numbers
+  const neighbour = (x, z, back, label) => {
+    const g = new THREE.Group(); g.position.set(x, 0, z); if (back) g.rotation.y = Math.PI; scene.add(g);
+    block(1.2, 2.3, 0.08, 0x3b2a75, 0, 1.15, 0.05, { parent: g, r: 0.03 });
+    for (const s of [-1, 1]) tube(0.03, 2.36, 0.03, 0x7b2cbf, s * 0.63, 1.18, 0.1, { parent: g, k: 1.3 });
+    tube(1.29, 0.03, 0.03, 0x7b2cbf, 0, 2.36, 0.1, { parent: g, k: 1.3 });
+    ball(0.045, 0xf9f002, 0.45, 1.1, 0.1, { parent: g });
+    sign(label, 0.16, 0, 2.62, 0.1, { parent: g, color: "#b98cff", font: "700 100px Rajdhani", k: 1.2 });
+    block(1.0, 0.025, 0.55, 0x2a2048, 0, 0.012, 0.42, { parent: g, r: 0.01, ink: false }); // their mat
+  };
+  neighbour(-5.2, 0, false, "4A"); neighbour(5.2, 0, false, "4C"); neighbour(10.4, 0, false, "4D");
+  neighbour(8.6, Dp, true, "4E"); neighbour(2.8, Dp, true, "4F"); neighbour(-2.6, Dp, true, "4G"); neighbour(-8.4, Dp, true, "4H");
+  // the lift at the far end (down to the pizza place)
+  const lift = new THREE.Group(); lift.position.set(-10.6, 0, 0); scene.add(lift);
+  block(1.9, 2.7, 0.1, 0x3a3d4a, 0, 1.35, 0.05, { parent: lift, r: 0.02 });
+  for (const s of [-1, 1]) block(0.8, 2.4, 0.05, 0xb8bcc8, s * 0.41, 1.2, 0.12, { parent: lift, r: 0.01 });
+  tube(0.02, 2.4, 0.02, 0x05d9e8, 0, 1.2, 0.15, { parent: lift, k: 1.4 });
+  sign("LIFT", 0.2, 0, 2.95, 0.12, { parent: lift, color: "#05d9e8", k: 1.3 });
+  block(0.14, 0.26, 0.04, 0x16102e, 1.15, 1.25, 0.06, { parent: lift, r: 0.02 });
+  sign("▼", 0.1, 1.15, 1.25, 0.09, { parent: lift, color: "#f9f002", font: "700 90px Rajdhani", k: 1.4 });
+  // down the hall: a runner, light strips overhead, glowing baseboards, a couple of lights
+  block(2 * L - 0.4, 0.02, 1.3, 0x3a1a4a, 0, 0.011, Dp / 2 + 0.1, { ink: false, r: 0.005 });
+  for (const s of [-1, 1]) tube(2 * L - 0.4, 0.02, 0.02, 0x05d9e8, 0, 0.025, Dp / 2 + 0.1 + s * 0.66, { k: 1.1 });
+  for (let xx = -L + 1.5; xx < L; xx += 3) tube(0.16, 0.03, 1.6, 0x9d8cff, xx, H - 0.03, Dp / 2, { k: 0.95 });
+  tube(2 * L, 0.03, 0.03, 0x05d9e8, 0, 0.03, 0.12, { k: 1.4 }); tube(2 * L, 0.03, 0.03, 0xff2a6d, 0, 0.03, Dp - 0.02, { k: 1.4 });
+  for (const xx of [-7, 7]) { const hl = new THREE.PointLight(0x9d8cff, 3, 9); hl.position.set(xx, 3.0, Dp / 2); scene.add(hl); }
 };
 
 // ---------- the living room (z 0 … -7) ----------
@@ -325,13 +341,13 @@ const buildDecor = () => {
   block(0.17, 0.27, 0.04, 0x16102e, 0.98, 1.28, 0.12, { r: 0.02 }); // keypad
   for (let i = 0; i < 9; i++) tube(0.032, 0.032, 0.01, 0x05d9e8, 0.94 + (i % 3) * 0.04, 1.34 - Math.floor(i / 3) * 0.045, 0.145, { k: 1.4 });
   led(0.98, 1.17, 0.145, 0x2bff88, 0.25);
-  const cam = new THREE.Group(); cam.position.set(1.32, 3.05, 0.25); cam.rotation.set(0.35, -0.5, 0); scene.add(cam);
+  const cam = new THREE.Group(); cam.position.set(1.6, 3.05, 0.25); cam.rotation.set(0.35, -0.5, 0); scene.add(cam);
   block(0.08, 0.2, 0.08, 0x221a40, 0, 0.1, -0.06, { parent: cam, r: 0.02 });
   block(0.34, 0.17, 0.17, 0xd9d7e6, 0, -0.02, 0.06, { parent: cam, r: 0.05 });
   ball(0.05, 0x111111, 0, -0.02, 0.16, { parent: cam });
   blinkers.push({ m: tube(0.03, 0.03, 0.02, 0xff2a6d, 0.12, 0.04, 0.15, { parent: cam, k: 2.6 }), rate: 0.8, phase: 0 });
-  cable([[-1.45, 3.32, 0.2], [-1.3, 3.05, 3], [-1.45, 3.3, 6], [-1.3, 3.08, 9], [-1.45, 3.3, 11.8]], 0x16102e, 0.035); // cables run down the corridor
-  cable([[1.45, 3.3, 0.2], [1.32, 3.1, 3.4], [1.45, 3.3, 6.5], [1.3, 3.12, 9.5], [1.45, 3.3, 11.8]], 0xff2a6d, 0.012, true);
+  cable([[-16, 3.32, 0.25], [-9, 3.05, 0.3], [-3, 3.3, 0.25], [2, 3.02, 0.3], [8, 3.3, 0.25], [16, 3.08, 0.3]], 0x16102e, 0.035); // cables run along the hall
+  cable([[-16, 3.3, 0.34], [-6, 3.12, 0.36], [1, 3.24, 0.34], [9, 3.1, 0.36], [16, 3.28, 0.34]], 0xff2a6d, 0.012, true);
   // an ad for the pizza place on the first floor, on the corridor wall
   const ad = panel(1.6, 1.0, canvasTex(640, 400, (x, w, h) => {
     x.fillStyle = "rgba(10,4,24,.6)"; x.fillRect(0, 0, w, h);
@@ -348,7 +364,7 @@ const buildDecor = () => {
     x.font = "700 62px Rajdhani"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 14; x.fillText("OPEN 24 HOURS", 250, 260);
     x.font = "500 26px 'JetBrains Mono'"; x.fillStyle = "#d6d6e7"; x.shadowBlur = 0; x.fillText("BY THE SLICE · ALL NIGHT", 252, 330);
     for (let y = 0; y < h; y += 6) { x.fillStyle = "rgba(255,255,255,.05)"; x.fillRect(0, y, w, 2); }
-  }), -1.585, 1.75, 2.0, { transparent: true, k: 1.1, rotY: Math.PI / 2 });
+  }), -2.75, 1.75, 0.12, { transparent: true, k: 1.1 }); // on the wall between my door and 1A
   animators.push((now) => { ad.material.opacity = Math.sin(now / 90) > 0.96 ? 0.35 : 0.92; }); // holo flicker
   panel(1.0, 0.62, canvasTex(500, 310, (x, w, h) => { // a spray-paint tag
     x.lineCap = "round"; x.lineJoin = "round";
@@ -356,7 +372,7 @@ const buildDecor = () => {
     stroke("#ff2a6d", 26, () => { x.moveTo(70, 250); x.lineTo(95, 60); x.bezierCurveTo(200, 40, 210, 160, 105, 150); x.moveTo(230, 250); x.lineTo(255, 60); x.bezierCurveTo(360, 40, 370, 160, 265, 150); });
     stroke("#05d9e8", 9, () => { x.moveTo(60, 270); x.bezierCurveTo(200, 230, 330, 300, 450, 230); });
     x.shadowBlur = 0; x.fillStyle = "#ff2a6d"; for (const dx of [100, 140, 262]) x.fillRect(dx, 250, 7, 30 + (dx % 40));
-  }), 1.585, 1.45, 1.0, { transparent: true, k: 1.15, rotY: -Math.PI / 2 }); // on the corridor wall, by my door
+  }), 2.5, 1.5, 0.115, { transparent: true, k: 1.15 }); // on the wall between my door and 1C
 
   // ---- living room
   // glowing baseboards and ceiling cables
@@ -716,7 +732,7 @@ const loadLive = () => {
 // ---------- camera: fixed spots, glided between along curves ----------
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const VIEWS = {
-  outside: { pos: V(0, 1.6, 5.4), look: V(0, 1.45, 0), name: "Front door", yaw: 0.4,
+  outside: { pos: V(1.9, 1.65, 4.75), look: V(-0.6, 1.45, 0), // a little off to one side, so the hall runs away past my door name: "Front door", yaw: 1.25,
     hint: touch ? "Tap the door to come in" : "Click the door to come in" },
   living: { pos: V(0, 1.72, -0.6), look: V(0, 1.45, -7), name: "Living room", yaw: 0.8,
     hint: touch ? "Tap a doorway · swipe to look around" : "Click a doorway · drag to look around" },
@@ -727,7 +743,7 @@ const VIEWS = {
 };
 const ORDER = ["outside", "living", "theater", "shelf"]; // the rooms, in walking order
 const PATHS = { // waypoints for position and where the camera looks, from → to
-  "outside>living": { pos: [V(0, 1.6, 5.4), V(0, 1.62, 2.2), V(0, 1.66, 0.4), V(0, 1.72, -0.6)], look: [V(0, 1.45, 0), V(0, 1.5, -3), V(0, 1.45, -6), V(0, 1.45, -7)] },
+  "outside>living": { pos: [V(1.9, 1.65, 4.75), V(0.5, 1.62, 2.1), V(0, 1.66, 0.35), V(0, 1.72, -0.6)], look: [V(-0.6, 1.45, 0), V(0, 1.5, -3), V(0, 1.45, -6), V(0, 1.45, -7)] },
   "theater>shelf": { pos: [V(-4.5, 2.15, -8.2), V(-5.6, 1.95, -10.1), V(-5.0, 1.78, -12.6), V(-4.6, 1.72, -13.7)], look: [V(-4.5, 1.85, -17), V(-7.2, 1.7, -14.8), V(-8.75, 1.65, -13.9), V(-8.75, 1.65, -13.7)] },
   "living>theater": { pos: [V(0, 1.72, -0.6), V(-2.4, 1.72, -3.6), V(-4.5, 1.76, -6.1), V(-4.5, 1.95, -7.5), V(-4.5, 2.15, -8.2)], look: [V(0, 1.45, -7), V(-4.5, 1.6, -7.5), V(-4.5, 1.7, -10), V(-4.5, 1.8, -14), V(-4.5, 1.85, -17)] },
 };
