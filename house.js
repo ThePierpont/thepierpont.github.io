@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793691103";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793691269";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -455,7 +455,7 @@ const buildDecor = () => {
     const m = panel(w, h, adCanvas(a), a.x, a.vert ? 1.6 : 1.75, z, { transparent: true, k: 0.95, rotY: a.back ? Math.PI : 0 });
     const ph = i * 1.37; animators.push((now) => { m.material.opacity = Math.sin(now / 110 + ph * 7) > 0.97 ? 0.35 : 0.92; }); // each flickers on its own beat
   });
-  // a news ticker running along the top of the far wall
+  // news tickers running along the top of both walls
   const tickerText = "TONIGHT ON B3: DREAMLOOP MIDNIGHT DOUBLE FEATURE  ✦  NEON NOODLE: 2-FOR-1 BOWLS AFTER MIDNIGHT  ✦  ORBITAL ARCADE HIGH-SCORE NIGHT  ✦  ROOFTOP NIGHT MARKET FRIDAY  ✦  LIFT 2 BACK IN SERVICE  ✦  ";
   // the canvas is exactly a whole number of copies wide, so the loop has no seam
   const tm = document.createElement("canvas").getContext("2d"); tm.font = "500 56px 'JetBrains Mono'";
@@ -466,8 +466,10 @@ const buildDecor = () => {
     for (let i = 0; i < copies; i++) x.fillText(tickerText, i * tw, h / 2 + 2);
   });
   tickTex.wrapS = THREE.RepeatWrapping; tickTex.repeat.set(1.6, 1);
-  const ticker = panel(24, 0.22, tickTex, 0, 2.98, 5.2 - 0.11, { k: 1.0, rotY: Math.PI });
-  tube(24.2, 0.02, 0.02, 0x05d9e8, 0, 3.1, 5.2 - 0.11, { k: 1.3 }); tube(24.2, 0.02, 0.02, 0x05d9e8, 0, 2.86, 5.2 - 0.11, { k: 1.3 });
+  for (const [z, rotY] of [[5.2 - 0.11, Math.PI], [0.11, 0]]) { // the far wall, and mine (above the doors)
+    panel(24, 0.22, tickTex, 0, 2.98, z, { k: 1.0, rotY });
+    for (const y of [3.1, 2.86]) tube(24.2, 0.02, 0.02, 0x05d9e8, 0, y, z, { k: 1.3 });
+  }
   animators.push((now, dt) => { tickTex.offset.x += dt * 0.00004; });
   // a sign hanging from the ceiling, pointing the way
   const hang = new THREE.Group(); hang.position.set(-3.6, 2.85, 2.6); hang.rotation.y = Math.PI / 2; scene.add(hang);
