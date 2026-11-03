@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793687372";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793687538";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -223,12 +223,28 @@ const buildLiving = () => {
   const ch = new THREE.Mesh(cube.geometry, inkMat); ch.scale.setScalar(1.25); cube.add(ch);
   const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.11, 16), toon(0xf4f3ff)); mug.position.set(-0.4, 0.555, -5.95); scene.add(mug);
   const mh = new THREE.Mesh(mug.geometry, inkMat); mh.scale.setScalar(1.18); mug.add(mh);
-  // floor lamp
-  block(0.05, 1.55, 0.05, 0x221a40, 2.65, 0.8, -3.6, { r: 0.02 });
-  block(0.4, 0.04, 0.4, 0x221a40, 2.65, 0.02, -3.6, { r: 0.02 });
-  const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.32, 0.36, 20, 1, true), toon(0xc85a8a, { emissive: 0x220612, side: THREE.DoubleSide }));
-  shade.position.set(2.65, 1.72, -3.6); scene.add(shade);
-  const lampLight = new THREE.PointLight(0xff4f8b, 3, 6); lampLight.position.set(2.65, 1.5, -3.6); scene.add(lampLight);
+  // a halo lamp: two neon rings turning slowly around a floating orb, on a slim black stem
+  const lamp = new THREE.Group(); lamp.position.set(2.65, 0, -3.6); scene.add(lamp);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.23, 0.05, 24), toon(0x16102e)); base.position.y = 0.025; lamp.add(base);
+  const baseInk = new THREE.Mesh(base.geometry, inkMat); baseInk.scale.set(1.06, 1.2, 1.06); base.add(baseInk);
+  const rimLight = new THREE.Mesh(new THREE.TorusGeometry(0.215, 0.008, 6, 32), glowMat(0x05d9e8, 1.3)); rimLight.rotation.x = Math.PI / 2; rimLight.position.y = 0.05; lamp.add(rimLight);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 1.15, 10), toon(0x16102e)); stem.position.y = 0.62; lamp.add(stem);
+  const stemInk = new THREE.Mesh(stem.geometry, inkMat); stemInk.scale.set(1.5, 1.01, 1.5); stem.add(stemInk);
+  tube(0.012, 0.9, 0.012, 0xff2a6d, 0.022, 0.62, 0, { parent: lamp, k: 1.1 }); // a thin light line up the stem
+  const halo = new THREE.Group(); halo.position.y = 1.58; lamp.add(halo);
+  const outer = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.022, 10, 48), glowMat(0xff2a6d, 1.25)); halo.add(outer);
+  const inner = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.014, 8, 40), glowMat(0x05d9e8, 1.2)); halo.add(inner);
+  const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.06), toon(0x16102e)); clamp.position.y = -0.36; halo.add(clamp);
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.065, 16, 12), glowMat(0xffd6ea, 1.15)); halo.add(orb);
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(0.75, 32), new THREE.MeshBasicMaterial({ map: canvasTex(128, 128, (x, w) => {
+    const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, "rgba(255,42,109,.45)"); g.addColorStop(1, "rgba(255,42,109,0)"); x.fillStyle = g; x.fillRect(0, 0, w, w);
+  }), transparent: true, depthWrite: false, toneMapped: false }));
+  pool.rotation.x = -Math.PI / 2; pool.position.y = 0.032; lamp.add(pool); // soft light on the rug
+  const lampLight = new THREE.PointLight(0xff4f8b, 2.6, 6); lampLight.position.set(2.65, 1.58, -3.6); scene.add(lampLight);
+  animators.push((now) => {
+    outer.rotation.y = now / 3200; inner.rotation.y = -now / 2300; inner.rotation.x = Math.sin(now / 2600) * 0.35;
+    orb.position.y = Math.sin(now / 900) * 0.03; lampLight.intensity = 2.6 + Math.sin(now / 1300) * 0.25; // a slow breathe
+  });
   // plant
   block(0.46, 0.5, 0.46, 0x5b3a8a, 5.45, 0.25, -6.4, { r: 0.05 });
   ball(0.34, 0x17b890, 5.45, 0.82, -6.4); ball(0.26, 0x1fd6a5, 5.25, 1.12, -6.35); ball(0.24, 0x149e7c, 5.62, 1.08, -6.5);
