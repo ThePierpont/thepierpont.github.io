@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793686457";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793686609";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -208,8 +208,7 @@ const buildLiving = () => {
   block(0.46, 0.5, 0.46, 0x5b3a8a, 5.45, 0.25, -6.4, { r: 0.05 });
   ball(0.34, 0x17b890, 5.45, 0.82, -6.4); ball(0.26, 0x1fd6a5, 5.25, 1.12, -6.35); ball(0.24, 0x149e7c, 5.62, 1.08, -6.5);
   // neon art: I stack sats
-  block(0.04, 0.56, 2.5, 0x0c0818, -5.88, 2.05, -4.8, { r: 0.015 }); // a dark plate, so the letters read
-  sign("STACK SATS", 0.42, -5.84, 2.05, -4.8, { color: "#f7931a", rotY: Math.PI / 2, k: 0.92, glow: 0.08, core: 0 });
+  sign("STACK SATS", 0.42, -5.88, 2.05, -4.8, { color: "#f7931a", rotY: Math.PI / 2, k: 0.92, glow: 0.08, core: 0 }); // just the letters: a tight glow keeps them readable
   tube(11.6, 0.03, 0.06, 0xff2a6d, 0, H - 0.03, -0.25, { k: 1.4 });
   const winLight = new THREE.PointLight(0x7b5cff, 6, 9); winLight.position.set(0, 2.2, -6.2); scene.add(winLight);
   const fill = new THREE.PointLight(0x05d9e8, 3, 10); fill.position.set(3.5, 2.6, -2); scene.add(fill);
