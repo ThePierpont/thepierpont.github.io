@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793694496";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793694838";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -738,8 +738,10 @@ const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, size = 1, fluffy = 
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; g.scale.setScalar(size); scene.add(g);
   const sx = lean ? 1.5 : 1.35, sy = lean ? 0.52 : 0.7, sz = lean ? 0.82 : 1.1, R = 0.2;
   const mesh = (geo, color, parent = g) => { const m = new THREE.Mesh(geo, toon(color)); parent.add(m); return m; };
-  const inked = (m, k = 1.1) => { const ink = new THREE.Mesh(m.geometry, inkMat); ink.scale.setScalar(k); m.add(ink); return m; };
-  const body = ball(R, fur, 0, 0.1, 0, { parent: g }); body.scale.set(sx, sy, sz);
+  const inked = (m, k = 1.06) => { const ink = new THREE.Mesh(m.geometry, inkMat); ink.scale.setScalar(k); m.add(ink); return m; };
+  // round parts with a thin outline (the scene-wide cball() draws a 5 cm one, far too thick on a cat's small parts)
+  const cball = (r, color, x, y, z, { parent = g } = {}) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), toon(color)); m.position.set(x, y, z); parent.add(m); return inked(m, 1 + 0.012 / r); };
+  const body = cball(R, fur, 0, 0.1, 0, { parent: g }); body.scale.set(sx, sy, sz);
   if (saddle) { // the darker coat down the back
     const cap = mesh(new THREE.SphereGeometry(R * 1.03, 24, 10, 0, Math.PI * 2, 0, Math.PI * 0.36), saddle, body); cap.rotation.z = 0.12;
   }
@@ -747,16 +749,19 @@ const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, size = 1, fluffy = 
   // stripes over the back: lots of thin ones on Phoebe, fewer broad broken ones on Fin
   const n = lean ? 7 : 5;
   for (let i = 0; i < n; i++) {
-    const st = mesh(new THREE.TorusGeometry(R, lean ? 0.008 : 0.014, 4, 20, Math.PI * (lean ? 0.7 : 0.5)), stripe);
-    st.position.set(-0.17 + i * (0.3 / (n - 1)), 0.1, 0); st.rotation.set(0, Math.PI / 2, Math.PI * (lean ? 0.15 : 0.25) + (i % 2) * 0.08); st.scale.set(sz * 1.03, sy * 1.03, 1);
+    // a ring around the body, squashed to its cross-section there (thinner towards the ends); only the arc over the back is drawn
+    const sxp = -0.17 + i * (0.3 / (n - 1)), f = Math.sqrt(1 - (sxp / (R * sx)) ** 2) * 1.02;
+    const sg = new THREE.Group(); sg.position.set(sxp, 0.1, 0); sg.rotation.y = Math.PI / 2; sg.scale.set(sz * f, sy * f, 1); g.add(sg);
+    const st = mesh(new THREE.TorusGeometry(R, lean ? 0.008 : 0.014, 4, 20, Math.PI * (lean ? 0.7 : 0.5)), stripe, sg);
+    st.rotation.z = Math.PI * (lean ? 0.15 : 0.25) + (i % 2) * 0.08;
   }
   if (fluffy) { // a shaggy ruff behind the head, and longer fur along the edge of the curl
     for (let i = 0; i < 9; i++) {
-      const a = -1.2 + (i / 8) * 2.4, tuft = inked(mesh(new THREE.ConeGeometry(0.045, 0.1, 5), i % 3 ? ruff : chin), 1.15);
+      const a = -1.2 + (i / 8) * 2.4, tuft = inked(mesh(new THREE.ConeGeometry(0.045, 0.1, 5), i % 3 ? ruff : chin));
       tuft.position.set(R * sx * 0.62 + Math.cos(a) * 0.02, 0.12 + Math.cos(a) * 0.05, Math.sin(a) * 0.13); tuft.rotation.set(Math.sin(a) * 1.2, 0, -0.9 - Math.cos(a) * 0.4);
     }
     for (let i = 0; i < 10; i++) {
-      const a = Math.PI * 0.55 + (i / 9) * Math.PI * 0.9, tuft = inked(mesh(new THREE.ConeGeometry(0.035, 0.08, 5), i % 2 ? fur : saddle), 1.15);
+      const a = Math.PI * 0.55 + (i / 9) * Math.PI * 0.9, tuft = inked(mesh(new THREE.ConeGeometry(0.035, 0.08, 5), i % 2 ? fur : saddle));
       tuft.position.set(Math.cos(a) * R * sx * 0.95, 0.07, Math.sin(a) * R * sz * 0.95); tuft.rotation.set(Math.sin(a) * 1.4, 0, -Math.cos(a) * 1.4);
     }
   }
@@ -765,18 +770,18 @@ const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, size = 1, fluffy = 
   for (let i = 0; i < tailN; i++) {
     const t = i / (tailN - 1), a = -2.7 + t * 2.9; // from behind, round the side, to the front
     const rr = fluffy ? 0.045 + Math.sin(Math.min(1, t * 1.15) * Math.PI) * 0.05 : 0.024 - t * 0.004;
-    const seg = ball(rr, (fluffy ? i % 3 === 0 : i % 2 === 0) ? stripe : (fluffy ? saddle : fur), Math.cos(a) * R * sx * 0.95, (fluffy ? 0.12 : 0.14) + Math.sin(t * Math.PI) * 0.025, Math.sin(a) * R * sz * 1.0 - 0.01, { parent: g });
+    const seg = cball(rr, (fluffy ? i % 3 === 0 : i % 2 === 0) ? stripe : (fluffy ? saddle : fur), Math.cos(a) * R * sx * 0.95, (fluffy ? 0.12 : 0.14) + Math.sin(t * Math.PI) * 0.025, Math.sin(a) * R * sz * 1.0 - 0.01, { parent: g });
     if (!fluffy && i >= tailN - 2) seg.material.color.set(stripe); // a darker tip
     tailPts.push(seg);
   }
   // front paws tucked under the chin
-  for (const dz of [-0.045, 0.05]) { const paw = ball(lean ? 0.03 : 0.04, fluffy ? ruff : fur, R * sx * 0.95, 0.03, dz, { parent: g }); paw.scale.set(1.5, 0.7, 1); }
+  for (const dz of [-0.045, 0.05]) { const paw = cball(lean ? 0.03 : 0.04, fluffy ? ruff : fur, R * sx * 0.95, 0.03, dz, { parent: g }); paw.scale.set(1.5, 0.7, 1); }
   const head = new THREE.Group(); head.position.set(R * sx * 0.95, 0.1, 0.04); head.rotation.set(-0.15, 0.25, 0.05); g.add(head); // chin resting on the front of the curl
   const hr = lean ? 0.085 : 0.1;
-  const skull = ball(hr, fur, 0, 0, 0, { parent: head }); skull.scale.set(lean ? 1.08 : 1, lean ? 0.92 : 0.95, lean ? 0.92 : 1.15);
+  const skull = cball(hr, fur, 0, 0, 0, { parent: head }); skull.scale.set(lean ? 1.08 : 1, lean ? 0.92 : 0.95, lean ? 0.92 : 1.15);
   if (saddle) mesh(new THREE.SphereGeometry(hr * 1.03, 18, 8, 0, Math.PI * 2, 0, Math.PI * 0.3), saddle, skull).rotation.z = 0.5; // a dark crown
-  for (const dz of [-1, 1]) ball(hr * 0.36, chin, hr * 0.78, -hr * 0.3, dz * hr * 0.26, { parent: head }); // whisker pads
-  ball(hr * 0.4, chin, hr * 0.62, -hr * 0.58, 0, { parent: head }); // white chin
+  for (const dz of [-1, 1]) cball(hr * 0.36, chin, hr * 0.78, -hr * 0.3, dz * hr * 0.26, { parent: head }); // whisker pads
+  cball(hr * 0.4, chin, hr * 0.62, -hr * 0.58, 0, { parent: head }); // white chin
   const nz = mesh(new THREE.ConeGeometry(hr * 0.13, hr * 0.12, 3), nose, head); nz.position.set(hr * 1.02, -hr * 0.08, 0); nz.rotation.z = Math.PI; // nose, point down
   for (let k = -1; k <= 1; k++) { const m = mesh(new THREE.BoxGeometry(hr * 0.55, 0.006, 0.009), stripe, head); m.position.set(hr * 0.35, hr * 0.82, k * hr * 0.17); m.rotation.y = k * 0.25; } // forehead "M"
   for (const dz of [-1, 1]) { // closed eyes and cheek stripes
@@ -789,7 +794,7 @@ const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, size = 1, fluffy = 
   for (const dz of [-1, 1]) {
     const eg = new THREE.Group(); eg.position.set(-hr * 0.05, hr * 0.78, dz * hr * 0.55); eg.rotation.set(dz * -0.35, 0, 0.12); head.add(eg);
     const geo = new THREE.ConeGeometry(er, eh, 3, 1, false, -Math.PI / 2);
-    const ear = inked(mesh(geo, fur, eg), 1.28); ear.position.y = eh / 2;
+    const ear = inked(mesh(geo, fur, eg), 1.12); ear.position.y = eh / 2;
     const lin = mesh(geo, inner, eg); lin.scale.setScalar(0.66); lin.position.set(er * 0.32, eh * 0.42, 0);
     if (fluffy) { const tip = mesh(new THREE.ConeGeometry(0.007, 0.045, 4), saddle, eg); tip.position.y = eh + 0.018; }
     ears.push(eg);
@@ -826,20 +831,21 @@ const catTree = (x, z, rotY, { tall = 1.5 } = {}) => {
   cubby(0.1, 0.14 + tall * 0.5, 0.42, 0.36);
   sisal(-0.25, 0.08, 0.14 + tall * 0.5, tall * 0.36);
   const top = 0.14 + tall * 0.86;
-  block(0.62, 0.06, 0.5, carpet, 0, top, 0, { parent: g, r: 0.03 });
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.045, 8, 24), toon(carpet)); rim.rotation.x = Math.PI / 2; rim.position.set(0, top + 0.06, 0); g.add(rim);
+  block(0.72, 0.06, 0.6, carpet, 0, top, 0, { parent: g, r: 0.03 });
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.045, 8, 28), toon(carpet)); rim.rotation.x = Math.PI / 2; rim.position.set(0, top + 0.06, 0); g.add(rim);
+  const cushion = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.05, 28), toon(0x454857)); cushion.position.set(0, top + 0.055, 0); g.add(cushion); // fills the ring, so whoever naps here sits up in it
   // a sisal ball on a string, swinging a little (like theirs)
   const pom = new THREE.Group(); pom.position.set(0.3, 0.08 + tall * 0.5, 0.22); g.add(pom);
   const str = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.2, 4), new THREE.MeshBasicMaterial({ color: 0xd6d6e7 })); str.position.y = -0.1; pom.add(str);
   ball(0.045, 0xe0a487, 0, -0.22, 0, { parent: pom });
   const ph = Math.random() * 10; animators.push((now) => { pom.rotation.z = Math.sin(now / 900 + ph) * 0.25; });
-  return { g, perch: top + 0.04 };
+  return { g, perch: top + 0.08 };
 };
 // A round, cushy cat bed.
-const catBed = (x, z) => {
+const catBed = (x, z, R = 0.36) => {
   const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.38, 0.08, 24), toon(0x4a4d5e)); base.position.y = 0.04; g.add(base);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.1, 10, 28), toon(0x5c6072)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.12; g.add(rim);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(R, R + 0.02, 0.08, 32), toon(0x4a4d5e)); base.position.y = 0.04; g.add(base);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.03, 0.1, 10, 36), toon(0x5c6072)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.12; g.add(rim);
   const ink = new THREE.Mesh(rim.geometry, inkMat); ink.scale.setScalar(1.04); rim.add(ink);
   return g;
 };
@@ -877,9 +883,9 @@ const buildCats = () => {
   // living room: Phoebe on top of the cat tree (back wall, left of the window), Fin in his bed (back wall, right)
   const tree = catTree(-3.2, -6.58, 0, { tall: 1.5 });
   napper(cat(PHOEBE, -3.22, tree.perch, -6.56, -1.2), "Phoebe");
-  catBed(3.2, -6.5);
-  napper(cat(FIN, 3.18, 0.12, -6.5, -1.9), "Fin");
-  cactus(2.62, 0, -6.6, 0.4);
+  catBed(3.2, -6.3, 0.54); // roomy: Fin's a big cat
+  napper(cat(FIN, 3.2, 0.12, -6.3, -1.9), "Fin");
+  cactus(2.3, 0, -6.6, 0.4);
   ballTrack(-2.35, -6.55);
   toyMouse(-3.85, 0, -6.4, 0.9);
   // theater: their second tree against the right wall, by the popcorn machine
