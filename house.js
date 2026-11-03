@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793690669";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793691103";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -99,12 +99,27 @@ const buildOutside = () => {
   // The building's hallway: it runs left and right (x), my door is partway along the near wall,
   // and there are neighbours on both sides and across the hall behind you. It fades out both ways.
   const wallC = 0x2d2160, L = 16, Dp = 5.2; // half its length, and its depth (door wall z = 0, opposite wall z = Dp)
-  slab(2 * L, 0.1, Dp, 0x1b1430, 0, -0.05, Dp / 2); slab(2 * L, 0.1, Dp, 0x120d24, 0, H + 0.05, Dp / 2);
-  slab(2 * L, H, 0.2, 0x251b4d, 0, H / 2, Dp + 0.1); // across the hall
-  for (const s of [-1, 1]) slab(0.2, H, Dp, 0x251b4d, s * (L + 0.1), H / 2, Dp / 2);
+  // Finishes: matte graphite wall panels with fine seams over a darker lower band, a tiled floor,
+  // a plain ceiling with recessed light panels. Quiet, so the doors, signs and ads do the talking.
+  const wallTex = (len) => { const t = canvasTex(512, 1160, (x, w, h) => {
+    x.fillStyle = "#353a4c"; x.fillRect(0, 0, w, h);
+    const band = h * (1 - 1.05 / H); x.fillStyle = "#252938"; x.fillRect(0, band, w, h - band); // lower band, 1.05 m tall
+    x.fillStyle = "#1a1d28"; x.fillRect(0, band - 6, w, 10); x.fillRect(0, 0, 6, h); // the reveal, and the seam between panels
+    x.fillStyle = "rgba(255,255,255,.05)"; x.fillRect(8, 0, 3, band - 8); // a soft highlight on the panel edge
+    x.fillStyle = "#14161f"; x.fillRect(0, h - 30, w, 30); // skirting
+  }); t.wrapS = THREE.RepeatWrapping; t.repeat.set(len / 1.5, 1); return t; };
+  const finish = (w, h, d, map, x, y, z, color = 0xffffff) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toon(color, { map })); m.position.set(x, y, z); scene.add(m); return m; };
+  const floorTex = canvasTex(512, 512, (x, w) => {
+    const n = 2, c = w / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const v = 32 + ((i * 7 + j * 3) % 3) * 3; x.fillStyle = `rgb(${v},${v + 2},${v + 10})`; x.fillRect(i * c, j * c, c, c); }
+    x.strokeStyle = "#16171f"; x.lineWidth = 4; for (let i = 0; i <= n; i++) { x.beginPath(); x.moveTo(i * c, 0); x.lineTo(i * c, w); x.stroke(); x.beginPath(); x.moveTo(0, i * c); x.lineTo(w, i * c); x.stroke(); }
+  }); floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set((2 * L) / 1.2, Dp / 1.2);
+  finish(2 * L, 0.1, Dp, floorTex, 0, -0.05, Dp / 2);
+  slab(2 * L, 0.1, Dp, 0x1c1e28, 0, H + 0.05, Dp / 2);
+  finish(2 * L, H, 0.2, wallTex(2 * L), 0, H / 2, Dp + 0.1); // across the hall
+  for (const s of [-1, 1]) finish(0.2, H, Dp, wallTex(Dp), s * (L + 0.1), H / 2, Dp / 2);
   // the near wall, with my door's opening in the middle (it's also the living room's front wall)
-  slab(L - 0.7, H, 0.2, wallC, -(L + 0.7) / 2, H / 2, 0); slab(L - 0.7, H, 0.2, wallC, (L + 0.7) / 2, H / 2, 0);
-  slab(1.4, H - 2.4, 0.2, wallC, 0, 2.4 + (H - 2.4) / 2, 0);
+  finish(L - 0.7, H, 0.2, wallTex(L - 0.7), -(L + 0.7) / 2, H / 2, 0); finish(L - 0.7, H, 0.2, wallTex(L - 0.7), (L + 0.7) / 2, H / 2, 0);
+  slab(1.4, H - 2.4, 0.2, 0x353a4c, 0, 2.4 + (H - 2.4) / 2, 0);
   for (const s of [-1, 1]) tube(0.04, 2.44, 0.04, 0x05d9e8, s * 0.74, 1.22, 0.12, { k: 1.3 });
   tube(1.52, 0.04, 0.04, 0x05d9e8, 0, 2.44, 0.12, { k: 1.3 });
   // my door, on a hinge at its left edge
@@ -118,20 +133,23 @@ const buildOutside = () => {
   // a neon P on the door itself (it swings open with the door)
   sign("P", 0.95, 0.68, 1.62, 0.075, { parent: doorPivot, color: "#ff2a6d", font: "700 260px Rajdhani", k: 1.9, glow: 0.3 }).userData.flicker = true;
   sign("APT 4B · DC", 0.12, -1.15, 1.7, 0.11, { color: "#05d9e8", font: "500 70px 'JetBrains Mono'", k: 1.2 });
-  for (const s of [-1, 1]) tube(0.07, 0.32, 0.04, 0x05d9e8, s * 1.25, 2.1, 0.12, { k: 1.6 });
-  const lamp = new THREE.PointLight(0x05d9e8, 5, 7); lamp.position.set(0, 2.3, 1.4); scene.add(lamp);
-  const warm = new THREE.PointLight(0xff2a6d, 4, 7); warm.position.set(0, 2.9, 0.8); scene.add(warm);
+  for (const s of [-1, 1]) { block(0.12, 0.34, 0.08, 0x14161f, s * 1.25, 2.1, 0.12, { r: 0.02 }); tube(0.05, 0.28, 0.02, 0x05d9e8, s * 1.25, 2.1, 0.165, { k: 1.1 }); } // sconces
+  const lamp = new THREE.PointLight(0x05d9e8, 3.5, 6); lamp.position.set(0, 2.3, 1.4); scene.add(lamp);
+  const warm = new THREE.PointLight(0xff2a6d, 2.5, 6); warm.position.set(0, 2.9, 0.8); scene.add(warm);
   block(1.4, 0.03, 0.8, 0x3a2d63, 0, 0.015, 0.75, { r: 0.012 }); // doormat
   const mat = sign("WELCOME", 0.24, 0, 0.034, 0.75, { color: "#f9f002", k: 1.05 }); mat.rotation.x = -Math.PI / 2;
-  // the neighbours: plain doors with violet frames and their numbers
+  // the neighbours: recessed metal frames, lit number plates and a little status light
+  const doorTones = [0x2e3346, 0x3a2f48, 0x2b3a3f, 0x3d3440];
+  let nIdx = 0;
   const neighbour = (x, z, back, label) => {
     const g = new THREE.Group(); g.position.set(x, 0, z); if (back) g.rotation.y = Math.PI; scene.add(g);
-    block(1.2, 2.3, 0.08, 0x3b2a75, 0, 1.15, 0.05, { parent: g, r: 0.03 });
-    for (const s of [-1, 1]) tube(0.03, 2.36, 0.03, 0x7b2cbf, s * 0.63, 1.18, 0.1, { parent: g, k: 1.3 });
-    tube(1.29, 0.03, 0.03, 0x7b2cbf, 0, 2.36, 0.1, { parent: g, k: 1.3 });
-    ball(0.045, 0xf9f002, 0.45, 1.1, 0.1, { parent: g });
-    sign(label, 0.16, 0, 2.62, 0.1, { parent: g, color: "#b98cff", font: "700 100px Rajdhani", k: 1.2 });
-    block(1.0, 0.025, 0.55, 0x2a2048, 0, 0.012, 0.42, { parent: g, r: 0.01, ink: false }); // their mat
+    block(1.42, 2.5, 0.06, 0x4a5064, 0, 1.25, 0.03, { parent: g, r: 0.02 }); // frame
+    block(1.2, 2.3, 0.08, doorTones[nIdx++ % doorTones.length], 0, 1.15, 0.06, { parent: g, r: 0.02 });
+    block(0.05, 0.36, 0.05, 0xb8bcc8, 0.46, 1.1, 0.12, { parent: g, r: 0.02 }); // a long pull handle
+    block(0.34, 0.15, 0.03, 0x14161f, 0, 2.66, 0.07, { parent: g, r: 0.01 });
+    sign(label, 0.11, 0, 2.66, 0.09, { parent: g, color: "#dfe6ff", font: "600 100px 'JetBrains Mono'", k: 1.0, glow: 0.05, core: 0 });
+    blinkers.push({ m: tube(0.025, 0.025, 0.02, nIdx % 3 ? 0x2bff88 : 0xff3b5c, -0.46, 1.3, 0.11, { parent: g, k: 2.0 }), rate: 0.05, phase: nIdx }); // occupied / away
+    block(1.0, 0.025, 0.55, 0x1e2029, 0, 0.012, 0.42, { parent: g, r: 0.01, ink: false }); // their mat
   };
   neighbour(-5.2, 0, false, "4A"); neighbour(5.2, 0, false, "4C"); neighbour(10.4, 0, false, "4D");
   neighbour(8.6, Dp, true, "4E"); neighbour(2.8, Dp, true, "4F"); neighbour(-2.6, Dp, true, "4G"); neighbour(-8.4, Dp, true, "4H");
@@ -144,11 +162,13 @@ const buildOutside = () => {
   block(0.14, 0.26, 0.04, 0x16102e, 1.15, 1.25, 0.06, { parent: lift, r: 0.02 });
   sign("▼", 0.1, 1.15, 1.25, 0.09, { parent: lift, color: "#f9f002", font: "700 90px Rajdhani", k: 1.4 });
   // down the hall: a runner, light strips overhead, glowing baseboards, a couple of lights
-  block(2 * L - 0.4, 0.02, 1.3, 0x3a1a4a, 0, 0.011, Dp / 2 + 0.1, { ink: false, r: 0.005 });
-  for (const s of [-1, 1]) tube(2 * L - 0.4, 0.02, 0.02, 0x05d9e8, 0, 0.025, Dp / 2 + 0.1 + s * 0.66, { k: 1.1 });
-  for (let xx = -L + 1.5; xx < L; xx += 3) tube(0.16, 0.03, 1.6, 0x9d8cff, xx, H - 0.03, Dp / 2, { k: 0.95 });
-  tube(2 * L, 0.03, 0.03, 0x05d9e8, 0, 0.03, 0.12, { k: 1.4 }); tube(2 * L, 0.03, 0.03, 0xff2a6d, 0, 0.03, Dp - 0.02, { k: 1.4 });
-  for (const xx of [-7, 7]) { const hl = new THREE.PointLight(0x9d8cff, 3, 9); hl.position.set(xx, 3.0, Dp / 2); scene.add(hl); }
+  for (let xx = -L + 2; xx < L; xx += 4) { // recessed ceiling panels
+    block(1.3, 0.04, 0.7, 0x14161f, xx, H - 0.02, Dp / 2, { ink: false, r: 0.01 });
+    tube(1.2, 0.01, 0.6, 0xb8c4e0, xx, H - 0.045, Dp / 2, { k: 0.42 });
+  }
+  for (const zz of [0.16, Dp - 0.16]) tube(2 * L, 0.02, 0.02, 0x7fb8d8, 0, H - 0.08, zz, { k: 0.55 }); // a quiet cove glow where wall meets ceiling
+  for (const zz of [0.2, Dp - 0.2]) block(2 * L, 0.06, 0.06, 0x2a2e3a, 0, H - 0.16, zz, { ink: false, r: 0.02 }); // tidy conduit
+  for (const xx of [-8, 0, 8]) { const hl = new THREE.PointLight(0xc8d0ff, 2.4, 9); hl.position.set(xx, 3.0, Dp / 2); scene.add(hl); }
 };
 
 // ---------- the living room (z 0 … -7) ----------
@@ -363,8 +383,6 @@ const buildDecor = () => {
   block(0.34, 0.17, 0.17, 0xd9d7e6, 0, -0.02, 0.06, { parent: cam, r: 0.05 });
   ball(0.05, 0x111111, 0, -0.02, 0.16, { parent: cam });
   blinkers.push({ m: tube(0.03, 0.03, 0.02, 0xff2a6d, 0.12, 0.04, 0.15, { parent: cam, k: 2.6 }), rate: 0.8, phase: 0 });
-  cable([[-16, 3.32, 0.25], [-9, 3.05, 0.3], [-3, 3.3, 0.25], [2, 3.02, 0.3], [8, 3.3, 0.25], [16, 3.08, 0.3]], 0x16102e, 0.035); // cables run along the hall
-  cable([[-16, 3.3, 0.34], [-6, 3.12, 0.36], [1, 3.24, 0.34], [9, 3.1, 0.36], [16, 3.28, 0.34]], 0xff2a6d, 0.012, true);
   // an ad for the pizza place on the first floor, on the corridor wall
   const ad = panel(1.6, 1.0, canvasTex(640, 400, (x, w, h) => {
     x.fillStyle = "rgba(10,4,24,.6)"; x.fillRect(0, 0, w, h);
@@ -381,7 +399,8 @@ const buildDecor = () => {
     x.font = "700 62px Rajdhani"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 14; x.fillText("OPEN 24 HOURS", 250, 260);
     x.font = "500 26px 'JetBrains Mono'"; x.fillStyle = "#d6d6e7"; x.shadowBlur = 0; x.fillText("BY THE SLICE · ALL NIGHT", 252, 330);
     for (let y = 0; y < h; y += 6) { x.fillStyle = "rgba(255,255,255,.05)"; x.fillRect(0, y, w, 2); }
-  }), -2.75, 1.75, 0.12, { transparent: true, k: 1.1 }); // on the wall between my door and 1A
+  }), -2.75, 1.75, 0.125, { transparent: true, k: 1.0 }); // on the wall between my door and 4A
+  block(1.68, 1.08, 0.04, 0x0e0f16, -2.75, 1.75, 0.104, { r: 0.01 });
   animators.push((now) => { ad.material.opacity = Math.sin(now / 90) > 0.96 ? 0.35 : 0.92; }); // holo flicker
   // the rest of the building's ads, up and down the hall: food, fun and services downstairs
   const ICONS = {
@@ -432,7 +451,8 @@ const buildDecor = () => {
   ];
   ADS.forEach((a, i) => {
     const w = a.vert ? 0.5 : 1.5, h = a.vert ? 1.57 : 0.94, z = a.back ? 5.2 - 0.115 : 0.125;
-    const m = panel(w, h, adCanvas(a), a.x, a.vert ? 1.6 : 1.75, z, { transparent: true, k: 1.05, rotY: a.back ? Math.PI : 0 });
+    block(w + 0.08, h + 0.08, 0.04, 0x0e0f16, a.x, a.vert ? 1.6 : 1.75, a.back ? 5.106 : 0.104, { r: 0.01 }); // a flush screen bezel, just behind the screen
+    const m = panel(w, h, adCanvas(a), a.x, a.vert ? 1.6 : 1.75, z, { transparent: true, k: 0.95, rotY: a.back ? Math.PI : 0 });
     const ph = i * 1.37; animators.push((now) => { m.material.opacity = Math.sin(now / 110 + ph * 7) > 0.97 ? 0.35 : 0.92; }); // each flickers on its own beat
   });
   // a news ticker running along the top of the far wall
@@ -454,13 +474,6 @@ const buildDecor = () => {
   for (const dz of [-0.45, 0.45]) block(0.02, 0.4, 0.02, 0x16102e, dz, 0.32, 0, { parent: hang, ink: false });
   block(1.2, 0.34, 0.06, 0x0c0818, 0, 0, 0, { parent: hang, r: 0.02 });
   for (const side of [1, -1]) sign(side > 0 ? "◄ LIFT · FOOD HALL B1" : "4C – 4H ►", 0.16, 0, 0, side * 0.035, { parent: hang, color: "#05d9e8", font: "700 90px Rajdhani", k: 1.2, glow: 0.1, core: 0, rotY: side > 0 ? 0 : Math.PI });
-  panel(1.0, 0.62, canvasTex(500, 310, (x, w, h) => { // a spray-paint tag
-    x.lineCap = "round"; x.lineJoin = "round";
-    const stroke = (col, wd, path) => { x.strokeStyle = col; x.lineWidth = wd; x.shadowColor = col; x.shadowBlur = 14; x.beginPath(); path(); x.stroke(); };
-    stroke("#ff2a6d", 26, () => { x.moveTo(70, 250); x.lineTo(95, 60); x.bezierCurveTo(200, 40, 210, 160, 105, 150); x.moveTo(230, 250); x.lineTo(255, 60); x.bezierCurveTo(360, 40, 370, 160, 265, 150); });
-    stroke("#05d9e8", 9, () => { x.moveTo(60, 270); x.bezierCurveTo(200, 230, 330, 300, 450, 230); });
-    x.shadowBlur = 0; x.fillStyle = "#ff2a6d"; for (const dx of [100, 140, 262]) x.fillRect(dx, 250, 7, 30 + (dx % 40));
-  }), 2.5, 1.5, 0.115, { transparent: true, k: 1.15 }); // on the wall between my door and 1C
 
   // ---- living room
   // glowing baseboards and ceiling cables
