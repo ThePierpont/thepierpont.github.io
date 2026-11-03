@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793721612";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793742775";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -1360,11 +1360,11 @@ const buildDecor = () => {
   sign("EXIT", 0.2, -4.5, 2.78, -7.12, { color: "#2bff88", rotY: Math.PI, k: 1.5 });
 };
 
-// ---------- the cats: Fin and Phoebe, napping, with their tree, bed and toys ----------
-// Drawn from my photos: Fin is a big fluffy brown tabby with a white chin; Phoebe is a lean orange
+// ---------- the cats: Finn and Phoebe, napping, with their tree, bed and toys ----------
+// Drawn from my photos: Finn is a big fluffy brown tabby with a white chin; Phoebe is a lean orange
 // tabby, about half his size, with a white chin. Local space: the cat faces +x, curled on the spot.
 // A cat curled up asleep, cartoon-style, built from their photos. Group space: +x is where the head points.
-// Fin: a big long-haired brown tabby (dark saddle, pale ruff and bib, lynx-tipped ears, a huge banded plume of a tail).
+// Finn: a big long-haired brown tabby (dark saddle, pale ruff and bib, lynx-tipped ears, a huge banded plume of a tail).
 // Phoebe: a slim short-haired ginger (thin mackerel stripes, oversized pink-lined ears, cream chest, a long ringed tail).
 // `sit: true` builds them sitting up instead (awake, watching the city from the couch with you).
 const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, eye = 0xd8a830, size = 1, fluffy = false, lean = false }, x, y, z, rotY = 0, { sit = false } = {}) => {
@@ -1394,7 +1394,7 @@ const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, eye = 0xd8a830, siz
     }
   }
   if (!sit) mesh(new THREE.SphereGeometry(R * 0.55, 16, 12), chin).position.set(R * sx * 0.72, 0.06, 0); // chest / bib under the chin
-  // stripes over the back: lots of thin ones on Phoebe, fewer broad broken ones on Fin
+  // stripes over the back: lots of thin ones on Phoebe, fewer broad broken ones on Finn
   const n = sit ? 0 : lean ? 7 : 5;
   for (let i = 0; i < n; i++) {
     // a ring around the body, squashed to its cross-section there (thinner towards the ends); only the arc over the back is drawn
@@ -1444,7 +1444,7 @@ const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, eye = 0xd8a830, siz
   const nz = mesh(new THREE.ConeGeometry(hr * 0.13, hr * 0.12, 3), nose, head); nz.position.set(hr * 1.02, -hr * 0.08, 0); nz.rotation.z = Math.PI; // nose, point down
   for (let k = -1; k <= 1; k++) { const m = mesh(new THREE.BoxGeometry(hr * 0.55, 0.006, 0.009), stripe, head); m.position.set(hr * 0.35, hr * 0.82, k * hr * 0.17); m.rotation.y = k * 0.25; } // forehead "M"
   // eyes: set right on the surface of the face, turned to match it. Asleep they're a dark curve;
-  // when you tiptoe up close they slowly half-open (gold for Fin, amber for Phoebe) with a slit pupil and a glint.
+  // when you tiptoe up close they slowly half-open (gold for Finn, amber for Phoebe) with a slit pupil and a glint.
   const eyes = [], re = hr * (lean ? 0.24 : 0.21), ss = skull.scale;
   for (const dz of [-1, 1]) {
     const d = new THREE.Vector3(0.8, 0.22, dz * 0.5).normalize();
@@ -1463,7 +1463,7 @@ const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, eye = 0xd8a830, siz
   for (const dz of [-1, 1]) { // cheek stripes
     for (const dy of [0, -0.25]) { const c = mesh(new THREE.BoxGeometry(hr * 0.35, 0.006, 0.006), stripe, head); c.position.set(hr * 0.45, hr * dy, dz * hr * 0.88); c.rotation.set(0, dz * 0.5, -0.3); }
   }
-  // ears: a triangle with a flat face forward, the inside lined; Phoebe's are big, Fin's have lynx tips
+  // ears: a triangle with a flat face forward, the inside lined; Phoebe's are big, Finn's have lynx tips
   const ears = [], er = lean ? 0.052 : 0.04, eh = lean ? 0.12 : 0.08;
   for (const dz of [-1, 1]) {
     const eg = new THREE.Group(); eg.position.set(-hr * 0.05, hr * 0.78, dz * hr * 0.55); eg.rotation.set(dz * -0.35, 0, 0.12); head.add(eg);
@@ -1532,7 +1532,7 @@ const catBed = (x, z, R = 0.36) => {
   const ink = new THREE.Mesh(rim.geometry, inkMat); ink.scale.setScalar(1.04); rim.add(ink);
   return g;
 };
-// Their toys: Fin's green cactus plush, the wooden ball track, a sparkly purple mouse.
+// Their toys: Finn's green cactus plush, the wooden ball track, a sparkly purple mouse.
 const cactus = (x, y, z, rotY) => {
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; scene.add(g);
   const trunk = block(0.5, 0.11, 0.11, 0x4cb54a, 0, 0.055, 0, { parent: g, r: 0.05 });
@@ -1575,19 +1575,19 @@ let couchCats = [], seatCats = [], kitchenCats = []; // [sleeping cat, sitting c
 const PHOEBE = { fur: 0xec9a4c, stripe: 0xbb6128, chin: 0xf8ead4, inner: 0xf4a6b4, nose: 0xf29aa6, eye: 0xc98d32, size: 0.62, lean: true };
 const buildCats = () => {
   const napper = (g, name) => { g.userData.fromCat = "spot"; addHot(g, "living", name, ["Shh… napping", touch ? "Tap to tiptoe closer" : "Click to tiptoe closer"], () => { g.userData.twitch = performance.now(); spot?.g === g ? askCat() : openCat(g, name); }); };
-  // living room: Phoebe on top of the cat tree (back wall, left of the window), Fin in his bed (back wall, right)
+  // living room: Phoebe on top of the cat tree (back wall, left of the window), Finn in his bed (back wall, right)
   const tree = catTree(-3.2, -6.58, 0, { tall: 1.5 });
   const phoebeNap = cat(PHOEBE, -3.22, tree.perch, -6.56, -1.2); napper(phoebeNap, "Phoebe");
-  catBed(3.2, -6.3, 0.54); // roomy: Fin's a big cat
-  const finNap = cat(FIN, 3.2, 0.12, -6.3, -1.9); napper(finNap, "Fin");
+  catBed(3.2, -6.3, 0.54); // roomy: Finn's a big cat
+  const finNap = cat(FIN, 3.2, 0.12, -6.3, -1.9); napper(finNap, "Finn");
   // on the couch, sitting up beside you and watching the city (they hop over when you sit down)
   const phoebeSit = cat(PHOEBE, 0.02, 0.68, -4.8, Math.PI / 2, { sit: true }), finSit = cat(FIN, 0.7, 0.68, -4.8, Math.PI / 2, { sit: true }); // on the middle and right cushions
-  couchCats = [[phoebeNap, phoebeSit, "Phoebe"], [finNap, finSit, "Fin"]];
+  couchCats = [[phoebeNap, phoebeSit, "Phoebe"], [finNap, finSit, "Finn"]];
   // in the theater, each in a front-row recliner facing the screen (they come along when you go to the shelf)
   const finSeat = cat(FIN, -4.3, 0.46, -12.66, Math.PI / 2, { sit: true }), phoebeSeat = cat(PHOEBE, -2.7, 0.46, -12.66, Math.PI / 2, { sit: true });
-  seatCats = [[phoebeNap, phoebeSeat, "Phoebe"], [finNap, finSeat, "Fin"]];
+  seatCats = [[phoebeNap, phoebeSeat, "Phoebe"], [finNap, finSeat, "Finn"]];
   const finKitchen = cat(FIN, 4.74, 0, -1.02, 2.64, { sit: true }); // by the fridge, looking up at the cook
-  kitchenCats = [[finNap, finKitchen, "Fin"]]; finKitchen.userData.fromKitchen = true;
+  kitchenCats = [[finNap, finKitchen, "Finn"]]; finKitchen.userData.fromKitchen = true;
   for (const [list, where] of [[couchCats, "living"], [seatCats, "shelf"], [kitchenCats, "living"]]) for (const [, sitter, name] of list) {
     sitter.visible = false; sitter.userData.home = sitter.position.clone(); sitter.userData.fromCouch = true;
     addHot(sitter, where, name, touch ? "Tap for pictures" : "Click for pictures", () => askSitCat(name));
@@ -2276,10 +2276,10 @@ const askSitCat = (name) => {
   const list = [...APT_CAT_PHOTOS, ...(S.photos || [])].filter((p) => p.src && (p.cats || []).includes(name.toLowerCase()));
   if (list.length) openAsk(`${name}'s keeping you company. Want to see some pictures?`, () => openPhotos(name, list));
 };
-// the kitchen: step in between the bar and the counter, facing the recipe. Fin wanders over and sits by the fridge.
+// the kitchen: step in between the bar and the counter, facing the recipe. Finn wanders over and sits by the fridge.
 const openKitchen = (g) => {
   openSpot(g, "Kitchen", { pos: V(3.15, 1.62, -1.85), look: V(3.95, 1.3, -0.2) }, {
-    hint: `${tapWord} the recipe or Fin · ${tapWord.toLowerCase()} anywhere else to step out`,
+    hint: `${tapWord} the recipe or Finn · ${tapWord.toLowerCase()} anywhere else to step out`,
     hover: (h) => (h?.obj.userData.fromKitchen ? h : null),
     click: (h) => (h?.obj.userData.fromKitchen ? h.act() : closeSpot()),
     onClose: () => hopCats(kitchenCats, false),
@@ -2313,18 +2313,18 @@ const openChess = (g) => {
 // Extra photos just for the apartment (not on the main site), plus any site photos tagged with `cats` in content.js.
 const APT_CAT_PHOTOS = [
   { src: "images/apt-cats/phoebe-bed.jpg", caption: "Sharing the bed", cats: ["phoebe"] },
-  { src: "images/apt-cats/fin-top-perch.jpg", caption: "Upside down on the top perch", cats: ["fin"] },
+  { src: "images/apt-cats/fin-top-perch.jpg", caption: "Upside down on the top perch", cats: ["finn"] },
   { src: "images/apt-cats/phoebe-blanket.jpg", caption: "Blanket nest", cats: ["phoebe"] },
-  { src: "images/apt-cats/one-asleep-one-on-guard.jpg", caption: "One asleep, one on guard", cats: ["fin", "phoebe"] },
-  { src: "images/apt-cats/fin-fangs.jpg", caption: "Fangs out, fast asleep", cats: ["fin"] },
-  { src: "images/apt-cats/tree-house.jpg", caption: "Tree house", cats: ["fin", "phoebe"] },
+  { src: "images/apt-cats/one-asleep-one-on-guard.jpg", caption: "One asleep, one on guard", cats: ["finn", "phoebe"] },
+  { src: "images/apt-cats/fin-fangs.jpg", caption: "Fangs out, fast asleep", cats: ["finn"] },
+  { src: "images/apt-cats/tree-house.jpg", caption: "Tree house", cats: ["finn", "phoebe"] },
   { src: "images/apt-cats/phoebe-couch.jpg", caption: "Couch, claimed", cats: ["phoebe"] },
-  { src: "images/apt-cats/dinner-is-late.jpg", caption: "Dinner is late", cats: ["fin", "phoebe"] },
+  { src: "images/apt-cats/dinner-is-late.jpg", caption: "Dinner is late", cats: ["finn", "phoebe"] },
   { src: "images/apt-cats/phoebe-lap.jpg", caption: "Lap check", cats: ["phoebe"] },
-  { src: "images/apt-cats/fin-stretch.jpg", caption: "Full stretch", cats: ["fin"] },
-  { src: "images/apt-cats/fin-night-eyes.jpg", caption: "Night eyes", cats: ["fin"] },
-  { src: "images/apt-cats/fin-looking-up.jpg", caption: "Something's up there", cats: ["fin"] },
-  { src: "images/apt-cats/nap-pile.jpg", caption: "Nap pile", cats: ["fin", "phoebe"] },
+  { src: "images/apt-cats/fin-stretch.jpg", caption: "Full stretch", cats: ["finn"] },
+  { src: "images/apt-cats/fin-night-eyes.jpg", caption: "Night eyes", cats: ["finn"] },
+  { src: "images/apt-cats/fin-looking-up.jpg", caption: "Something's up there", cats: ["finn"] },
+  { src: "images/apt-cats/nap-pile.jpg", caption: "Nap pile", cats: ["finn", "phoebe"] },
 ];
 const ask = $("#h-ask"), photos = $("#h-photos");
 let album = [], albumAt = 0, askYes = null;
@@ -2387,7 +2387,7 @@ addEventListener("DOMContentLoaded", () => loadNostrPhotos().catch((e) => consol
 // the desk computer: a photo library of everything, by album; a thumbnail opens the viewer on top of it
 const libDlg = $("#h-lib"); let libAt = 0; // when it opened: the click that opened it must not land on a thumbnail under the cursor
 const openLibrary = () => {
-  const albums = [["All photos", sitePhotos], ["Fin & Phoebe", APT_CAT_PHOTOS]].filter(([, l]) => l.length);
+  const albums = [["All photos", sitePhotos], ["Finn & Phoebe", APT_CAT_PHOTOS]].filter(([, l]) => l.length);
   const body = $("#lib-body"); body.replaceChildren();
   for (const [name, list] of albums) {
     const sec = document.createElement("section"), h = document.createElement("h3"), grid = document.createElement("div");
