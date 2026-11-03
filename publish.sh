@@ -10,8 +10,8 @@ if git diff --cached --quiet; then
   exit 0
 fi
 # New version number on the page's files, so browsers fetch the update instead of a cached copy.
-sed -i '' -E "s/\?v=[0-9]+\"/?v=$(date +%s)\"/g" index.html house.html
-git add index.html house.html
+sed -i '' -E "s/\?v=[0-9]+\"/?v=$(date +%s)\"/g" index.html house.html shelf.js house.js
+git add index.html house.html shelf.js house.js
 git commit -q -m "Update site"
 git push -q
 echo "Published. Live at https://pierpont.blog in about a minute."

@@ -1,13 +1,15 @@
 // The 3D apartment (house.html): front door → living room → theater, more rooms to come.
 // Cartoon look: toon-shaded rounded blocks with ink outlines, lit by neon (bloom makes it glow).
 // Live bits: the theater screen shows my latest Letterboxd watch, the window shows DC's time and
-// the Bitcoin block height, and the theater bookcase opens the 3D movie shelf.
+// the Bitcoin block height, and the theater has my real movie shelf: walk up, lean into a row,
+// and pull any movie out (the case pop-out is shared with the main page: case-viewer.js).
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793683826";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -212,6 +214,7 @@ const buildLiving = () => {
 
 // ---------- the theater (behind the living room's back wall: x -9 … 0, z -7 … -17) ----------
 let screenTex, screenCanvas, latest = null;
+const shelfFaces = []; // { row, mesh, w, h, imax? }: the clickable shelf photos
 const buildTheater = () => {
   const wallC = 0x1d1340;
   slab(9, 0.1, 10, 0x120c22, -4.5, -0.05, -12); slab(9, 0.1, 10, 0x0c0818, -4.5, H + 0.05, -12);
@@ -234,30 +237,46 @@ const buildTheater = () => {
     block(0.9, 0.85, 0.22, 0x6b1d9b, x, y + 0.72, z + 0.38, { r: 0.1 });
     for (const s of [-1, 1]) block(0.12, 0.55, 0.84, 0x4b1470, x + s * 0.5, y + 0.38, z, { r: 0.05 });
   };
-  for (const x of [-6.4, -4.5, -2.6]) { seat(x, 0, -12.6); seat(x, 0.3, -10.6); }
+  for (const x of [-4.3, -2.7, -1.1]) { seat(x, 0, -12.6); seat(x, 0.3, -10.6); } // left aisle stays clear for the shelf
   for (const x of [-8.7, -0.3]) tube(0.04, 0.02, 9.6, 0x05d9e8, x, 0.02, -12, { k: 1.6 });
   // stars on the ceiling
   const pts = new Float32Array(160 * 3);
   for (let i = 0; i < 160; i++) { pts[i * 3] = -8.8 + Math.random() * 8.6; pts[i * 3 + 1] = H - 0.01; pts[i * 3 + 2] = -7.2 - Math.random() * 9.6; }
   const stars = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(pts, 3)), new THREE.PointsMaterial({ color: 0xffffff, size: 0.02, toneMapped: false }));
   scene.add(stars);
-  // the bookcase on the left wall: my real shelf photos; opens the 3D shelf
-  const shelf = new THREE.Group(); scene.add(shelf);
-  block(0.45, 2.95, 3.0, 0x2b1d55, -8.72, 1.6, -14.2, { parent: shelf, r: 0.05 });
-  ["top", "criterion", "steel", "bottom"].forEach((row, i) => {
-    const t = loader.load(`images/shelf/${row}.jpg`, (tt) => {
-      const a = tt.image.width / tt.image.height, want = 2.7 / 0.6; // crop each photo to a band of spines
-      if (a < want) { tt.repeat.set(1, a / want); tt.offset.set(0, (1 - a / want) / 2); }
-      else { tt.repeat.set(want / a, 1); tt.offset.set((1 - want / a) / 2, 0); }
-    });
-    t.colorSpace = THREE.SRGBColorSpace;
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 0.6), new THREE.MeshBasicMaterial({ map: t }));
-    p.position.set(-8.48, 2.68 - i * 0.7, -14.2); p.rotation.y = Math.PI / 2; shelf.add(p);
-    block(0.4, 0.05, 2.9, 0x3a2a75, -8.6, 2.68 - i * 0.7 - 0.33, -14.2, { parent: shelf, r: 0.02 });
-  });
-  const shelfSign = sign("MY SHELF", 0.22, -8.47, 3.2, -14.2, { color: "#05d9e8", rotY: Math.PI / 2, k: 1.5 });
-  addHot(shelf, "theater", "My movie shelf", "Click to browse every movie I own", openShelf);
-  shelf.userData.glow = [shelfSign];
+  // the movie shelf on the left wall, built from my real shelf photos (shelf-data.js) like the main page's,
+  // and the IMAX case on its own stand beside it. Group space: x along the wall (toward the screen),
+  // y up, z out of the wall into the room.
+  const ROWS = window.SHELF || [], frameC = 0x2b1d55, W = 1.6, T = 0.05, D = 0.42;
+  const tex = (src) => { const t = loader.load(src); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t; };
+  const bc = new THREE.Group(); bc.position.set(-8.9, 0, -14.6); bc.rotation.y = Math.PI / 2; scene.add(bc);
+  let y = 0.12;
+  block(W + 2 * T, 0.12, D, frameC, 0, 0.06, D / 2, { parent: bc, r: 0.02 });
+  for (const row of ROWS.filter((r) => r.id !== "imax").reverse()) {
+    const h = W / row.aspect;
+    row._tex = tex(row.img);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(W, h), new THREE.MeshBasicMaterial({ map: row._tex, color: 0xe8e8e8 }));
+    face.position.set(0, y + h / 2, D - 0.1); bc.add(face);
+    shelfFaces.unshift({ row, mesh: face, w: W, h });
+    y += h;
+    block(W + 2 * T, T, D, frameC, 0, y + T / 2, D / 2, { parent: bc, r: 0.015 }); y += T;
+  }
+  for (const s of [-1, 1]) block(T, y, D, frameC, s * (W / 2 + T / 2), y / 2, D / 2, { parent: bc, r: 0.015 });
+  block(W + 2 * T, y, 0.03, 0x120c22, 0, y / 2, 0.015, { parent: bc, ink: false });
+  addHot(bc, "theater", "My movie shelf", touch ? "Tap to walk over and browse it" : "Click to walk over and browse it", () => go("shelf"));
+  const imax = ROWS.find((r) => r.id === "imax");
+  if (imax) {
+    const st = new THREE.Group(); st.position.set(-8.9, 0, -12.65); st.rotation.y = Math.PI / 2; scene.add(st);
+    const w = 1.3, h = w / imax.aspect;
+    block(1.0, 1.05, 0.5, frameC, 0, 0.525, 0.25, { parent: st, r: 0.04 });
+    block(w + 0.06, h + 0.06, 0.36, 0xd9d7e6, 0, 1.05 + h / 2 + 0.03, 0.27, { parent: st, r: 0.03 });
+    imax._tex = tex(imax.img); imax._front = imax.front ? tex(imax.front) : imax._tex;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: imax._front, color: 0xe8e8e8 }));
+    face.position.set(0, 1.05 + h / 2 + 0.03, 0.455); st.add(face);
+    shelfFaces.unshift({ row: imax, mesh: face, w, h, imax: true });
+    addHot(st, "theater", "IMAX case", touch ? "Tap to walk over and open it" : "Click to walk over and open it", () => go("shelf"));
+  }
+  sign("MY SHELF", 0.26, -8.85, 2.6, -12.65, { color: "#05d9e8", rotY: Math.PI / 2, k: 1.5 });
   // popcorn machine and a NOW SHOWING sign
   block(0.7, 0.8, 0.6, 0xd11e48, -1.1, 0.4, -14.6, { r: 0.05 });
   block(0.66, 0.62, 0.56, 0x05d9e8, -1.1, 1.12, -14.6, { mat: toon(0x05d9e8, { transparent: true, opacity: 0.28 }), r: 0.03 });
@@ -369,13 +388,19 @@ const VIEWS = {
   living: { pos: V(0, 1.72, -0.6), look: V(0, 1.45, -7), name: "Living room", yaw: 0.8,
     hint: touch ? "Tap a doorway · swipe to look around" : "Click a doorway · drag to look around" },
   theater: { pos: V(-4.5, 2.15, -8.2), look: V(-4.5, 1.85, -17), name: "Theater", yaw: 0.65,
-    hint: touch ? "Tap the screen for my review · tap the bookcase for my shelf" : "Click the screen for my review · click the bookcase for my shelf" },
+    hint: touch ? "Tap the screen for my review · tap the shelf to browse it" : "Click the screen for my review · click the shelf to browse it" },
+  shelf: { pos: V(-4.6, 1.72, -13.7), look: V(-8.75, 1.65, -13.7), name: "Movie shelf", yaw: 0.35,
+    hint: touch ? "Tap a shelf to look closer" : "Click a shelf to look closer" },
 };
+const ORDER = ["outside", "living", "theater", "shelf"]; // the rooms, in walking order
 const PATHS = { // waypoints for position and where the camera looks, from → to
   "outside>living": { pos: [V(0, 1.6, 5.4), V(0, 1.62, 2.2), V(0, 1.66, 0.4), V(0, 1.72, -0.6)], look: [V(0, 1.45, 0), V(0, 1.5, -3), V(0, 1.45, -6), V(0, 1.45, -7)] },
+  "theater>shelf": { pos: [V(-4.5, 2.15, -8.2), V(-5.6, 1.95, -10.1), V(-5.0, 1.78, -12.6), V(-4.6, 1.72, -13.7)], look: [V(-4.5, 1.85, -17), V(-7.2, 1.7, -14.8), V(-8.75, 1.65, -13.9), V(-8.75, 1.65, -13.7)] },
   "living>theater": { pos: [V(0, 1.72, -0.6), V(-2.4, 1.72, -3.6), V(-4.5, 1.76, -6.1), V(-4.5, 1.95, -7.5), V(-4.5, 2.15, -8.2)], look: [V(0, 1.45, -7), V(-4.5, 1.6, -7.5), V(-4.5, 1.7, -10), V(-4.5, 1.8, -14), V(-4.5, 1.85, -17)] },
 };
 let room = "outside", flight = null, yaw = 0, pitch = 0, doorOpen = 0, doorTo = 0;
+let focusRow = null; // the shelf row being looked at up close: { f, view }
+const NAMES = { imax: "IMAX case", top: "A24 + Kill Bill", criterion: "Criterion Collection", steel: "4K + steelbooks", bottom: "Blu-ray + 4K" };
 const ease = (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
 const fly = (from, to, after) => {
   const fwd = PATHS[`${from}>${to}`], back = PATHS[`${to}>${from}`];
@@ -383,18 +408,27 @@ const fly = (from, to, after) => {
   if (reduce) { flight = null; room = to; after?.(); return; }
   flight = { t0: performance.now(), dur: 1700, pos: new THREE.CatmullRomCurve3(p.pos), look: new THREE.CatmullRomCurve3(p.look), yaw0: yaw, pitch0: pitch, after };
 };
+const lookAt = new THREE.Vector3(); // where the camera is looking now (kept by aim)
+const flyTo = (pos, look, dur, after) => {
+  if (reduce) { after?.(); return; }
+  flight = { t0: performance.now(), dur, pos: new THREE.CatmullRomCurve3([camera.position.clone(), pos]), look: new THREE.CatmullRomCurve3([lookAt.clone(), look]), yaw0: yaw, pitch0: pitch, after };
+};
+const view = () => focusRow?.view || VIEWS[room];
 const setRoomUI = () => {
   const v = VIEWS[room];
-  ui.room.textContent = v.name; ui.hint.textContent = v.hint; ui.back.hidden = room === "outside";
+  ui.room.textContent = focusRow ? `${v.name} · ${NAMES[focusRow.f.row.id] || ""}` : v.name;
+  ui.hint.textContent = focusRow ? (focusRow.pan ? "Swipe along the shelf · tap a movie to pull it out" : touch ? "Tap a movie to pull it out" : "Click a movie to pull it out") : v.hint;
+  ui.back.hidden = room === "outside";
   document.title = room === "outside" ? "Pierpont's apartment" : `${v.name} · Pierpont's apartment`;
 };
 const go = (to) => {
-  if (flight || to === room) return;
-  hideTip();
+  if (flight || cv.active) return;
   if (to === "screen") { if (room !== "theater") go("theater"); return latest?.link && window.open(latest.link, "_blank", "noopener"); }
-  if (to === "shelf") { if (room !== "theater") go("theater"); return openShelf(); }
-  const from = room;
-  const route = { outside: { living: ["living"], theater: ["living", "theater"] }, living: { outside: ["outside"], theater: ["theater"] }, theater: { living: ["living"], outside: ["living", "outside"] } }[from][to];
+  if (focusRow) return unfocus(() => go(to));
+  if (to === room) return;
+  hideTip();
+  const from = room, a = ORDER.indexOf(from), b = ORDER.indexOf(to), route = [];
+  for (let i = a; i !== b; i += Math.sign(b - a)) route.push(ORDER[i + Math.sign(b - a)]);
   const step = (i, cur) => {
     if (i >= route.length) return;
     const nxt = route[i];
@@ -404,32 +438,84 @@ const go = (to) => {
   ui.hint.textContent = "";
   step(0, from);
 };
-const back = () => go(room === "theater" ? "living" : "outside");
+const back = () => {
+  if (cv.active) return cv.close();
+  if (focusRow) return unfocus();
+  if (room !== "outside") go(ORDER[ORDER.indexOf(room) - 1]);
+};
 ui.back.addEventListener("click", back);
 document.querySelectorAll(".h-nav [data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
-addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#h-shelf").open) back(); });
+addEventListener("keydown", (e) => {
+  if (e.key === "Escape") back();
+  if (e.key === "Enter" && cv.active) cv.openReview();
+});
 
 let toastTimer;
 const toast = (msg) => { ui.toast.textContent = msg; ui.toast.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (ui.toast.hidden = true), 3200); };
 
-// ---------- the shelf pop-up (the main page's 3D shelf, loaded the first time) ----------
-const shelfDlg = $("#h-shelf");
-let shelfLoaded = false;
-function openShelf() {
-  shelfDlg.showModal();
-  if (!shelfLoaded) { shelfLoaded = true; import(`./shelf.js${new URL(import.meta.url).search}`); }
-}
-$("#h-shelf-close").addEventListener("click", () => shelfDlg.close());
-shelfDlg.addEventListener("click", (e) => { if (e.target === shelfDlg) shelfDlg.close(); });
-shelfDlg.addEventListener("cancel", (e) => { if ($("#shelf3d").classList.contains("case-open")) e.preventDefault(); }); // Esc puts a pulled-out case back first
+// ---------- the movie shelf, up close ----------
+// The pulled-out case (shared with the main page): it renders on top of the room in a second pass.
+const cv = createCaseViewer({ renderer, camera, scene, touch, reduce, dim: 0.95, // the bloom pass blends in linear light, so it needs more to look as dark
+  onOpen: () => { hideTip(); ui.hint.textContent = touch ? "Swipe to spin it · tap the review on the back · tap around it to put it back" : "Drag to spin it · click the review on the back · click around it to put it back"; },
+  onClose: () => setRoomUI() });
+// Lean in to one row: the camera squares up to it, close enough to pick a spine.
+const focus = (f) => {
+  if (focusRow?.f.imax && focusRow.f !== f) { focusRow.f.mesh.material.map = focusRow.f.row._front; }
+  const c = f.mesh.getWorldPosition(new THREE.Vector3());
+  const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect);
+  let d = Math.max((f.h + 0.2) / 2 / Math.tan(vf), (f.w + 0.3) / 2 / Math.tan(hf)), pan = 0;
+  // Tall screens: come in close enough to read the spines and swipe along the row (like the main page).
+  if (camera.aspect < 0.8) { d = f.h / 0.45 / 2 / Math.tan(vf); pan = Math.max(0, (f.w + 0.1) / 2 - d * Math.tan(hf)); }
+  const start = c.clone(); start.z += pan; // begin at the row's left end (+z is left, looking at the wall)
+  focusRow = { f, view: { pos: start.clone().add(V(d, 0, 0)), look: start, yaw: pan ? 0 : 0.12 }, c, pan, d };
+  if (f.imax) f.mesh.material.map = f.row._tex; // the IMAX case opens to its spines
+  hideTip(); setRoomUI();
+  flyTo(focusRow.view.pos, focusRow.view.look, 1000);
+};
+const unfocus = (after) => {
+  if (!focusRow) return after?.();
+  if (focusRow.f.imax) focusRow.f.mesh.material.map = focusRow.f.row._front;
+  focusRow = null; hideTip(); setRoomUI();
+  flyTo(VIEWS.shelf.pos, VIEWS.shelf.look, 900, after);
+};
+const describe = (it) => (it.r ? `My ${it.s} review` : it.m ? `Rated ${it.s}` : "Not on my Letterboxd yet");
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+// the outline of what's under the pointer, drawn on the photo
+const hlLine = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x05d9e8, toneMapped: false }));
+const hlFill = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0x05d9e8, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }));
+const showZone = (f, zone) => {
+  if (!f) { hlLine.visible = hlFill.visible = false; return; }
+  const pts = zone.map(([u, v]) => new THREE.Vector3((u - 0.5) * f.w, (0.5 - v) * f.h, 0.004));
+  hlLine.geometry.setFromPoints(pts);
+  hlFill.geometry.dispose(); hlFill.geometry = new THREE.ShapeGeometry(new THREE.Shape(pts.map((q) => new THREE.Vector2(q.x, q.y))));
+  hlFill.position.z = 0.003; f.mesh.add(hlLine); f.mesh.add(hlFill);
+  hlLine.visible = hlFill.visible = true;
+};
+const WHOLE = [[0, 0], [1, 0], [1, 1], [0, 1]];
 
 // ---------- pointer: hover glow + tooltip, click to act, drag to look around ----------
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 let hovered = null, down = null;
-const pickAt = (e) => {
+const setRay = (e) => {
   const r = canvas.getBoundingClientRect();
   ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
+  return ray;
+};
+// Which shelf photo, and where on it (u right, v down), is under the pointer?
+const faceAt = (e) => {
+  const hit = setRay(e).intersectObjects(shelfFaces.map((f) => f.mesh), false)[0];
+  return hit ? { f: shelfFaces.find((f) => f.mesh === hit.object), u: hit.uv.x, v: 1 - hit.uv.y, point: hit.point } : null;
+};
+// In the shelf view: a whole row to lean into, or (leaning in) the movie under the pointer.
+const shelfPick = (e) => {
+  const h = faceAt(e); if (!h) return null;
+  if (focusRow?.f !== h.f) return { h, row: true };
+  const p = pick(h.f.row, h.u, h.v);
+  return p ? { h, p } : null;
+};
+const pickAt = (e) => {
+  setRay(e);
   const objs = hot.filter((h) => h.room === room).map((h) => h.obj);
   for (const hit of ray.intersectObjects(objs, true)) {
     let o = hit.object; while (o && o.userData.hot === undefined) o = o.parent;
@@ -442,18 +528,31 @@ const setGlow = (h, on) => {
   h.obj.traverse((o) => { if (o.material?.isMeshToonMaterial) o.material.emissive.setHex(on ? 0x2a0c22 : 0); });
   for (const s of list) s.material.color.setScalar(on ? s.userData.k * 1.5 : s.userData.k);
 };
-const hideTip = () => { ui.tip.hidden = true; if (hovered) setGlow(hovered, false); hovered = null; canvas.style.cursor = ""; };
+const hideTip = () => { ui.tip.hidden = true; if (hovered) setGlow(hovered, false); hovered = null; canvas.style.cursor = ""; showZone(null); };
 const showTip = (e, h) => {
-  ui.tip.innerHTML = `<strong>${h.label}</strong><span>${h.sub}</span>`; ui.tip.hidden = false;
+  ui.tip.innerHTML = `<strong>${esc(h.label)}</strong>${[].concat(h.sub).filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join("")}`; ui.tip.hidden = false;
   const tw = ui.tip.offsetWidth, th = ui.tip.offsetHeight;
   ui.tip.style.transform = `translate(${Math.min(e.clientX + 16, innerWidth - tw - 8)}px, ${Math.min(e.clientY + 16, innerHeight - th - 8)}px)`;
 };
 canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, drag: false }; canvas.setPointerCapture(e.pointerId); });
 canvas.addEventListener("pointermove", (e) => {
+  if (cv.active) { // a case is out: drag spins it
+    if (down) { if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) down.drag = true; cv.spin(e.clientX - down.lx, e.clientY - down.ly); down.lx = e.clientX; down.ly = e.clientY; }
+    const on = !down && cv.hit(setRay(e));
+    canvas.style.cursor = down ? "grabbing" : on && cv.reviewHit(ray) ? "pointer" : on ? "grab" : "zoom-out";
+    return;
+  }
   if (down) {
     if (!down.drag && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) { down.drag = true; hideTip(); }
+    if (down.drag && !flight && focusRow?.pan) { // slide along the row, within its ends
+      const hf = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect);
+      const perPx = (2 * focusRow.d * Math.tan(hf)) / canvas.clientWidth, v = focusRow.view;
+      const z = THREE.MathUtils.clamp(v.look.z + (e.clientX - down.lx) * perPx, focusRow.c.z - focusRow.pan, focusRow.c.z + focusRow.pan);
+      v.look.z = v.pos.z = z; down.lx = e.clientX; down.ly = e.clientY;
+      return;
+    }
     if (down.drag && !flight) {
-      const lim = VIEWS[room].yaw;
+      const lim = view().yaw;
       yaw = THREE.MathUtils.clamp(yaw + (e.clientX - down.lx) * 0.004, -lim, lim);
       pitch = THREE.MathUtils.clamp(pitch + (e.clientY - down.ly) * 0.003, -0.3, 0.3);
       down.lx = e.clientX; down.ly = e.clientY;
@@ -462,13 +561,34 @@ canvas.addEventListener("pointermove", (e) => {
     return;
   }
   if (e.pointerType !== "mouse" || flight) return;
+  if (room === "shelf") {
+    const s = shelfPick(e);
+    if (!s) { hideTip(); canvas.style.cursor = focusRow ? "zoom-out" : "grab"; return; }
+    if (s.row) { showZone(s.h.f, WHOLE); showTip(e, { label: NAMES[s.h.f.row.id] || "Shelf", sub: "Click to look closer" }); canvas.style.cursor = "zoom-in"; return; }
+    showZone(s.h.f, s.p.zone);
+    if (s.p.it.u) { showTip(e, { label: s.p.it.t, sub: [describe(s.p.it), "Click to pull it out"] }); canvas.style.cursor = "pointer"; }
+    else { showTip(e, { label: "Can't read this one yet", sub: "" }); canvas.style.cursor = "default"; }
+    return;
+  }
   const h = pickAt(e);
   if (h !== hovered) { if (hovered) setGlow(hovered, false); hovered = h; if (h) setGlow(h, true); }
   if (h) { showTip(e, h); canvas.style.cursor = "pointer"; } else { ui.tip.hidden = true; canvas.style.cursor = "grab"; }
 });
 canvas.addEventListener("pointerup", (e) => {
   const wasDrag = down?.drag; down = null; canvas.style.cursor = "";
+  if (cv.active) { // the review on the back opens it; anywhere off the case puts it back
+    cv.endDrag();
+    if (!wasDrag) { if (!cv.hit(setRay(e))) cv.close(); else if (cv.reviewHit(ray)) cv.openReview(); }
+    return;
+  }
   if (wasDrag || flight) return;
+  if (room === "shelf") {
+    const s = shelfPick(e);
+    if (!s) return focusRow && unfocus(); // clicking off the shelf steps back from the row
+    if (s.row) return focus(s.h.f);
+    if (s.p.it.u) cv.open({ row: s.h.f.row, it: s.p.it, zone: s.p.zone, point: s.h.point });
+    return;
+  }
   const h = pickAt(e);
   if (h) { hideTip(); h.act(); }
 });
@@ -493,6 +613,9 @@ const resize = () => {
   VIEWS.theater.pos.set(-4.5, tall ? 2.45 : 2.15, tall ? -9.6 : -8.2);
   VIEWS.theater.look.set(-4.5, tall ? 2.05 : 1.85, -17);
   const end = PATHS["living>theater"]; end.pos[end.pos.length - 1].copy(VIEWS.theater.pos); end.look[end.look.length - 1].copy(VIEWS.theater.look);
+  PATHS["theater>shelf"].pos[0].copy(VIEWS.theater.pos); PATHS["theater>shelf"].look[0].copy(VIEWS.theater.look);
+  VIEWS.shelf.pos.x = tall ? -3.9 : -4.6; // step back on tall screens so the whole shelf fits across
+  const sp = PATHS["theater>shelf"].pos; sp[sp.length - 1].copy(VIEWS.shelf.pos);
 };
 addEventListener("resize", resize);
 
@@ -500,11 +623,10 @@ const dir = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
 const aim = (pos, look, yw, pt) => {
   dir.subVectors(look, pos).applyAxisAngle(up, yw);
   dir.y += pt * dir.length();
-  camera.position.copy(pos); camera.lookAt(pos.x + dir.x, pos.y + dir.y, pos.z + dir.z);
+  camera.position.copy(pos); lookAt.set(pos.x + dir.x, pos.y + dir.y, pos.z + dir.z); camera.lookAt(lookAt);
 };
 const flickers = [];
 const frame = (now) => {
-  if (shelfDlg.open) return; // the shelf has its own renderer; pause the house meanwhile
   // the door eases open or shut
   doorOpen += (doorTo - doorOpen) * (reduce ? 1 : 0.08);
   doorPivot.rotation.y = -doorOpen * 1.85; // swings out into the hallway, clear of the living room view
@@ -514,17 +636,19 @@ const frame = (now) => {
     aim(flight.pos.getPoint(s), flight.look.getPoint(s), yaw, pitch);
     if (k === 1) { const a = flight.after; flight = null; a?.(); }
   } else {
-    const v = VIEWS[room];
+    const v = view();
     aim(v.pos, v.look, yaw, pitch);
   }
   if (!reduce) for (const s of flickers) { // neon that stutters now and then
     const on = Math.sin(now / 1000 * 1.3 + s.userData.seed) > -0.97 || Math.random() < 0.5;
     s.material.color.setScalar(on ? s.userData.k : s.userData.k * 0.35);
   }
+  cv.step(now);
   composer.render();
+  cv.render(); // a pulled-out case, on top
 };
 
-if (location.search.includes("debug")) window.__house = { camera, scene, go, get room() { return room; }, set yaw(v) { yaw = v; } };
+if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, shelfFaces, focus, get room() { return room; }, set yaw(v) { yaw = v; } };
 
 // ---------- start ----------
 (async () => {

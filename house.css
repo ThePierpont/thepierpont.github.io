@@ -43,16 +43,3 @@ body.house { margin: 0; height: 100vh; height: 100dvh; overflow: hidden; backgro
 .h-fallback { display: none; }
 body.no-3d .h-fallback { position: fixed; inset: 0; z-index: 10; display: grid; place-content: center; gap: 16px; padding: 24px; text-align: center; background: #07050f; }
 body.no-3d .h-load { display: none; }
-
-/* The movie shelf pop-up */
-dialog.h-shelf {
-  width: min(1100px, 96vw); height: min(88vh, 820px); padding: 0; overflow: hidden;
-  display: none; grid-template-rows: auto 1fr; background: var(--void); color: var(--text); border: 1px solid var(--cyan);
-  box-shadow: 0 0 40px rgb(5 217 232 / .25);
-}
-dialog.h-shelf[open] { display: grid; }
-dialog.h-shelf::backdrop { background: rgb(5 3 10 / .72); backdrop-filter: blur(3px); }
-.h-shelf-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); font: .8rem var(--mono); color: var(--muted); }
-.h-close { padding: 6px 12px; font: 600 .86rem var(--sans); color: var(--white); background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
-.h-close:hover { border-color: var(--mag); }
-dialog.h-shelf .shelf3d { height: 100%; margin: 0; }
