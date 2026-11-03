@@ -69,6 +69,10 @@ window.SITE = {
 
   // Newest first. The first one shows as "Newest pickup" at the top.
   fits: [
+    { src: "images/closet-pubkey-manners-hoodie.jpg", item: "Pubkey Manners Hoodie", brand: "Pubkey, Black", date: "2026-11-02", tag: "Hoodie", note: "", link: "https://shop.pubkey.com/products/pubkey-manners-hoodie-black" },
+    { src: "images/closet-pubkey-you-lose-tee.jpg", item: "\"You Lose\" Long Sleeve Tee", brand: "Pubkey, White", date: "2026-11-02", tag: "Long sleeve", note: "", link: "https://shop.pubkey.com/products/you-lose-white-long-sleeve-tee" },
+    { src: "images/closet-ae-lived-in-tee-5-pack.jpg", item: "Standard Fit Lived-In T-Shirt 5-Pack", brand: "American Eagle", date: "2026-11-02", tag: "T-shirts", note: "", link: "https://www.ae.com/us/en/p/men/t-shirts/multipack-t-shirts/ae-standard-fit-lived-in-t-shirt-5-pack/1163_5463_100" },
+    { src: "images/closet-br-rustico-suit-jacket.jpg", item: "Signature Italian Rustico Suit Jacket", brand: "Banana Republic, Blue", date: "2026-11-02", tag: "Suit jacket", note: "", link: "https://bananarepublic.gap.com/browse/product.do?pid=853075032&vid=1" },
     { src: "images/closet-seafarer-rib-crew.jpg", item: "Seafarer Cotton Rib Crew", brand: "Buck Mason, Faded Indigo", date: "2026-11-01", tag: "Sweater", note: "", link: "https://www.buckmason.com/products/faded-indigo-seafarer-cotton-rib-crew" },
   ],
 
