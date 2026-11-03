@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793693766";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793694496";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -731,39 +731,76 @@ const buildDecor = () => {
 // ---------- the cats: Fin and Phoebe, napping, with their tree, bed and toys ----------
 // Drawn from my photos: Fin is a big fluffy brown tabby with a white chin; Phoebe is a lean orange
 // tabby, about half his size, with a white chin. Local space: the cat faces +x, curled on the spot.
-const cat = ({ fur, stripe, chin, size = 1, fluffy = false, lean = false }, x, y, z, rotY = 0) => {
+// A cat curled up asleep, cartoon-style, built from their photos. Group space: +x is where the head points.
+// Fin: a big long-haired brown tabby (dark saddle, pale ruff and bib, lynx-tipped ears, a huge banded plume of a tail).
+// Phoebe: a slim short-haired ginger (thin mackerel stripes, oversized pink-lined ears, cream chest, a long ringed tail).
+const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, size = 1, fluffy = false, lean = false }, x, y, z, rotY = 0) => {
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; g.scale.setScalar(size); scene.add(g);
-  const sx = lean ? 1.45 : 1.3, sy = lean ? 0.5 : 0.64, sz = lean ? 0.85 : 1.08;
-  const body = ball(0.2, fur, 0, 0.1, 0, { parent: g }); body.scale.set(sx, sy, sz);
-  for (let i = 0; i < 4; i++) { // tabby stripes over the back
-    const st = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.013, 4, 20, Math.PI * 0.75), toon(stripe));
-    st.position.set(-0.15 + i * 0.1, 0.1, 0); st.rotation.set(0, Math.PI / 2, Math.PI * 0.12); st.scale.set(sz * 1.02, sy * 1.02, 1); g.add(st);
+  const sx = lean ? 1.5 : 1.35, sy = lean ? 0.52 : 0.7, sz = lean ? 0.82 : 1.1, R = 0.2;
+  const mesh = (geo, color, parent = g) => { const m = new THREE.Mesh(geo, toon(color)); parent.add(m); return m; };
+  const inked = (m, k = 1.1) => { const ink = new THREE.Mesh(m.geometry, inkMat); ink.scale.setScalar(k); m.add(ink); return m; };
+  const body = ball(R, fur, 0, 0.1, 0, { parent: g }); body.scale.set(sx, sy, sz);
+  if (saddle) { // the darker coat down the back
+    const cap = mesh(new THREE.SphereGeometry(R * 1.03, 24, 10, 0, Math.PI * 2, 0, Math.PI * 0.36), saddle, body); cap.rotation.z = 0.12;
   }
-  if (fluffy) { // tufts all round the curl, and a ruff at the chest
-    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; ball(0.065, fur, Math.cos(a) * 0.24 * sx / 1.3, 0.1 + (i % 3) * 0.02, Math.sin(a) * 0.2 * sz, { parent: g }); }
-    ball(0.1, chin, 0.17, 0.08, 0.04, { parent: g });
+  mesh(new THREE.SphereGeometry(R * 0.55, 16, 12), chin).position.set(R * sx * 0.72, 0.06, 0); // chest / bib under the chin
+  // stripes over the back: lots of thin ones on Phoebe, fewer broad broken ones on Fin
+  const n = lean ? 7 : 5;
+  for (let i = 0; i < n; i++) {
+    const st = mesh(new THREE.TorusGeometry(R, lean ? 0.008 : 0.014, 4, 20, Math.PI * (lean ? 0.7 : 0.5)), stripe);
+    st.position.set(-0.17 + i * (0.3 / (n - 1)), 0.1, 0); st.rotation.set(0, Math.PI / 2, Math.PI * (lean ? 0.15 : 0.25) + (i % 2) * 0.08); st.scale.set(sz * 1.03, sy * 1.03, 1);
   }
-  const head = new THREE.Group(); head.position.set(0.27, 0.09, 0.06); g.add(head); // chin resting on the front of the curl
-  const skull = ball(lean ? 0.085 : 0.1, fur, 0, 0, 0, { parent: head });
-  if (fluffy) { skull.scale.set(1.1, 1, 1.15); }
-  ball(lean ? 0.05 : 0.058, chin, 0.06, -0.035, 0, { parent: head }); // white muzzle and chin
-  for (const dz of [-0.03, 0.03]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.008, 0.012), toon(stripe)); m.position.set(-0.02, 0.07, dz); head.add(m); } // forehead "M" marks
-  const ears = [], earH = lean ? 0.085 : 0.07;
-  for (const dz of [-0.055, 0.055]) {
-    const ear = new THREE.Mesh(new THREE.ConeGeometry(lean ? 0.038 : 0.035, earH, 4), toon(fur)); ear.position.set(-0.01, 0.085, dz * (lean ? 0.9 : 1)); ear.rotation.x = dz > 0 ? -0.3 : 0.3; head.add(ear);
-    const ink = new THREE.Mesh(ear.geometry, inkMat); ink.scale.setScalar(1.3); ear.add(ink); ears.push(ear);
-    const lid = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.005, 4, 10, Math.PI), new THREE.MeshBasicMaterial({ color: 0x1a1020 })); lid.position.set(0.082, 0.015, dz * 0.68); lid.rotation.set(0, Math.PI / 2, Math.PI); head.add(lid); // closed eyes
+  if (fluffy) { // a shaggy ruff behind the head, and longer fur along the edge of the curl
+    for (let i = 0; i < 9; i++) {
+      const a = -1.2 + (i / 8) * 2.4, tuft = inked(mesh(new THREE.ConeGeometry(0.045, 0.1, 5), i % 3 ? ruff : chin), 1.15);
+      tuft.position.set(R * sx * 0.62 + Math.cos(a) * 0.02, 0.12 + Math.cos(a) * 0.05, Math.sin(a) * 0.13); tuft.rotation.set(Math.sin(a) * 1.2, 0, -0.9 - Math.cos(a) * 0.4);
+    }
+    for (let i = 0; i < 10; i++) {
+      const a = Math.PI * 0.55 + (i / 9) * Math.PI * 0.9, tuft = inked(mesh(new THREE.ConeGeometry(0.035, 0.08, 5), i % 2 ? fur : saddle), 1.15);
+      tuft.position.set(Math.cos(a) * R * sx * 0.95, 0.07, Math.sin(a) * R * sz * 0.95); tuft.rotation.set(Math.sin(a) * 1.4, 0, -Math.cos(a) * 1.4);
+    }
   }
-  ball(0.013, 0xffa0b4, 0.105, -0.008, 0, { parent: head }); // pink nose
-  const tail = new THREE.Mesh(new THREE.TorusGeometry(0.2, fluffy ? 0.055 : 0.03, 8, 20, Math.PI * 1.1), toon(fluffy ? fur : stripe)); tail.rotation.set(Math.PI / 2, 0, 0.6); tail.position.set(0.02, 0.03, 0); tail.scale.set(sx / 1.3, sz, 1); g.add(tail);
-  const tink = new THREE.Mesh(tail.geometry, inkMat); tink.scale.setScalar(1.06); tail.add(tink);
+  // the tail wraps round the side of the curl that faces the room, up on top of the bed rim, and ends under the nose
+  const tailN = fluffy ? 13 : 17, tailPts = [];
+  for (let i = 0; i < tailN; i++) {
+    const t = i / (tailN - 1), a = -2.7 + t * 2.9; // from behind, round the side, to the front
+    const rr = fluffy ? 0.045 + Math.sin(Math.min(1, t * 1.15) * Math.PI) * 0.05 : 0.024 - t * 0.004;
+    const seg = ball(rr, (fluffy ? i % 3 === 0 : i % 2 === 0) ? stripe : (fluffy ? saddle : fur), Math.cos(a) * R * sx * 0.95, (fluffy ? 0.12 : 0.14) + Math.sin(t * Math.PI) * 0.025, Math.sin(a) * R * sz * 1.0 - 0.01, { parent: g });
+    if (!fluffy && i >= tailN - 2) seg.material.color.set(stripe); // a darker tip
+    tailPts.push(seg);
+  }
+  // front paws tucked under the chin
+  for (const dz of [-0.045, 0.05]) { const paw = ball(lean ? 0.03 : 0.04, fluffy ? ruff : fur, R * sx * 0.95, 0.03, dz, { parent: g }); paw.scale.set(1.5, 0.7, 1); }
+  const head = new THREE.Group(); head.position.set(R * sx * 0.95, 0.1, 0.04); head.rotation.set(-0.15, 0.25, 0.05); g.add(head); // chin resting on the front of the curl
+  const hr = lean ? 0.085 : 0.1;
+  const skull = ball(hr, fur, 0, 0, 0, { parent: head }); skull.scale.set(lean ? 1.08 : 1, lean ? 0.92 : 0.95, lean ? 0.92 : 1.15);
+  if (saddle) mesh(new THREE.SphereGeometry(hr * 1.03, 18, 8, 0, Math.PI * 2, 0, Math.PI * 0.3), saddle, skull).rotation.z = 0.5; // a dark crown
+  for (const dz of [-1, 1]) ball(hr * 0.36, chin, hr * 0.78, -hr * 0.3, dz * hr * 0.26, { parent: head }); // whisker pads
+  ball(hr * 0.4, chin, hr * 0.62, -hr * 0.58, 0, { parent: head }); // white chin
+  const nz = mesh(new THREE.ConeGeometry(hr * 0.13, hr * 0.12, 3), nose, head); nz.position.set(hr * 1.02, -hr * 0.08, 0); nz.rotation.z = Math.PI; // nose, point down
+  for (let k = -1; k <= 1; k++) { const m = mesh(new THREE.BoxGeometry(hr * 0.55, 0.006, 0.009), stripe, head); m.position.set(hr * 0.35, hr * 0.82, k * hr * 0.17); m.rotation.y = k * 0.25; } // forehead "M"
+  for (const dz of [-1, 1]) { // closed eyes and cheek stripes
+    const lid = new THREE.Mesh(new THREE.TorusGeometry(hr * 0.2, hr * 0.045, 4, 10, Math.PI), new THREE.MeshBasicMaterial({ color: 0x1a1020 }));
+    lid.position.set(hr * 0.86, hr * 0.18, dz * hr * 0.42); lid.rotation.set(0, Math.PI / 2 + dz * 0.45, Math.PI); head.add(lid);
+    for (const dy of [0, -0.25]) { const c = mesh(new THREE.BoxGeometry(hr * 0.35, 0.006, 0.006), stripe, head); c.position.set(hr * 0.45, hr * dy, dz * hr * 0.88); c.rotation.set(0, dz * 0.5, -0.3); }
+  }
+  // ears: a triangle with a flat face forward, the inside lined; Phoebe's are big, Fin's have lynx tips
+  const ears = [], er = lean ? 0.052 : 0.04, eh = lean ? 0.12 : 0.08;
+  for (const dz of [-1, 1]) {
+    const eg = new THREE.Group(); eg.position.set(-hr * 0.05, hr * 0.78, dz * hr * 0.55); eg.rotation.set(dz * -0.35, 0, 0.12); head.add(eg);
+    const geo = new THREE.ConeGeometry(er, eh, 3, 1, false, -Math.PI / 2);
+    const ear = inked(mesh(geo, fur, eg), 1.28); ear.position.y = eh / 2;
+    const lin = mesh(geo, inner, eg); lin.scale.setScalar(0.66); lin.position.set(er * 0.32, eh * 0.42, 0);
+    if (fluffy) { const tip = mesh(new THREE.ConeGeometry(0.007, 0.045, 4), saddle, eg); tip.position.y = eh + 0.018; }
+    ears.push(eg);
+  }
   // z's drifting up out of a nap
-  const zs = [0, 1, 2].map((i) => { const z1 = sign("z", 0.07 + i * 0.015, 0.25, 0.3, 0.05, { parent: g, color: "#d6d6e7", font: "700 90px Rajdhani", k: 1.1 }); z1.material.opacity = 0; return z1; });
+  const zs = [0, 1, 2].map((i) => { const z1 = sign("z", 0.07 + i * 0.015, 0.3, 0.3, 0.05, { parent: g, color: "#d6d6e7", font: "700 90px Rajdhani", k: 1.1 }); z1.material.opacity = 0; return z1; });
   const phase = Math.random() * 10;
   animators.push((now) => {
-    const b = Math.sin(now / (lean ? 900 : 1200) + phase); body.scale.y = sy + b * 0.025; head.position.y = 0.09 + b * 0.006; // breathing
-    zs.forEach((z1, i) => { const t = (now / 2600 + phase + i / 3) % 1; z1.position.set(0.25 + t * 0.12, 0.25 + t * 0.35, 0.05 - t * 0.05); z1.material.opacity = Math.sin(t * Math.PI) * 0.9; z1.lookAt(camera.position); });
-    if (g.userData.twitch) { const k = (now - g.userData.twitch) / 500; ears.forEach((e, i) => { e.rotation.z = k < 1 ? Math.sin(k * Math.PI * 4) * 0.5 * (i ? 1 : -1) : 0; }); if (k >= 1) g.userData.twitch = 0; }
+    const b = Math.sin(now / (lean ? 900 : 1200) + phase); body.scale.y = sy + b * 0.025; head.position.y = 0.1 + b * 0.006; // breathing
+    zs.forEach((z1, i) => { const t = (now / 2600 + phase + i / 3) % 1; z1.position.set(0.3 + t * 0.12, 0.27 + t * 0.35, 0.05 - t * 0.05); z1.material.opacity = Math.sin(t * Math.PI) * 0.9; z1.lookAt(camera.position); });
+    if (g.userData.twitch) { const k = (now - g.userData.twitch) / 500; ears.forEach((e, i) => { e.rotation.y = k < 1 ? Math.sin(k * Math.PI * 4) * 0.5 * (i ? 1 : -1) : 0; }); if (k >= 1) g.userData.twitch = 0; }
   });
   return g;
 };
@@ -833,8 +870,8 @@ const toyMouse = (x, y, z, rotY = 0, color = 0x9b3dd6) => {
   const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(-0.06, 0.02, 0), V(-0.12, 0.01, 0.04), V(-0.17, 0.01, -0.02)]), 10, 0.005, 4), toon(color)); g.add(t);
   return g;
 };
-const FIN = { fur: 0x9a8670, stripe: 0x3e342a, chin: 0xf2ece0, size: 1.15, fluffy: true };
-const PHOEBE = { fur: 0xe39a4f, stripe: 0xb8692a, chin: 0xf6efe4, size: 0.62, lean: true };
+const FIN = { fur: 0x9a7b58, stripe: 0x2e241c, chin: 0xf2ece0, saddle: 0x4e3e2e, ruff: 0xc9ab82, inner: 0xe8cdb8, nose: 0xd99a86, size: 1.15, fluffy: true };
+const PHOEBE = { fur: 0xec9a4c, stripe: 0xbb6128, chin: 0xf8ead4, inner: 0xf4a6b4, nose: 0xf29aa6, size: 0.62, lean: true };
 const buildCats = () => {
   const napper = (g, name) => addHot(g, "living", name, ["Shh… napping", touch ? "Tap to tiptoe closer" : "Click to tiptoe closer"], () => { g.userData.twitch = performance.now(); catFocus?.g === g ? askCat() : openCat(g, name); });
   // living room: Phoebe on top of the cat tree (back wall, left of the window), Fin in his bed (back wall, right)
@@ -1369,8 +1406,9 @@ let catFocus = null; // { name, g, view }
 const openCat = (g, name) => {
   if (catFocus || nodeFocus || flight) return;
   const c = new THREE.Vector3(); g.getWorldPosition(c);
-  // a little in front and above, so you look down at them curled up
-  catFocus = { name, g, view: { pos: c.clone().add(V(0.4, 0.75, 1.3)), look: c.clone().add(V(0, 0.12, 0)) } };
+  // a little in front and above, so you look down at them curled up (closer for a smaller cat)
+  const k = g.scale.x;
+  catFocus = { name, g, view: { pos: c.clone().add(V(0.35, 0.45, 1.13).multiplyScalar(k)), look: c.clone().add(V(0, 0.12 * k, 0)) } };
   hideTip(); setRoomUI();
   flyTo(catFocus.view.pos, catFocus.view.look, 1100);
 };
@@ -1379,11 +1417,27 @@ const closeCat = (after) => {
   catFocus = null; hideTip(); setRoomUI();
   flyTo(VIEWS.living.pos, VIEWS.living.look, 1000, after);
 };
+// Extra photos just for the apartment (not on the main site), plus any site photos tagged with `cats` in content.js.
+const APT_CAT_PHOTOS = [
+  { src: "images/apt-cats/phoebe-bed.jpg", caption: "Sharing the bed", cats: ["phoebe"] },
+  { src: "images/apt-cats/fin-top-perch.jpg", caption: "Upside down on the top perch", cats: ["fin"] },
+  { src: "images/apt-cats/phoebe-blanket.jpg", caption: "Blanket nest", cats: ["phoebe"] },
+  { src: "images/apt-cats/one-asleep-one-on-guard.jpg", caption: "One asleep, one on guard", cats: ["fin", "phoebe"] },
+  { src: "images/apt-cats/fin-fangs.jpg", caption: "Fangs out, fast asleep", cats: ["fin"] },
+  { src: "images/apt-cats/tree-house.jpg", caption: "Tree house", cats: ["fin", "phoebe"] },
+  { src: "images/apt-cats/phoebe-couch.jpg", caption: "Couch, claimed", cats: ["phoebe"] },
+  { src: "images/apt-cats/dinner-is-late.jpg", caption: "Dinner is late", cats: ["fin", "phoebe"] },
+  { src: "images/apt-cats/phoebe-lap.jpg", caption: "Lap check", cats: ["phoebe"] },
+  { src: "images/apt-cats/fin-stretch.jpg", caption: "Full stretch", cats: ["fin"] },
+  { src: "images/apt-cats/fin-night-eyes.jpg", caption: "Night eyes", cats: ["fin"] },
+  { src: "images/apt-cats/fin-looking-up.jpg", caption: "Something's up there", cats: ["fin"] },
+  { src: "images/apt-cats/nap-pile.jpg", caption: "Nap pile", cats: ["fin", "phoebe"] },
+];
 const ask = $("#h-ask"), photos = $("#h-photos");
 let album = [], albumAt = 0, catPhotos = [];
 const askCat = () => {
   const name = catFocus.name;
-  catPhotos = (S.photos || []).filter((p) => p.src && (p.cats || []).includes(name.toLowerCase()));
+  catPhotos = [...APT_CAT_PHOTOS, ...(S.photos || [])].filter((p) => p.src && (p.cats || []).includes(name.toLowerCase()));
   if (!catPhotos.length) return toast(`Shh… ${name}'s napping.`);
   $("#ask-text").textContent = `Let ${name} sleep. I can show you some pictures though.`;
   ask.dataset.name = name; ask.hidden = false; hideTip();
