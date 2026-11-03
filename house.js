@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793684847";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793685029";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -430,7 +430,7 @@ const setRoomUI = () => {
   const v = VIEWS[room];
   ui.room.textContent = focusRow ? `${v.name} · ${NAMES[focusRow.f.row.id] || ""}` : winFocus ? `${v.name} · Clock` : v.name;
   ui.hint.textContent = focusRow ? (focusRow.pan ? "Swipe along the shelf · tap a movie to pull it out" : touch ? "Tap a movie to pull it out" : "Click a movie to pull it out")
-    : winFocus ? (winFocus.pan ? "Swipe across the window · tap a block to open it" : "Click a block to open it on mempool.space · click off the window to close")
+    : winFocus ? (touch ? "Tap a block to open it · tap off the window to close" : "Click a block to open it on mempool.space · click off the window to close")
     : v.hint;
   ui.back.hidden = room === "outside";
   document.title = room === "outside" ? "Pierpont's apartment" : `${v.name} · Pierpont's apartment`;
@@ -571,19 +571,13 @@ const drawApp = (x, k) => {
   x.globalAlpha = 1;
 };
 
-// Opening the app: the camera comes in behind the couch and squares up to the window.
+// Opening the app: the camera stays where it is; only the glass changes.
 let winFocus = null, appTimers = [];
 const openWindowApp = () => {
   if (winFocus || flight) return;
-  const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect), c = V(0, 1.9, -7.02);
-  let d = Math.max(1.15 / Math.tan(vf), 2.75 / Math.tan(hf)), pan = 0;
-  if (camera.aspect < 0.8) { d = 2.1; pan = Math.max(0, 2.55 - d * Math.tan(hf)); } // tall screens: swipe across the glass
-  d = Math.min(d, 6.4);
-  const start = c.clone(); start.x -= pan; // begin at the left panel
-  winFocus = { view: { pos: start.clone().add(V(0, 0, d)), look: start, yaw: pan ? 0 : 0.06 }, c, d, pan };
+  winFocus = {};
   hideTip(); setRoomUI(); mullion.visible = false;
-  flyTo(winFocus.view.pos, winFocus.view.look, 1100);
-  winAnim = { t0: performance.now() + (reduce ? 0 : 450), from: winApp, to: 1 };
+  winAnim = { t0: performance.now(), from: winApp, to: 1 };
   liveBlocks().then(trend).catch((e) => console.warn("mempool:", e.message));
   appTimers = [setInterval(drawWindow, 1000), setInterval(() => liveBlocks().catch(() => {}), 20000)];
 };
@@ -591,7 +585,7 @@ const closeWindowApp = (after) => {
   if (!winFocus) return after?.();
   winFocus = null; appTimers.forEach(clearInterval); hideTip(); setRoomUI();
   winAnim = { t0: performance.now(), from: winApp, to: 0 };
-  flyTo(VIEWS.living.pos, VIEWS.living.look, 1000, after);
+  after?.();
 };
 // Which block tile (if any) is under the pointer, on the glass?
 const tileAt = (e) => {
@@ -692,13 +686,6 @@ canvas.addEventListener("pointermove", (e) => {
   }
   if (down) {
     if (!down.drag && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) { down.drag = true; hideTip(); }
-    if (down.drag && !flight && winFocus?.pan) { // slide across the window glass
-      const hf = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect);
-      const perPx = (2 * winFocus.d * Math.tan(hf)) / canvas.clientWidth, v = winFocus.view;
-      v.look.x = v.pos.x = THREE.MathUtils.clamp(v.look.x - (e.clientX - down.lx) * perPx, winFocus.c.x - winFocus.pan, winFocus.c.x + winFocus.pan);
-      down.lx = e.clientX; down.ly = e.clientY;
-      return;
-    }
     if (down.drag && !flight && focusRow?.pan) { // slide along the row, within its ends
       const hf = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect);
       const perPx = (2 * focusRow.d * Math.tan(hf)) / canvas.clientWidth, v = focusRow.view;
