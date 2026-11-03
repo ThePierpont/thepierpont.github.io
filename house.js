@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793685852";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793686169";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -349,7 +349,7 @@ const buildDecor = () => {
   cable([[5.9, 3.38, -5.6], [3.6, 2.9, -4.8], [1.5, 3.3, -5.4]], 0x16102e, 0.03);
   cable([[5.9, 3.36, -1.0], [4.2, 3.05, -2.0], [2.4, 3.34, -2.2]], 0x7b2cbf, 0.012, true);
   // my Bitcoin node: a little rack with blinking lights (beside the theater door)
-  const node = new THREE.Group(); node.position.set(-3.2, 0, -6.6); scene.add(node);
+  const node = new THREE.Group(); node.position.set(-5.62, 0, -3.7); node.rotation.y = Math.PI / 2; scene.add(node); // against the left wall
   block(0.62, 1.42, 0.5, 0x16102e, 0, 0.71, 0, { parent: node, r: 0.04 });
   for (let u = 0; u < 4; u++) {
     block(0.54, 0.24, 0.04, 0x241a4a, 0, 0.3 + u * 0.3, 0.25, { parent: node, r: 0.015, ink: false });
@@ -359,7 +359,7 @@ const buildDecor = () => {
   sign("NODE", 0.12, 0, 1.52, 0.26, { parent: node, color: "#f9f002", font: "700 100px Rajdhani", k: 1.4 });
   addHot(node, "living", "My Bitcoin node", "Click for its status", () => toast(height ? `My node is synced to block ${height.toLocaleString()}. Don't trust, verify.` : "My node is syncing…"));
   // arcade cabinet (beside the window): plays me at chess
-  const arc = new THREE.Group(); arc.position.set(3.2, 0, -6.55); scene.add(arc);
+  const arc = new THREE.Group(); arc.position.set(5.58, 0, -5.05); arc.rotation.y = -Math.PI / 2; scene.add(arc); // against the right wall
   block(0.7, 1.0, 0.6, 0x3b1d7a, 0, 0.5, 0, { parent: arc, r: 0.04 });
   block(0.7, 0.8, 0.42, 0x3b1d7a, 0, 1.4, -0.08, { parent: arc, r: 0.04 });
   block(0.72, 0.18, 0.5, 0xff2a6d, 0, 1.88, -0.04, { parent: arc, r: 0.03 });
@@ -398,7 +398,7 @@ const buildDecor = () => {
     x.strokeStyle = "#05d9e8"; x.lineWidth = 2; for (let i = 0; i < 8; i++) { const y = 260 + i * i * 4; x.beginPath(); x.moveTo(0, y); x.lineTo(w, y); x.stroke(); }
     for (let i = -6; i <= 6; i++) { x.beginPath(); x.moveTo(w / 2 + i * 12, 260); x.lineTo(w / 2 + i * 70, h); x.stroke(); }
     x.textAlign = "center"; x.font = "700 52px Rajdhani"; x.fillStyle = "#f4f3ff"; x.shadowColor = "#ff2a6d"; x.shadowBlur = 14; x.fillText("DC AFTER DARK", w / 2, 70);
-  }, 5.9, -5.6, -Math.PI / 2);
+  }, 5.9, -1.6, -Math.PI / 2);
   poster((x, w, h) => { // a retro coin
     x.fillStyle = "#120a2a"; x.fillRect(0, 0, w, h);
     x.fillStyle = "#f7931a"; x.shadowColor = "#f7931a"; x.shadowBlur = 30; x.beginPath(); x.arc(w / 2, 200, 110, 0, Math.PI * 2); x.fill(); x.shadowBlur = 0;
@@ -443,76 +443,127 @@ const buildDecor = () => {
   sign("EXIT", 0.2, -4.5, 2.78, -7.12, { color: "#2bff88", rotY: Math.PI, k: 1.5 });
 };
 
-// ---------- the cats: two of them, napping, plus their trees and toys ----------
-// A cartoon cat curled up asleep. Local space: it faces +x, curled on the spot it's placed.
-const cat = (fur, stripe, x, y, z, rotY = 0, size = 1) => {
+// ---------- the cats: Fin and Phoebe, napping, with their tree, bed and toys ----------
+// Drawn from my photos: Fin is a big fluffy brown tabby with a white chin; Phoebe is a lean orange
+// tabby, about half his size, with a white chin. Local space: the cat faces +x, curled on the spot.
+const cat = ({ fur, stripe, chin, size = 1, fluffy = false, lean = false }, x, y, z, rotY = 0) => {
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; g.scale.setScalar(size); scene.add(g);
-  const body = ball(0.2, fur, 0, 0.1, 0, { parent: g }); body.scale.set(1.3, 0.62, 1.05);
-  for (const dz of [-0.09, 0, 0.09]) { const st = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 4, 20, Math.PI * 0.8), toon(stripe)); st.rotation.set(0, Math.PI / 2, Math.PI * 0.1); st.position.set(-0.02 + dz * 0.6, 0.1, dz); st.scale.set(1.05, 0.62, 1.3); body.parent.add(st); } // tabby stripes over the back
-  const head = new THREE.Group(); head.position.set(0.27, 0.09, 0.06); g.add(head); // chin resting on the front of the curl
-  ball(0.1, fur, 0, 0, 0, { parent: head });
-  const ears = [];
-  for (const dz of [-0.055, 0.055]) {
-    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.07, 4), toon(fur)); ear.position.set(-0.01, 0.09, dz); ear.rotation.x = dz > 0 ? -0.3 : 0.3; head.add(ear);
-    const ink = new THREE.Mesh(ear.geometry, inkMat); ink.scale.setScalar(1.3); ear.add(ink); ears.push(ear);
-    const lid = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.005, 4, 10, Math.PI), new THREE.MeshBasicMaterial({ color: 0x1a1020 })); lid.position.set(0.085, 0.015, dz * 0.7); lid.rotation.set(0, Math.PI / 2, Math.PI); head.add(lid); // closed eyes
+  const sx = lean ? 1.45 : 1.3, sy = lean ? 0.5 : 0.64, sz = lean ? 0.85 : 1.08;
+  const body = ball(0.2, fur, 0, 0.1, 0, { parent: g }); body.scale.set(sx, sy, sz);
+  for (let i = 0; i < 4; i++) { // tabby stripes over the back
+    const st = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.013, 4, 20, Math.PI * 0.75), toon(stripe));
+    st.position.set(-0.15 + i * 0.1, 0.1, 0); st.rotation.set(0, Math.PI / 2, Math.PI * 0.12); st.scale.set(sz * 1.02, sy * 1.02, 1); g.add(st);
   }
-  ball(0.014, 0xff8fb1, 0.1, -0.012, 0, { parent: head }); // nose
-  const tail = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.035, 8, 20, Math.PI * 1.1), toon(stripe)); tail.rotation.x = Math.PI / 2; tail.position.set(0.02, 0.03, 0); tail.rotation.z = 0.6; g.add(tail);
+  if (fluffy) { // tufts all round the curl, and a ruff at the chest
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; ball(0.065, fur, Math.cos(a) * 0.24 * sx / 1.3, 0.1 + (i % 3) * 0.02, Math.sin(a) * 0.2 * sz, { parent: g }); }
+    ball(0.1, chin, 0.17, 0.08, 0.04, { parent: g });
+  }
+  const head = new THREE.Group(); head.position.set(0.27, 0.09, 0.06); g.add(head); // chin resting on the front of the curl
+  const skull = ball(lean ? 0.085 : 0.1, fur, 0, 0, 0, { parent: head });
+  if (fluffy) { skull.scale.set(1.1, 1, 1.15); }
+  ball(lean ? 0.05 : 0.058, chin, 0.06, -0.035, 0, { parent: head }); // white muzzle and chin
+  for (const dz of [-0.03, 0.03]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.008, 0.012), toon(stripe)); m.position.set(-0.02, 0.07, dz); head.add(m); } // forehead "M" marks
+  const ears = [], earH = lean ? 0.085 : 0.07;
+  for (const dz of [-0.055, 0.055]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(lean ? 0.038 : 0.035, earH, 4), toon(fur)); ear.position.set(-0.01, 0.085, dz * (lean ? 0.9 : 1)); ear.rotation.x = dz > 0 ? -0.3 : 0.3; head.add(ear);
+    const ink = new THREE.Mesh(ear.geometry, inkMat); ink.scale.setScalar(1.3); ear.add(ink); ears.push(ear);
+    const lid = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.005, 4, 10, Math.PI), new THREE.MeshBasicMaterial({ color: 0x1a1020 })); lid.position.set(0.082, 0.015, dz * 0.68); lid.rotation.set(0, Math.PI / 2, Math.PI); head.add(lid); // closed eyes
+  }
+  ball(0.013, 0xffa0b4, 0.105, -0.008, 0, { parent: head }); // pink nose
+  const tail = new THREE.Mesh(new THREE.TorusGeometry(0.2, fluffy ? 0.055 : 0.03, 8, 20, Math.PI * 1.1), toon(fluffy ? fur : stripe)); tail.rotation.set(Math.PI / 2, 0, 0.6); tail.position.set(0.02, 0.03, 0); tail.scale.set(sx / 1.3, sz, 1); g.add(tail);
   const tink = new THREE.Mesh(tail.geometry, inkMat); tink.scale.setScalar(1.06); tail.add(tink);
   // z's drifting up out of a nap
   const zs = [0, 1, 2].map((i) => { const z1 = sign("z", 0.07 + i * 0.015, 0.25, 0.3, 0.05, { parent: g, color: "#d6d6e7", font: "700 90px Rajdhani", k: 1.1 }); z1.material.opacity = 0; return z1; });
   const phase = Math.random() * 10;
   animators.push((now) => {
-    const b = Math.sin(now / 1100 + phase); body.scale.y = 0.62 + b * 0.025; head.position.y = 0.09 + b * 0.006; // breathing
-    zs.forEach((z1, i) => { const t = ((now / 2600 + phase + i / 3) % 1); z1.position.set(0.25 + t * 0.12, 0.25 + t * 0.35, 0.05 - t * 0.05); z1.material.opacity = Math.sin(t * Math.PI) * 0.9; z1.lookAt(camera.position); });
+    const b = Math.sin(now / (lean ? 900 : 1200) + phase); body.scale.y = sy + b * 0.025; head.position.y = 0.09 + b * 0.006; // breathing
+    zs.forEach((z1, i) => { const t = (now / 2600 + phase + i / 3) % 1; z1.position.set(0.25 + t * 0.12, 0.25 + t * 0.35, 0.05 - t * 0.05); z1.material.opacity = Math.sin(t * Math.PI) * 0.9; z1.lookAt(camera.position); });
     if (g.userData.twitch) { const k = (now - g.userData.twitch) / 500; ears.forEach((e, i) => { e.rotation.z = k < 1 ? Math.sin(k * Math.PI * 4) * 0.5 * (i ? 1 : -1) : 0; }); if (k >= 1) g.userData.twitch = 0; }
   });
   return g;
 };
-// A carpeted cat tree: sisal posts, a platform, and a cupped perch on top.
-const catTree = (x, z, { tall = 1.3, parentRot = 0 } = {}) => {
-  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = parentRot; scene.add(g);
-  block(0.72, 0.08, 0.72, 0x5b3a8a, 0, 0.04, 0, { parent: g, r: 0.03 });
-  const post = (px, pz, y0, h) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, h, 12), toon(0xc9a46a)); m.position.set(px, y0 + h / 2, pz); g.add(m); const ink = new THREE.Mesh(m.geometry, inkMat); ink.scale.set(1.25, 1.01, 1.25); m.add(ink); for (let yy = y0 + 0.06; yy < y0 + h; yy += 0.09) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.066, 0.006, 4, 14), toon(0xa88550)); r.rotation.x = Math.PI / 2; r.position.set(px, yy, pz); g.add(r); } };
-  post(-0.15, -0.12, 0.08, tall * 0.5); post(0.18, 0.15, 0.08, tall * 0.85);
-  block(0.6, 0.06, 0.48, 0x5b3a8a, -0.05, 0.08 + tall * 0.5, -0.05, { parent: g, r: 0.03 });
-  post(-0.05, -0.05, 0.11 + tall * 0.5, tall * 0.42);
-  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.2, 0.12, 20, 1, true), toon(0x7b4fc0, { side: THREE.DoubleSide })); cup.position.set(-0.05, 0.14 + tall * 0.92, -0.05); g.add(cup);
-  block(0.44, 0.04, 0.44, 0x5b3a8a, -0.05, 0.09 + tall * 0.92, -0.05, { parent: g, r: 0.02 });
-  // a pom on a string, swinging a little
-  const pom = new THREE.Group(); pom.position.set(0.22, 0.06 + tall * 0.5, -0.05); g.add(pom);
-  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 4), new THREE.MeshBasicMaterial({ color: 0xd6d6e7 })); str.position.y = -0.11; pom.add(str);
-  ball(0.04, 0xff2a6d, 0, -0.24, 0, { parent: pom });
+// A cat tree like theirs: dark gray carpet, cubbies with arched doorways, sisal posts, a perch on top.
+// Group space: +z faces into the room, so it stands with its back flat to a wall.
+const catTree = (x, z, rotY, { tall = 1.5 } = {}) => {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+  const carpet = 0x3a3d4a, sisal = (px, pz, y0, h) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, h, 12), toon(0xd2b07a)); m.position.set(px, y0 + h / 2, pz); g.add(m);
+    const ink = new THREE.Mesh(m.geometry, inkMat); ink.scale.set(1.25, 1.01, 1.25); m.add(ink);
+    for (let yy = y0 + 0.05; yy < y0 + h; yy += 0.08) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.061, 0.005, 4, 14), toon(0xb08a55)); r.rotation.x = Math.PI / 2; r.position.set(px, yy, pz); g.add(r); }
+  };
+  const cubby = (cx, cy, w, h) => { // a carpeted box with an arched hole in front
+    block(w, h, 0.5, carpet, cx, cy + h / 2, 0, { parent: g, r: 0.04 });
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(h * 0.3, 18, 0, Math.PI), new THREE.MeshBasicMaterial({ color: 0x0c0c14 }));
+    hole.position.set(cx, cy + h * 0.32, 0.252); g.add(hole);
+    const door = new THREE.Mesh(new THREE.PlaneGeometry(h * 0.6, h * 0.32), new THREE.MeshBasicMaterial({ color: 0x0c0c14 })); door.position.set(cx, cy + h * 0.16, 0.252); g.add(door);
+  };
+  block(0.8, 0.08, 0.6, carpet, 0, 0.04, 0, { parent: g, r: 0.03 });
+  cubby(-0.12, 0.08, 0.5, 0.42);
+  sisal(0.28, 0.1, 0.08, tall * 0.5);
+  block(0.75, 0.06, 0.55, carpet, 0, 0.08 + tall * 0.5, 0, { parent: g, r: 0.03 });
+  cubby(0.1, 0.14 + tall * 0.5, 0.42, 0.36);
+  sisal(-0.25, 0.08, 0.14 + tall * 0.5, tall * 0.36);
+  const top = 0.14 + tall * 0.86;
+  block(0.62, 0.06, 0.5, carpet, 0, top, 0, { parent: g, r: 0.03 });
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.045, 8, 24), toon(carpet)); rim.rotation.x = Math.PI / 2; rim.position.set(0, top + 0.06, 0); g.add(rim);
+  // a sisal ball on a string, swinging a little (like theirs)
+  const pom = new THREE.Group(); pom.position.set(0.3, 0.08 + tall * 0.5, 0.22); g.add(pom);
+  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.2, 4), new THREE.MeshBasicMaterial({ color: 0xd6d6e7 })); str.position.y = -0.1; pom.add(str);
+  ball(0.045, 0xe0a487, 0, -0.22, 0, { parent: pom });
   const ph = Math.random() * 10; animators.push((now) => { pom.rotation.z = Math.sin(now / 900 + ph) * 0.25; });
-  return { g, perchY: 0.15 + tall * 0.92 };
+  return { g, perch: top + 0.04 };
 };
-const yarn = (x, y, z, color) => {
-  const b = ball(0.07, color, x, y + 0.07, z);
-  for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.071, 0.005, 4, 20), toon(new THREE.Color(color).multiplyScalar(0.7))); r.rotation.set(i * 1.1, i * 0.7, 0); b.add(r); }
-  const tail = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(x, y + 0.01, z + 0.06), V(x + 0.08, y + 0.005, z + 0.16), V(x + 0.02, y + 0.005, z + 0.28)]), 12, 0.006, 4), toon(color)); scene.add(tail);
-  return b;
-};
-const toyMouse = (x, y, z, rotY = 0) => {
-  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; scene.add(g);
-  const b = ball(0.045, 0x9d9dc0, 0, 0.03, 0, { parent: g }); b.scale.set(1.5, 0.8, 1);
-  for (const dz of [-0.025, 0.025]) ball(0.016, 0xff8fb1, 0.04, 0.06, dz, { parent: g });
-  const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(-0.06, 0.02, 0), V(-0.12, 0.01, 0.04), V(-0.17, 0.01, -0.02)]), 10, 0.005, 4), toon(0xff8fb1)); g.add(t);
+// A round, cushy cat bed.
+const catBed = (x, z) => {
+  const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.38, 0.08, 24), toon(0x4a4d5e)); base.position.y = 0.04; g.add(base);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.1, 10, 28), toon(0x5c6072)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.12; g.add(rim);
+  const ink = new THREE.Mesh(rim.geometry, inkMat); ink.scale.setScalar(1.04); rim.add(ink);
   return g;
 };
+// Their toys: Fin's green cactus plush, the wooden ball track, a sparkly purple mouse.
+const cactus = (x, y, z, rotY) => {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; scene.add(g);
+  const trunk = block(0.5, 0.11, 0.11, 0x4cb54a, 0, 0.055, 0, { parent: g, r: 0.05 });
+  block(0.15, 0.09, 0.09, 0x4cb54a, -0.05, 0.05, 0.11, { parent: g, r: 0.04, rot: [0, 0.6, 0] });
+  for (let i = 0; i < 5; i++) ball(0.018, 0xff4a2a, 0.26, 0.06 + (i % 2) * 0.02, -0.03 + i * 0.015, { parent: g }); // the red flower
+  return trunk;
+};
+const ballTrack = (x, z) => {
+  const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
+  [0.26, 0.21, 0.16].forEach((r, i) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.03, 6, 28), toon(0xd6a066)); ring.rotation.x = Math.PI / 2; ring.position.y = 0.04 + i * 0.07; g.add(ring);
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.02, 28), toon(0xc48f55)); disc.position.y = 0.02 + i * 0.07; g.add(disc);
+    const bl = ball(0.025, i === 1 ? 0x7a8a6a : 0xf0dcc0, r, 0.05 + i * 0.07, 0, { parent: g });
+    const ph = i * 2; animators.push((now) => { const a = now / (1400 + i * 500) + ph; bl.position.set(Math.cos(a) * r, 0.05 + i * 0.07, Math.sin(a) * r); });
+  });
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 12), toon(0xd2b07a)); post.position.y = 0.4; g.add(post);
+  return g;
+};
+const toyMouse = (x, y, z, rotY = 0, color = 0x9b3dd6) => {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; scene.add(g);
+  const b = ball(0.045, color, 0, 0.03, 0, { parent: g }); b.scale.set(1.5, 0.8, 1);
+  b.material.emissive = new THREE.Color(color).multiplyScalar(0.25); // a bit of sparkle
+  for (const dz of [-0.025, 0.025]) ball(0.016, 0xd07ae8, 0.04, 0.06, dz, { parent: g });
+  const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(-0.06, 0.02, 0), V(-0.12, 0.01, 0.04), V(-0.17, 0.01, -0.02)]), 10, 0.005, 4), toon(color)); g.add(t);
+  return g;
+};
+const FIN = { fur: 0x9a8670, stripe: 0x3e342a, chin: 0xf2ece0, size: 1.15, fluffy: true };
+const PHOEBE = { fur: 0xe39a4f, stripe: 0xb8692a, chin: 0xf6efe4, size: 0.62, lean: true };
 const buildCats = () => {
-  // living room: one on the couch back, one in the cat tree's perch beside the couch
-  const napper = (g, label) => { addHot(g, "living", label, "Shh… napping", () => { g.userData.twitch = performance.now(); toast("Shh… napping. (Yes, I have two cats.)"); }); };
-  napper(cat(0xc29a6c, 0x6b4f35, 0.7, 1.1, -4.22, -1.25, 1.25), "Sleeping cat"); // a tabby, face turned toward the room
-  const t1 = catTree(-2.6, -5.35, { tall: 1.3 });
-  napper(cat(0xb4b8cc, 0x767a96, -2.65, t1.perchY + 0.03, -5.4, -1.0, 1.15), "Sleeping cat");
-  yarn(-2.05, 0, -4.75, 0xff2a6d); toyMouse(-2.2, 0, -4.35, 0.8);
-  yarn(2.0, 0, -5.4, 0x05d9e8);
-  // theater: a tree by the popcorn machine, yarn on the stage
-  const t2 = catTree(-0.85, -13.65, { tall: 1.1 });
-  yarn(-0.9, t2.perchY - 0.06, -13.7, 0xf9f002);
-  yarn(-3.1, 0.25, -15.95, 0xff2a6d);
-  toyMouse(-5.6, 0, -11.6, 2.2);
+  const napper = (g, name) => addHot(g, "living", name, "Shh… napping", () => { g.userData.twitch = performance.now(); toast(`Shh… ${name}'s napping.`); });
+  // living room: Phoebe on top of the cat tree (back wall, left of the window), Fin in his bed (back wall, right)
+  const tree = catTree(-3.2, -6.58, 0, { tall: 1.5 });
+  napper(cat(PHOEBE, -3.22, tree.perch, -6.56, -1.2), "Phoebe");
+  catBed(3.2, -6.5);
+  napper(cat(FIN, 3.18, 0.12, -6.5, -1.9), "Fin");
+  cactus(2.62, 0, -6.6, 0.4);
+  ballTrack(-2.35, -6.55);
+  toyMouse(-3.85, 0, -6.4, 0.9);
+  // theater: their second tree against the right wall, by the popcorn machine
+  const t2 = catTree(-0.42, -13.7, -Math.PI / 2, { tall: 1.2 });
+  toyMouse(-0.75, t2.perch - 0.01, -13.75, 2.6);
+  toyMouse(-8.4, 0, -10.2, 2.2, 0xff2a6d);
   // hallway: a toy mouse left on the doormat
   toyMouse(0.38, 0.03, 0.9, -0.5);
 };
@@ -654,7 +705,8 @@ const flyTo = (pos, look, dur, after) => {
   if (reduce) { after?.(); return; }
   flight = { t0: performance.now(), dur, pos: new THREE.CatmullRomCurve3([camera.position.clone(), pos]), look: new THREE.CatmullRomCurve3([lookAt.clone(), look]), yaw0: yaw, pitch0: pitch, after };
 };
-const view = () => focusRow?.view || winFocus?.view || VIEWS[room];
+let peekView = null; // ?debug only: a close-up camera for checking details
+const view = () => peekView || focusRow?.view || winFocus?.view || VIEWS[room];
 const setRoomUI = () => {
   const v = VIEWS[room];
   ui.room.textContent = focusRow ? `${v.name} · ${NAMES[focusRow.f.row.id] || ""}` : winFocus ? `${v.name} · Clock` : v.name;
@@ -1041,7 +1093,8 @@ const frame = (now) => {
   cv.render(); // a pulled-out case, on top
 };
 
-if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, shelfFaces, focus, openWindowApp, closeWindowApp, get room() { return room; }, set yaw(v) { yaw = v; } };
+if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, shelfFaces, focus, openWindowApp, closeWindowApp,
+  peek(p, l) { peekView = p ? { pos: V(...p), look: V(...l), yaw: 0 } : null; }, get room() { return room; }, set yaw(v) { yaw = v; } };
 
 // ---------- start ----------
 (async () => {
