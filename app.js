@@ -959,4 +959,21 @@
       });
     } catch (err) { zsay(`Couldn't create an invoice: ${err.message || err}`, true); }
   });
+
+  // ---- motion: each section rises in the first time it scrolls into view, images fade in once loaded.
+  // Skipped entirely for reduced motion. The hero and its tiles have their own load-in animation.
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window) {
+    document.documentElement.classList.add("motion");
+    const seen = (img) => img.classList.add("ok");
+    document.addEventListener("load", (e) => { if (e.target.tagName === "IMG") seen(e.target); }, true);
+    document.addEventListener("error", (e) => { if (e.target.tagName === "IMG") seen(e.target); }, true);
+    document.querySelectorAll("img").forEach((img) => { if (img.complete) seen(img); });
+    const io = new IntersectionObserver((entries) => entries.forEach((en) => {
+      if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+    }), { rootMargin: "0px 0px -10% 0px" });
+    document.querySelectorAll("main > section").forEach((s) => {
+      if (s.classList.contains("hero") || s.querySelector(".tile")) return;
+      s.classList.add("reveal"); io.observe(s);
+    });
+  }
 })();

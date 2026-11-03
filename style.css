@@ -3,7 +3,9 @@
   - One bold move: the oversized glitching name in the hero. Everything else stays quiet.
   - Magenta is the lead accent (name, CTAs, active states). Cyan only means "live"
     (status pulse, now playing, clock). Acid yellow only for ratings.
-  - Rajdhani for display, Inter for reading, JetBrains Mono only for timestamps and data.
+  - One job per font: Rajdhani for headings and titles, Inter for reading and every control
+    (buttons, tabs, toggles), JetBrains Mono only for small labels, timestamps and data.
+  - Scanlines live in the page background, never over photos.
   - Clipped corners mark the main surfaces (portrait, tiles, form); small controls stay square.
 */
 :root {
@@ -39,6 +41,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 24px; -webkit-text-size-adju
 body {
   margin: 0; min-height: 100vh; overflow-x: hidden;
   background:
+    repeating-linear-gradient(to bottom, transparent 0 3px, rgb(0 0 0 / .14) 3px 4px), /* scanlines, behind content */
     radial-gradient(70rem 40rem at 85% -5%, rgb(123 44 191 / .28), transparent 60%),
     radial-gradient(50rem 30rem at -10% 40%, rgb(255 42 109 / .08), transparent 60%),
     var(--void);
@@ -53,16 +56,12 @@ button, input, textarea { font: inherit; color: inherit; }
 .skip { position: absolute; left: -9999px; }
 .skip:focus { left: 16px; top: 16px; z-index: 100; padding: 8px 14px; background: var(--panel); }
 
-.crt {
-  position: fixed; inset: 0; z-index: 90; pointer-events: none;
-  background: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(0 0 0 / .14) 3px 4px);
-}
 
 /* ---------- buttons ---------- */
 .btn {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   padding: 10px 20px; border: 1px solid var(--line); background: transparent;
-  font: 600 1rem/1 var(--display); letter-spacing: .04em; text-decoration: none;
+  font: 600 .95rem/1 var(--sans); letter-spacing: .01em; text-decoration: none;
   clip-path: var(--cut-s); transition: background .2s, color .2s, box-shadow .2s;
 }
 .btn-hot { background: var(--mag); border-color: var(--mag); color: var(--void); }
@@ -324,7 +323,7 @@ a.t-btc:hover { border-color: rgb(249 240 2 / .55); }
   display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 18px;
   padding: 14px 20px; cursor: pointer; background: transparent; color: var(--white);
   border: 1px solid var(--line); clip-path: var(--cut-s);
-  font: 600 1.05rem var(--display); letter-spacing: .04em; transition: border-color .2s, color .2s, box-shadow .2s;
+  font: 600 .95rem var(--sans); letter-spacing: .01em; transition: border-color .2s, color .2s, box-shadow .2s;
 }
 .more::after { content: "▾"; color: var(--mag); transition: transform .2s; }
 .more[aria-expanded="true"]::after { transform: rotate(180deg); }
@@ -340,7 +339,17 @@ a.t-btc:hover { border-color: rgb(249 240 2 / .55); }
 }
 .rail:focus-visible { outline-offset: 6px; }
 .fit { scroll-snap-align: start; display: grid; gap: 10px; align-content: start; }
-.fit .media { aspect-ratio: 3 / 4; clip-path: var(--cut); }
+/* Every item sits on the same softly lit studio tile, whatever the store's photo looks like:
+   the photo is fitted inside with room around it, and multiply blends its own white or grey
+   backdrop into the tile. */
+.fit .media {
+  aspect-ratio: 3 / 4; clip-path: var(--cut); display: grid; place-items: center; padding: 10%;
+  background: radial-gradient(120% 90% at 50% 35%, #f7f6fc, #dedced 70%, #cfcde0);
+  box-shadow: inset 0 0 0 1px rgb(255 42 109 / 0); transition: box-shadow .3s;
+}
+.fit .media img { object-fit: contain; mix-blend-mode: multiply; transition: opacity .4s, transform .6s var(--ease); }
+.fit:hover .media { box-shadow: inset 0 0 0 2px rgb(255 42 109 / .75); }
+.fit:hover .media img { transform: scale(1.04); }
 .fit .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .fit h3 { margin: 0; font: 700 1.35rem/1.1 var(--display); color: var(--white); }
 .fit h3 a { text-decoration: none; }
@@ -381,7 +390,7 @@ a.t-btc:hover { border-color: rgb(249 240 2 / .55); }
 .seg { display: inline-flex; border: 1px solid var(--line); padding: 3px; gap: 3px; }
 .seg button {
   padding: 6px 16px; border: 0; background: none; cursor: pointer; color: var(--muted);
-  font: 600 1rem var(--display); letter-spacing: .03em; transition: background .2s, color .2s;
+  font: 600 .9rem var(--sans); transition: background .2s, color .2s;
 }
 .seg button:hover { color: var(--white); }
 .seg button[aria-pressed="true"] { background: var(--mag); color: var(--void); }
@@ -421,7 +430,7 @@ a.t-btc:hover { border-color: rgb(249 240 2 / .55); }
 .shelf-label { font: 700 1.25rem var(--display); color: var(--white); text-shadow: 0 0 12px rgb(255 42 109 / .5); }
 .shelf-btns { display: flex; gap: 6px; pointer-events: auto; }
 .shelf-btns button {
-  min-width: 38px; height: 36px; padding: 0 12px; cursor: pointer; font: 600 .95rem var(--display);
+  min-width: 38px; height: 36px; padding: 0 12px; cursor: pointer; font: 600 .88rem var(--sans);
   color: var(--white); background: rgb(20 20 43 / .85); border: 1px solid var(--line);
 }
 .shelf-btns button:hover:not(:disabled) { border-color: var(--mag); color: var(--mag); }
@@ -596,7 +605,7 @@ a.aside:hover { color: var(--white); }
 .amounts legend { margin-bottom: 8px; font-weight: 500; color: var(--white); font-size: .95rem; }
 .amounts label span {
   display: block; padding: 10px 0; text-align: center; cursor: pointer;
-  font: 600 1.1rem var(--display); border: 1px solid var(--line); color: var(--text);
+  font: 500 1rem var(--mono); border: 1px solid var(--line); color: var(--text);
 }
 .amounts input[type=radio] { position: absolute; opacity: 0; pointer-events: none; }
 .amounts input[type=radio]:checked + span { border-color: var(--acid); color: var(--acid); box-shadow: inset 0 0 0 1px var(--acid); }
@@ -707,6 +716,15 @@ a.aside:hover { color: var(--white); }
   background: var(--panel); border: 1px solid var(--line); color: var(--white);
 }
 .lb-nav button:hover { border-color: var(--mag); }
+
+/* ---------- scroll motion: sections rise in once, images fade in, cards lift (html.motion is set by
+   app.js only when reduced motion is off, so nothing is hidden without it) ---------- */
+.motion .reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s var(--ease), transform .7s var(--ease); }
+.motion .reveal.in { opacity: 1; transform: none; }
+.motion .media img { opacity: 0; transition: opacity .45s ease, transform .8s var(--ease); }
+.motion .media img.ok { opacity: 1; }
+.motion .fit, .motion .poster, .motion .list-card { transition: transform .25s var(--ease); }
+@media (hover: hover) { .motion .fit:hover, .motion .poster:hover, .motion .list-card:hover { transform: translateY(-4px); } }
 
 /* ---------- page-load sequence (the one orchestrated motion moment) ---------- */
 @media (prefers-reduced-motion: no-preference) {
