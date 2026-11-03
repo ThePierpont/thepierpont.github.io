@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793693448";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793693504";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -450,7 +450,7 @@ const buildKitchen = () => {
   });
   animators.push((now) => { if (reduce) return; for (const p of puffs) {
     const t = (now / 2400 + p.ph) % 1; p.m.position.set(Math.sin(t * 6 + p.ph * 9) * 0.04, 0.07 + t * 0.42, Math.cos(t * 5 + p.ph * 7) * 0.03);
-    p.m.scale.setScalar(0.6 + t * 1.4); p.m.material.opacity = Math.sin(t * Math.PI) * 0.22;
+    p.m.scale.setScalar(0.5 + t * 1.8); p.m.material.opacity = Math.sin(t * Math.PI) * 0.09;
   } });
   // a slim hood hanging over it, lit underneath
   block(0.7, 0.1, 0.95, 0, 1.8, 2.35, -0.85, { r: 0.02, mat: steelM(0x9aa2b4) });
