@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793692423";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793692971";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -94,7 +94,8 @@ const hot = []; // { obj, room, label, sub, act }
 const addHot = (obj, room, label, sub, act) => { obj.userData.hot = hot.length; hot.push({ obj, room, label, sub, act }); };
 
 // ---------- the front hallway (outside the apartment, +z) ----------
-let doorPivot;
+let doorPivot, steelTex;
+const steelM = (tint) => toon(tint, { map: steelTex }); // brushed steel, made in buildOutside
 const buildOutside = () => {
   // The building's hallway: it runs left and right (x), my door is partway along the near wall,
   // and there are neighbours on both sides and across the hall behind you. It fades out both ways.
@@ -123,7 +124,7 @@ const buildOutside = () => {
   for (const s of [-1, 1]) tube(0.04, 2.44, 0.04, 0x05d9e8, s * 0.74, 1.22, 0.12, { k: 1.3 });
   tube(1.52, 0.04, 0.04, 0x05d9e8, 0, 2.44, 0.12, { k: 1.3 });
   // Doors are pressed steel, not wood: brushed grain, a soft sheen and a couple of factory seams.
-  const steelTex = canvasTex(256, 512, (x, w, h) => {
+  steelTex = canvasTex(256, 512, (x, w, h) => {
     x.fillStyle = "#8e96a8"; x.fillRect(0, 0, w, h);
     for (let i = 0; i < 420; i++) { // brushed grain, running up the door
       const v = Math.random(); x.fillStyle = v > 0.5 ? `rgba(255,255,255,${0.03 + v * 0.05})` : `rgba(0,0,0,${0.04 + v * 0.06})`;
@@ -276,7 +277,7 @@ const buildLiving = () => {
   const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.11, 16), toon(0xf4f3ff)); mug.position.set(-0.4, 0.555, -5.95); scene.add(mug);
   const mh = new THREE.Mesh(mug.geometry, inkMat); mh.scale.setScalar(1.18); mug.add(mh);
   // a halo lamp: two neon rings turning slowly around a floating orb, on a slim black stem
-  const lamp = new THREE.Group(); lamp.position.set(2.65, 0, -3.6); scene.add(lamp);
+  const lamp = new THREE.Group(); lamp.position.set(2.6, 0, -4.75); scene.add(lamp);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.23, 0.05, 24), toon(0x16102e)); base.position.y = 0.025; lamp.add(base);
   const baseInk = new THREE.Mesh(base.geometry, inkMat); baseInk.scale.set(1.06, 1.2, 1.06); base.add(baseInk);
   const rimLight = new THREE.Mesh(new THREE.TorusGeometry(0.215, 0.008, 6, 32), glowMat(0x05d9e8, 1.3)); rimLight.rotation.x = Math.PI / 2; rimLight.position.y = 0.05; lamp.add(rimLight);
@@ -292,7 +293,7 @@ const buildLiving = () => {
     const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, "rgba(255,42,109,.45)"); g.addColorStop(1, "rgba(255,42,109,0)"); x.fillStyle = g; x.fillRect(0, 0, w, w);
   }), transparent: true, depthWrite: false, toneMapped: false }));
   pool.rotation.x = -Math.PI / 2; pool.position.y = 0.032; lamp.add(pool); // soft light on the rug
-  const lampLight = new THREE.PointLight(0xff4f8b, 2.6, 6); lampLight.position.set(2.65, 1.58, -3.6); scene.add(lampLight);
+  const lampLight = new THREE.PointLight(0xff4f8b, 2.6, 6); lampLight.position.set(2.6, 1.58, -4.75); scene.add(lampLight);
   animators.push((now) => {
     outer.rotation.y = now / 3200; inner.rotation.y = -now / 2300; inner.rotation.x = Math.sin(now / 2600) * 0.35;
     orb.position.y = Math.sin(now / 900) * 0.03; lampLight.intensity = 2.6 + Math.sin(now / 1300) * 0.25; // a slow breathe
@@ -404,6 +405,86 @@ const blinkers = []; // small LEDs that wink on and off: { mesh, rate, phase }
 const led = (x, y, z, color, rate = 1, size = 0.03) => {
   const m = tube(size, size, 0.02, color, x, y, z, { k: 2.2 }); blinkers.push({ m, rate, phase: Math.random() * 10 }); return m;
 };
+// ---------- the kitchen: front-right corner of the living room ----------
+// A bar shaped like a backwards J: the long side runs parallel to the front wall and seats three,
+// then curves round at the end by the front door and runs into the wall, with the stove on that stretch.
+// Its open end, by the gallery door, is the way in. Fridge and food shelves stand against the right wall.
+const buildKitchen = () => {
+  // the counter outline in plan (shape x = world x, shape y = -world z)
+  const J = new THREE.Shape();
+  J.moveTo(4.6, 2.8); J.lineTo(2.1, 2.8); J.absarc(2.1, 2.2, 0.6, Math.PI / 2, Math.PI, false);
+  J.lineTo(1.5, 0.1); J.lineTo(2.1, 0.1); J.lineTo(2.1, 2.2); J.lineTo(4.6, 2.2); J.absarc(4.6, 2.5, 0.3, -Math.PI / 2, Math.PI / 2, false);
+  const slabOf = (depth, color, y) => {
+    const geo = new THREE.ExtrudeGeometry(J, { depth, bevelEnabled: false, curveSegments: 20 });
+    const m = new THREE.Mesh(geo, toon(color)); m.rotation.x = -Math.PI / 2; m.position.y = y; scene.add(m);
+    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), lineMat)); return m;
+  };
+  slabOf(0.95, 0x3a3f4e, 0); // a dark steel body
+  slabOf(0.05, 0xd9dde6, 0.95); // a pale composite top
+  tube(2.5, 0.015, 0.015, 0x05d9e8, 3.35, 0.9, -2.82, { k: 0.8 }); // a light line under the lip, on the seating side
+  block(4.3, 0.02, 2.1, 0x3b3f4c, 3.75, 0.011, -1.15, { ink: false, r: 0.005 }); // pale tile inside the J
+
+  // the stove: a glass induction top on the stretch by the door, two rings on
+  const hob = panel(0.5, 0.75, canvasTex(256, 384, (x, w, h) => {
+    x.fillStyle = "#0b0c12"; x.fillRect(0, 0, w, h);
+    const ring = (cx, cy, r, on) => { x.strokeStyle = on ? "#ff5a1f" : "#3a3d4a"; x.lineWidth = on ? 7 : 4; x.shadowColor = "#ff5a1f"; x.shadowBlur = on ? 18 : 0;
+      for (const rr of [r, r * 0.62]) { x.beginPath(); x.arc(cx, cy, rr, 0, Math.PI * 2); x.stroke(); } };
+    ring(78, 100, 52, true); ring(180, 110, 40, false); ring(78, 250, 40, false); ring(180, 240, 52, true);
+    x.shadowBlur = 0; x.fillStyle = "#05d9e8"; for (let i = 0; i < 5; i++) x.fillRect(60 + i * 30, 345, 14, 6); // touch controls
+  }), 1.8, 1.003, -0.85, { k: 1 });
+  hob.rotation.x = -Math.PI / 2; // flat on the counter, its long side along the stretch
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.13, 20), steelM(0xc4cad8)); pot.position.set(1.9, 1.07, -0.76); scene.add(pot); // on the front ring
+  block(0.03, 0.02, 0.14, 0x2a2e3a, 1.9, 1.11, -0.6, { r: 0.008 }); // its handle
+  // a slim hood hanging over it, lit underneath
+  block(0.7, 0.1, 0.95, 0, 1.8, 2.35, -0.85, { r: 0.02, mat: steelM(0x9aa2b4) });
+  tube(0.6, 0.01, 0.85, 0xffe2b8, 1.8, 2.295, -0.85, { k: 0.75 });
+  for (const dz of [-0.3, 0.3]) block(0.02, 1.0, 0.02, 0x2a2e3a, 1.8, 2.9, -0.85 + dz, { ink: false });
+  const hobLight = new THREE.PointLight(0xffc78a, 1.4, 3); hobLight.position.set(1.8, 2.1, -0.85); scene.add(hobLight);
+
+  // dinner on the long side: three places
+  for (const x of [2.6, 3.4, 4.2]) {
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.014, 24), toon(0xf4f3ff)); plate.position.set(x, 1.007, -2.6); scene.add(plate);
+    const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.12, 14), new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.35 }));
+    glass.position.set(x + 0.2, 1.06, -2.45); scene.add(glass);
+    // a stool outside: steel post, round seat, a glowing foot ring
+    const st = new THREE.Group(); st.position.set(x, 0, -3.22); scene.add(st);
+    const parts = [
+      [new THREE.CylinderGeometry(0.2, 0.22, 0.03, 24), toon(0x2a2e3a), 0.015],
+      [new THREE.CylinderGeometry(0.028, 0.028, 0.72, 12), steelM(0xc4cad8), 0.38],
+      [new THREE.CylinderGeometry(0.2, 0.18, 0.06, 24), toon(0x2b2f3d), 0.75],
+    ];
+    for (const [g, m, y] of parts) { const o = new THREE.Mesh(g, m); o.position.y = y; st.add(o); const ink = new THREE.Mesh(g, inkMat); ink.scale.set(1.1, 1.08, 1.1); o.add(ink); }
+    const ringM = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.012, 8, 32), glowMat(0x05d9e8, 1.1)); ringM.rotation.x = Math.PI / 2; ringM.position.y = 0.3; st.add(ringM);
+  }
+
+  // the fridge against the right wall: brushed steel, French doors, a little screen
+  const fr = new THREE.Group(); fr.position.set(5.53, 0, -0.62); fr.rotation.y = -Math.PI / 2; scene.add(fr); // local +z faces into the kitchen
+  block(0.86, 2.0, 0.72, 0, 0, 1.0, 0, { parent: fr, r: 0.03, mat: steelM(0xaab2c2) });
+  block(0.008, 1.36, 0.01, 0x1a1d28, 0, 1.3, 0.362, { parent: fr, ink: false }); // the seam between the doors
+  block(0.84, 0.008, 0.01, 0x1a1d28, 0, 0.6, 0.362, { parent: fr, ink: false }); // and above the freezer drawer
+  for (const dx of [-0.06, 0.06]) tube(0.015, 0.5, 0.01, 0xb8c4e0, dx, 1.3, 0.365, { parent: fr, k: 0.7 }); // flush light strips, no handles
+  tube(0.4, 0.012, 0.01, 0xb8c4e0, 0, 0.5, 0.365, { parent: fr, k: 0.7 });
+  panel(0.24, 0.16, canvasTex(240, 160, (x, w, h) => {
+    x.fillStyle = "#081018"; x.fillRect(0, 0, w, h); x.fillStyle = "#05d9e8"; x.font = "600 44px 'JetBrains Mono'"; x.fillText("3°C", 16, 56);
+    x.font = "500 20px 'JetBrains Mono'"; x.fillStyle = "#d6d6e7"; x.fillText("OAT MILK · LOW", 16, 100); x.fillText("EGGS · 4", 16, 130);
+  }), -0.26, 1.62, 0.366, { parent: fr, k: 0.9 });
+
+  // open steel shelving beside it, stocked
+  const sh = new THREE.Group(); sh.position.set(5.7, 0, -1.68); sh.rotation.y = -Math.PI / 2; scene.add(sh);
+  for (const dx of [-0.45, 0.45]) for (const dz of [-0.17, 0.17]) block(0.03, 2.0, 0.03, 0x2a2e3a, dx, 1.0, dz, { parent: sh, r: 0.008, ink: false });
+  const food = [0xff7a1a, 0xf9f002, 0xff2a6d, 0x2bff88, 0xd6d6e7, 0x05d9e8, 0xb98cff, 0xc2185b, 0xffb86b];
+  let f = 0;
+  for (const y of [0.3, 0.8, 1.3, 1.8]) {
+    block(0.92, 0.025, 0.36, 0, 0, y, 0, { parent: sh, r: 0.006, mat: steelM(0xc4cad8) });
+    for (let x = -0.38; x < 0.4; ) {
+      const kind = (f * 7 + Math.round(y * 10)) % 4, c = food[f++ % food.length];
+      if (kind === 0) { block(0.12, 0.22, 0.07, c, x + 0.06, y + 0.12, -0.04, { parent: sh, r: 0.01 }); x += 0.14; } // a box
+      else if (kind === 1) { for (const dz of [-0.06, 0.06]) { const can = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.11, 14), toon(c)); can.position.set(x + 0.04, y + 0.067, dz); sh.add(can); } x += 0.09; } // cans
+      else if (kind === 2) { const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.13, 14), toon(c)); jar.position.set(x + 0.05, y + 0.077, 0); sh.add(jar); const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.025, 14), steelM(0x9aa2b4)); lid.position.set(x + 0.05, y + 0.155, 0); sh.add(lid); x += 0.11; } // a jar
+      else { const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.038, 0.1, 14), toon(c)); cup.position.set(x + 0.05, y + 0.062, 0.02); sh.add(cup); x += 0.11; } // noodle cups
+    }
+  }
+};
 const buildDecor = () => {
   // ---- hallway (on the front wall, where the doorstep camera can see it)
   const cam = new THREE.Group(); cam.position.set(1.6, 3.05, 0.25); cam.rotation.set(0.35, -0.5, 0); scene.add(cam);
@@ -507,11 +588,10 @@ const buildDecor = () => {
 
   // ---- living room
   // glowing baseboards and ceiling cables
-  for (const [xx, col] of [[-5.88, 0x05d9e8], [5.88, 0xff2a6d]]) tube(0.03, 0.03, 6.8, col, xx, 0.03, -3.5, { k: 1.5 });
+  tube(0.03, 0.03, 6.8, 0x05d9e8, -5.88, 0.03, -3.5, { k: 1.5 }); tube(0.03, 0.03, 4.0, 0xff2a6d, 5.88, 0.03, -4.9, { k: 1.5 }); // the right one stops at the kitchen
   for (const [x0, x1] of [[-3.8, -2.6], [2.6, 3.8], [-6, -5.2], [5.2, 6]]) tube(x1 - x0, 0.03, 0.03, 0x05d9e8, (x0 + x1) / 2, 0.03, -6.88, { k: 1.5 });
   cable([[-5.9, 3.38, -1.2], [-3.5, 2.95, -2.6], [-1.2, 3.3, -3.4]], 0x16102e, 0.03);
   cable([[5.9, 3.38, -5.6], [3.6, 2.9, -4.8], [1.5, 3.3, -5.4]], 0x16102e, 0.03);
-  cable([[5.9, 3.36, -1.0], [4.2, 3.05, -2.0], [2.4, 3.34, -2.2]], 0x7b2cbf, 0.012, true);
   // my Bitcoin node: a little rack with blinking lights (beside the theater door)
   const node = new THREE.Group(); node.position.set(-5.62, 0, -3.7); node.rotation.y = Math.PI / 2; scene.add(node); // against the left wall
   block(0.62, 1.42, 0.5, 0x16102e, 0, 0.71, 0, { parent: node, r: 0.04 });
@@ -586,7 +666,7 @@ const buildDecor = () => {
     x.strokeStyle = "#05d9e8"; x.lineWidth = 2; for (let i = 0; i < 8; i++) { const y = 260 + i * i * 4; x.beginPath(); x.moveTo(0, y); x.lineTo(w, y); x.stroke(); }
     for (let i = -6; i <= 6; i++) { x.beginPath(); x.moveTo(w / 2 + i * 12, 260); x.lineTo(w / 2 + i * 70, h); x.stroke(); }
     x.textAlign = "center"; x.font = "700 52px Rajdhani"; x.fillStyle = "#f4f3ff"; x.shadowColor = "#ff2a6d"; x.shadowBlur = 14; x.fillText("DC AFTER DARK", w / 2, 70);
-  }, 5.9, -1.6, -Math.PI / 2);
+  }, 5.9, -5.05, -Math.PI / 2); // above the chess table
   poster((x, w, h) => { // a retro coin
     x.fillStyle = "#120a2a"; x.fillRect(0, 0, w, h);
     x.fillStyle = "#f7931a"; x.shadowColor = "#f7931a"; x.shadowBlur = 30; x.beginPath(); x.arc(w / 2, 200, 110, 0, Math.PI * 2); x.fill(); x.shadowBlur = 0;
@@ -1508,7 +1588,7 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
     Promise.all(["700 140px Rajdhani", "500 34px 'JetBrains Mono'", "500 38px Inter", "600 40px Inter", "italic 400 38px Inter"].map((f) => document.fonts.load(f))),
     new Promise((r) => setTimeout(r, 2500)),
   ]);
-  buildOutside(); buildLiving(); buildTheater(); buildDecor(); buildCats(); buildHolo();
+  buildOutside(); buildLiving(); buildTheater(); buildKitchen(); buildDecor(); buildCats(); buildHolo();
   scene.add(new THREE.AmbientLight(0x5b4a9a, 0.9));
   scene.add(new THREE.HemisphereLight(0x9d8cff, 0x1a0f30, 0.7));
   const key = new THREE.DirectionalLight(0xffffff, 0.7); key.position.set(3, 6, 4); scene.add(key);
