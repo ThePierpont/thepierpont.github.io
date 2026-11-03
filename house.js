@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793693504";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793693766";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -959,16 +959,16 @@ const loadLive = () => {
 
 // ---------- camera: fixed spots, glided between along curves ----------
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-// Each room lets you turn all the way round (yaw: Infinity); close-up views keep a small limit.
+// Every view lets you turn all the way round unless it sets a `yaw` limit (only the long shelf rows do: dragging slides along them).
 const VIEWS = {
   // a little off to one side of my door, so the hall visibly runs away past it
-  outside: { pos: V(1.75, 1.65, 4.0), look: V(-0.6, 1.45, 0), name: "Front door", yaw: Infinity,
+  outside: { pos: V(1.75, 1.65, 4.0), look: V(-0.6, 1.45, 0), name: "Front door",
     hint: touch ? "Tap the door to come in" : "Click the door to come in" },
-  living: { pos: V(0, 1.72, -1.1), look: V(0, 1.45, -7), name: "Living room", yaw: Infinity,
+  living: { pos: V(0, 1.72, -1.1), look: V(0, 1.45, -7), name: "Living room",
     hint: touch ? "Tap a doorway · swipe to look around" : "Click a doorway · drag to look around" },
-  theater: { pos: V(-4.5, 2.15, -8.2), look: V(-4.5, 1.85, -17), name: "Theater", yaw: Infinity,
+  theater: { pos: V(-4.5, 2.15, -8.2), look: V(-4.5, 1.85, -17), name: "Theater",
     hint: touch ? "Tap the screen for my review · tap the shelf to browse it" : "Click the screen for my review · click the shelf to browse it" },
-  shelf: { pos: V(-4.6, 1.72, -13.7), look: V(-8.75, 1.65, -13.7), name: "Movie shelf", yaw: Infinity,
+  shelf: { pos: V(-4.6, 1.72, -13.7), look: V(-8.75, 1.65, -13.7), name: "Movie shelf",
     hint: touch ? "Tap a shelf to look closer" : "Click a shelf to look closer" },
 };
 const ORDER = ["outside", "living", "theater", "shelf"]; // the rooms, in walking order
@@ -1350,7 +1350,7 @@ const openNode = () => {
   const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect);
   // frame the whole station: the rack, the beam, the projection and the sign above it
   const look = V(-5.66, 1.08, -4.65), d = Math.min(4.4, Math.max(1.22 / Math.tan(vf), 0.85 / Math.tan(hf)));
-  nodeFocus = { view: { pos: look.clone().add(V(d, 0.1, 0)), look, yaw: 0.15 } };
+  nodeFocus = { view: { pos: look.clone().add(V(d, 0.1, 0)), look } };
   hideTip(); setRoomUI();
   flyTo(nodeFocus.view.pos, nodeFocus.view.look, 1100);
   holoAnim = { t0: performance.now() + (reduce ? 0 : 450), from: holoK, to: 1 };
@@ -1370,7 +1370,7 @@ const openCat = (g, name) => {
   if (catFocus || nodeFocus || flight) return;
   const c = new THREE.Vector3(); g.getWorldPosition(c);
   // a little in front and above, so you look down at them curled up
-  catFocus = { name, g, view: { pos: c.clone().add(V(0.4, 0.75, 1.3)), look: c.clone().add(V(0, 0.12, 0)), yaw: 0.3 } };
+  catFocus = { name, g, view: { pos: c.clone().add(V(0.4, 0.75, 1.3)), look: c.clone().add(V(0, 0.12, 0)) } };
   hideTip(); setRoomUI();
   flyTo(catFocus.view.pos, catFocus.view.look, 1100);
 };
@@ -1432,7 +1432,7 @@ const focus = (f) => {
   // Tall screens: come in close enough to read the spines and swipe along the row (like the main page).
   if (camera.aspect < 0.8) { d = f.h / 0.45 / 2 / Math.tan(vf); pan = Math.max(0, (f.w + 0.1) / 2 - d * Math.tan(hf)); }
   const start = c.clone(); start.z += pan; // begin at the row's left end (+z is left, looking at the wall)
-  focusRow = { f, view: { pos: start.clone().add(V(d, 0, 0)), look: start, yaw: pan ? 0 : 0.12 }, c, pan, d };
+  focusRow = { f, view: { pos: start.clone().add(V(d, 0, 0)), look: start, ...(pan && { yaw: 0 }) }, c, pan, d };
   if (f.imax) f.mesh.material.map = f.row._tex; // the IMAX case opens to its spines
   hideTip(); setRoomUI();
   flyTo(focusRow.view.pos, focusRow.view.look, 1000);
@@ -1517,7 +1517,7 @@ canvas.addEventListener("pointermove", (e) => {
       return;
     }
     if (down.drag && !flight) {
-      const lim = view().yaw ?? 0.4;
+      const lim = view().yaw ?? Infinity;
       yaw += (e.clientX - down.lx) * 0.004;
       // a full turn wraps round, so walking on straightens up the short way
       yaw = lim === Infinity ? Math.atan2(Math.sin(yaw), Math.cos(yaw)) : THREE.MathUtils.clamp(yaw, -lim, lim);
