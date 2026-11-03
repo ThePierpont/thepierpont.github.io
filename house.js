@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793686609";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793686901";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -96,33 +96,42 @@ const addHot = (obj, room, label, sub, act) => { obj.userData.hot = hot.length; 
 // ---------- the front hallway (outside the apartment, +z) ----------
 let doorPivot;
 const buildOutside = () => {
-  const wallC = 0x2d2160;
-  slab(8, 0.1, 12, 0x1b1430, 0, -0.05, 6); slab(8, 0.1, 12, 0x120d24, 0, H + 0.05, 6);
-  slab(0.2, H, 12, 0x251b4d, -4, H / 2, 6); slab(0.2, H, 12, 0x251b4d, 4, H / 2, 6); slab(8, H, 0.2, 0x251b4d, 0, H / 2, 12);
-  // the front wall, with the door opening in the middle (shared with the living room)
-  slab(3.3, H, 0.2, wallC, -2.35, H / 2, 0); slab(3.3, H, 0.2, wallC, 2.35, H / 2, 0);
+  // A narrow corridor running back from my door (+z), the way an apartment hallway does.
+  const wallC = 0x2d2160, sideC = 0x251b4d, HW = 1.6;
+  slab(2 * HW, 0.1, 12, 0x1b1430, 0, -0.05, 6); slab(2 * HW, 0.1, 12, 0x120d24, 0, H + 0.05, 6);
+  slab(0.2, H, 12, sideC, -HW - 0.1, H / 2, 6); slab(0.2, H, 12, sideC, HW + 0.1, H / 2, 6); slab(2 * HW, H, 0.2, sideC, 0, H / 2, 12);
+  // the front wall, with the door opening in the middle (it's also the living room's front wall)
+  slab(5.3, H, 0.2, wallC, -3.35, H / 2, 0); slab(5.3, H, 0.2, wallC, 3.35, H / 2, 0);
   slab(1.4, H - 2.4, 0.2, wallC, 0, 2.4 + (H - 2.4) / 2, 0);
   for (const s of [-1, 1]) tube(0.04, 2.44, 0.04, 0x05d9e8, s * 0.74, 1.22, 0.12, { k: 1.3 });
   tube(1.52, 0.04, 0.04, 0x05d9e8, 0, 2.44, 0.12, { k: 1.3 });
   // the door, on a hinge at its left edge
   doorPivot = new THREE.Group(); doorPivot.position.set(-0.68, 0, 0); scene.add(doorPivot);
-  const door = block(1.36, 2.36, 0.08, 0xb3195a, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03 });
+  block(1.36, 2.36, 0.08, 0xb3195a, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03 });
   block(1.0, 0.9, 0.03, 0x8e1248, 0.68, 1.75, 0.05, { parent: doorPivot, r: 0.02 });
   block(1.0, 0.9, 0.03, 0x8e1248, 0.68, 0.62, 0.05, { parent: doorPivot, r: 0.02 });
   ball(0.055, 0xf9f002, 1.2, 1.12, 0.09, { parent: doorPivot });
   sign("1B", 0.16, 0.68, 2.08, 0.07, { parent: doorPivot, color: "#f9f002", font: "700 100px Rajdhani", k: 1.1 });
   addHot(doorPivot, "outside", "Come on in", touch ? "Tap to open the door" : "Click to open the door", () => go("living"));
   sign("PIERPONT", 0.55, 0, 2.93, 0.12, { color: "#ff2a6d", k: 1.7 }).userData.flicker = true;
-  sign("APT 1B · DC", 0.13, 1.35, 1.65, 0.11, { color: "#05d9e8", font: "500 70px 'JetBrains Mono'", k: 1.2 });
-  for (const s of [-1, 1]) { tube(0.08, 0.34, 0.04, 0x05d9e8, s * 1.45, 2.05, 0.12, { k: 1.6 }); }
+  sign("APT 1B · DC", 0.12, -1.15, 1.7, 0.11, { color: "#05d9e8", font: "500 70px 'JetBrains Mono'", k: 1.2 });
+  for (const s of [-1, 1]) tube(0.07, 0.32, 0.04, 0x05d9e8, s * 1.25, 2.1, 0.12, { k: 1.6 });
   const lamp = new THREE.PointLight(0x05d9e8, 5, 7); lamp.position.set(0, 2.3, 1.4); scene.add(lamp);
   const warm = new THREE.PointLight(0xff2a6d, 4, 7); warm.position.set(0, 2.9, 0.8); scene.add(warm);
-  // doormat and a plant
-  block(1.4, 0.03, 0.8, 0x3a2d63, 0, 0.015, 0.75, { r: 0.012 });
+  block(1.4, 0.03, 0.8, 0x3a2d63, 0, 0.015, 0.75, { r: 0.012 }); // doormat
   const mat = sign("WELCOME", 0.24, 0, 0.034, 0.75, { color: "#f9f002", k: 1.05 }); mat.rotation.x = -Math.PI / 2;
-  block(0.42, 0.46, 0.42, 0x5b3a8a, 2.4, 0.23, 0.55, { r: 0.05 });
-  ball(0.28, 0x17b890, 2.4, 0.72, 0.55); ball(0.22, 0x1fd6a5, 2.25, 0.95, 0.5); ball(0.2, 0x149e7c, 2.56, 0.92, 0.62);
-  tube(7.6, 0.03, 0.06, 0x7b2cbf, 0, H - 0.03, 6, { k: 1.8 });
+  // down the corridor: a runner, light strips overhead, glowing baseboards, a neighbour's door
+  block(1.3, 0.02, 10.6, 0x3a1a4a, 0, 0.011, 6.6, { ink: false, r: 0.005 });
+  for (const s of [-1, 1]) tube(0.02, 0.02, 10.6, 0x05d9e8, s * 0.66, 0.025, 6.6, { k: 1.1 });
+  for (const zz of [1.4, 4.2, 7.0, 9.8]) tube(1.4, 0.03, 0.16, 0x9d8cff, 0, H - 0.03, zz, { k: 0.95 }); // soft violet strips, not glare
+  tube(0.03, 0.03, 12, 0x05d9e8, -HW + 0.02, 0.03, 6, { k: 1.4 }); tube(0.03, 0.03, 12, 0xff2a6d, HW - 0.02, 0.03, 6, { k: 1.4 });
+  const hall = new THREE.PointLight(0x9d8cff, 3, 9); hall.position.set(0, 3.0, 5.5); scene.add(hall);
+  block(0.08, 2.3, 1.2, 0x3b2a75, HW - 0.04, 1.15, 3.1, { r: 0.03 }); // 1C, across the hall
+  for (const dz of [-0.62, 0.62]) tube(0.03, 2.36, 0.03, 0x7b2cbf, HW - 0.06, 1.18, 3.1 + dz, { k: 1.3 });
+  ball(0.045, 0xf9f002, HW - 0.1, 1.1, 2.6);
+  sign("1C", 0.16, HW - 0.09, 2.6, 3.1, { color: "#b98cff", rotY: -Math.PI / 2, font: "700 100px Rajdhani", k: 1.2 });
+  block(0.08, 2.3, 1.2, 0x3b2a75, -HW + 0.04, 1.15, 8.4, { r: 0.03 }); // 1A, further down
+  sign("1A", 0.16, -HW + 0.09, 2.6, 8.4, { color: "#b98cff", rotY: Math.PI / 2, font: "700 100px Rajdhani", k: 1.2 });
 };
 
 // ---------- the living room (z 0 … -7) ----------
@@ -316,22 +325,30 @@ const buildDecor = () => {
   block(0.17, 0.27, 0.04, 0x16102e, 0.98, 1.28, 0.12, { r: 0.02 }); // keypad
   for (let i = 0; i < 9; i++) tube(0.032, 0.032, 0.01, 0x05d9e8, 0.94 + (i % 3) * 0.04, 1.34 - Math.floor(i / 3) * 0.045, 0.145, { k: 1.4 });
   led(0.98, 1.17, 0.145, 0x2bff88, 0.25);
-  const cam = new THREE.Group(); cam.position.set(3.25, 3.05, 0.22); cam.rotation.set(0.35, -0.6, 0); scene.add(cam);
+  const cam = new THREE.Group(); cam.position.set(1.32, 3.05, 0.25); cam.rotation.set(0.35, -0.5, 0); scene.add(cam);
   block(0.08, 0.2, 0.08, 0x221a40, 0, 0.1, -0.06, { parent: cam, r: 0.02 });
   block(0.34, 0.17, 0.17, 0xd9d7e6, 0, -0.02, 0.06, { parent: cam, r: 0.05 });
   ball(0.05, 0x111111, 0, -0.02, 0.16, { parent: cam });
   blinkers.push({ m: tube(0.03, 0.03, 0.02, 0xff2a6d, 0.12, 0.04, 0.15, { parent: cam, k: 2.6 }), rate: 0.8, phase: 0 });
-  cable([[-3.9, 3.32, 0.25], [-2, 3.05, 0.3], [0, 3.28, 0.25], [2, 3.0, 0.3], [3.9, 3.3, 0.25]], 0x16102e, 0.035);
-  cable([[-3.9, 3.3, 0.33], [-1.6, 3.12, 0.36], [1.2, 3.22, 0.34], [3.9, 3.26, 0.33]], 0xff2a6d, 0.012, true);
-  const ad = panel(1.5, 0.95, canvasTex(600, 380, (x, w, h) => {
-    x.fillStyle = "rgba(10,4,24,.55)"; x.fillRect(0, 0, w, h);
-    x.strokeStyle = "#05d9e8"; x.lineWidth = 6; x.strokeRect(8, 8, w - 16, h - 16);
-    x.textAlign = "center"; x.textBaseline = "middle";
-    x.font = "700 120px Rajdhani"; x.fillStyle = "#ff2a6d"; x.shadowColor = "#ff2a6d"; x.shadowBlur = 24; x.fillText("RAMEN", w / 2, 120);
-    x.font = "700 70px Rajdhani"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.fillText("24 / 7", w / 2, 215);
-    x.font = "500 30px 'JetBrains Mono'"; x.fillStyle = "#05d9e8"; x.shadowBlur = 8; x.fillText("NIGHT MARKET · LEVEL 3", w / 2, 300);
-    x.shadowBlur = 0; for (let y = 0; y < h; y += 6) { x.fillStyle = "rgba(255,255,255,.05)"; x.fillRect(0, y, w, 2); }
-  }), -2.65, 1.75, 0.13, { transparent: true, k: 1.1 });
+  cable([[-1.45, 3.32, 0.2], [-1.3, 3.05, 3], [-1.45, 3.3, 6], [-1.3, 3.08, 9], [-1.45, 3.3, 11.8]], 0x16102e, 0.035); // cables run down the corridor
+  cable([[1.45, 3.3, 0.2], [1.32, 3.1, 3.4], [1.45, 3.3, 6.5], [1.3, 3.12, 9.5], [1.45, 3.3, 11.8]], 0xff2a6d, 0.012, true);
+  // an ad for the pizza place on the first floor, on the corridor wall
+  const ad = panel(1.6, 1.0, canvasTex(640, 400, (x, w, h) => {
+    x.fillStyle = "rgba(10,4,24,.6)"; x.fillRect(0, 0, w, h);
+    x.strokeStyle = "#f7931a"; x.lineWidth = 6; x.strokeRect(8, 8, w - 16, h - 16);
+    // a slice: crust, cheese, pepperoni
+    x.save(); x.translate(130, 205); x.shadowColor = "#f9f002"; x.shadowBlur = 18;
+    x.fillStyle = "#f9c74f"; x.beginPath(); x.moveTo(-70, -90); x.lineTo(70, -90); x.lineTo(0, 110); x.closePath(); x.fill();
+    x.fillStyle = "#c8742a"; x.fillRect(-78, -108, 156, 26);
+    x.shadowBlur = 0; x.fillStyle = "#e63946"; for (const [px, py] of [[-28, -50], [24, -40], [-4, 10], [8, 60]]) { x.beginPath(); x.arc(px, py, 14, 0, Math.PI * 2); x.fill(); }
+    x.restore();
+    x.textBaseline = "middle"; x.textAlign = "left";
+    x.font = "500 28px 'JetBrains Mono'"; x.fillStyle = "#05d9e8"; x.shadowColor = "#05d9e8"; x.shadowBlur = 8; x.fillText("1ST FLOOR ↓", 250, 70);
+    x.font = "700 128px Rajdhani"; x.fillStyle = "#ff7a1a"; x.shadowColor = "#ff7a1a"; x.shadowBlur = 22; x.fillText("PIZZA", 245, 160);
+    x.font = "700 62px Rajdhani"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 14; x.fillText("OPEN 24 HOURS", 250, 260);
+    x.font = "500 26px 'JetBrains Mono'"; x.fillStyle = "#d6d6e7"; x.shadowBlur = 0; x.fillText("BY THE SLICE · ALL NIGHT", 252, 330);
+    for (let y = 0; y < h; y += 6) { x.fillStyle = "rgba(255,255,255,.05)"; x.fillRect(0, y, w, 2); }
+  }), -1.585, 1.75, 2.0, { transparent: true, k: 1.1, rotY: Math.PI / 2 });
   animators.push((now) => { ad.material.opacity = Math.sin(now / 90) > 0.96 ? 0.35 : 0.92; }); // holo flicker
   panel(1.0, 0.62, canvasTex(500, 310, (x, w, h) => { // a spray-paint tag
     x.lineCap = "round"; x.lineJoin = "round";
@@ -339,7 +356,7 @@ const buildDecor = () => {
     stroke("#ff2a6d", 26, () => { x.moveTo(70, 250); x.lineTo(95, 60); x.bezierCurveTo(200, 40, 210, 160, 105, 150); x.moveTo(230, 250); x.lineTo(255, 60); x.bezierCurveTo(360, 40, 370, 160, 265, 150); });
     stroke("#05d9e8", 9, () => { x.moveTo(60, 270); x.bezierCurveTo(200, 230, 330, 300, 450, 230); });
     x.shadowBlur = 0; x.fillStyle = "#ff2a6d"; for (const dx of [100, 140, 262]) x.fillRect(dx, 250, 7, 30 + (dx % 40));
-  }), 3.0, 1.55, 0.115, { transparent: true, k: 1.15 });
+  }), 1.585, 1.45, 1.0, { transparent: true, k: 1.15, rotY: -Math.PI / 2 }); // on the corridor wall, by my door
 
   // ---- living room
   // glowing baseboards and ceiling cables
