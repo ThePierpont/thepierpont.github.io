@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793683826";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793684480";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -126,7 +126,7 @@ const buildOutside = () => {
 };
 
 // ---------- the living room (z 0 … -7) ----------
-let windowTex, windowCanvas;
+let windowTex, windowCanvas, windowGlass;
 const buildLiving = () => {
   const wallC = 0x2a1f58;
   slab(12, 0.1, 7, 0x1c1436, 0, -0.05, -3.5); slab(12, 0.1, 7, 0x140e2a, 0, H + 0.05, -3.5);
@@ -176,7 +176,8 @@ const buildLiving = () => {
   for (const yy of [0.88, 2.92]) tube(5.3, 0.05, 0.05, 0x05d9e8, 0, yy, -6.9, { k: 1.4 });
   block(0.07, 2.0, 0.07, 0x140e2a, 0, 1.9, -6.95, { ink: false });
   block(5.5, 0.08, 0.34, 0x3a2a75, 0, 0.92, -6.8, { r: 0.02 });
-  addHot(glass, "living", "DC at night", "Live: local time and the latest Bitcoin block", () => toast(`It's ${clockFmt.format(new Date())} in DC${height ? `. Bitcoin is at block ${height.toLocaleString()}.` : "."}`));
+  windowGlass = glass;
+  addHot(glass, "living", "DC at night", touch ? "Tap to open the clock: local time and the Bitcoin block clock" : "Click to open the clock: local time and the Bitcoin block clock", () => openClock());
 
   // couch facing the window, coffee table, lamp, rug, plant, neon art
   block(5, 0.025, 3.2, 0x3d1f63, 0, 0.013, -5.2, { ink: false, r: 0.01 });
@@ -446,12 +447,98 @@ const back = () => {
 ui.back.addEventListener("click", back);
 document.querySelectorAll(".h-nav [data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
 addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("#h-clock").hidden) return closeClock();
   if (e.key === "Escape") back();
   if (e.key === "Enter" && cv.active) cv.openReview();
 });
 
 let toastTimer;
 const toast = (msg) => { ui.toast.textContent = msg; ui.toast.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (ui.toast.hidden = true), 3200); };
+
+// ---------- the clock app: opens out of the living room window ----------
+// Local time to the second, and a Bitcoin block clock (mempool.space): the latest blocks, price,
+// fees, and how far along the halving and the next difficulty adjustment are.
+const app = $("#h-clock"), win = app.querySelector(".h-app-win");
+const C = (k) => app.querySelector(`[data-c="${k}"]`);
+const cur = S.bitcoin?.currency || "USD";
+const money = (n) => n.toLocaleString(undefined, { style: "currency", currency: cur, maximumFractionDigits: 0 });
+const tz = S.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+const fmtIn = (o) => { try { return new Intl.DateTimeFormat(undefined, { ...o, timeZone: tz }); } catch { return new Intl.DateTimeFormat(undefined, o); } };
+const partsF = fmtIn({ hour: "numeric", minute: "2-digit", second: "2-digit" }), dayF = fmtIn({ weekday: "long", month: "long", day: "numeric", year: "numeric" });
+const api = (path) => fetch(`https://mempool.space/api${path}`).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+const since = (t) => { const m = Math.floor((Date.now() / 1000 - t) / 60); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.floor(m / 60)} hr ${m % 60} min ago`; };
+let tipTime = 0, lastPrice = 0, dayAgo = 0, clockTimers = [];
+const tickClock = () => {
+  const now = new Date(), p = Object.fromEntries(partsF.formatToParts(now).map((x) => [x.type, x.value]));
+  C("time").textContent = `${p.hour}:${p.minute}`;
+  C("sec").textContent = `:${p.second}${p.dayPeriod ? ` ${p.dayPeriod}` : ""}`;
+  C("date").textContent = dayF.format(now);
+  const bar = C("secbar"); bar.style.transition = +p.second === 0 ? "none" : ""; bar.style.width = `${(+p.second / 59) * 100}%`;
+  if (tipTime) C("ago").textContent = `Last block found ${since(tipTime)}`;
+};
+const showChange = () => {
+  if (!lastPrice || !dayAgo) return;
+  const pct = ((lastPrice - dayAgo) / dayAgo) * 100, el = C("chg");
+  el.textContent = `${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}% today`; el.className = pct >= 0 ? "up" : "down";
+};
+const liveBlocks = async () => {
+  const [blocks, prices, fees, diff] = await Promise.all([api("/v1/blocks"), api("/v1/prices"), api("/v1/fees/recommended"), api("/v1/difficulty-adjustment").catch(() => null)]);
+  const tip = blocks[0]; tipTime = tip.timestamp; height = tip.height; drawWindow();
+  C("height").textContent = tip.height.toLocaleString();
+  C("blocks").innerHTML = blocks.slice(0, 6).map((b) => `<li><b>${b.height.toLocaleString()}</b><span>${b.tx_count.toLocaleString()} txs<br>${(b.size / 1e6).toFixed(2)} MB<br>${since(b.timestamp)}</span></li>`).join("");
+  const into = tip.height % 210000, left = 210000 - into;
+  const eta = new Date(Date.now() + left * 600000).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  C("halving").innerHTML = `~${eta}<small>${left.toLocaleString()} blocks to go</small>`; C("halvbar").style.width = `${(into / 210000) * 100}%`;
+  if (diff) {
+    const when = new Date(diff.estimatedRetargetDate).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    C("diff").innerHTML = `${diff.difficultyChange >= 0 ? "+" : ""}${diff.difficultyChange.toFixed(1)}% expected<small>${diff.remainingBlocks.toLocaleString()} blocks · ~${when}</small>`;
+    C("diffbar").style.width = `${diff.progressPercent}%`;
+  }
+  lastPrice = prices[cur]; C("price").textContent = money(lastPrice);
+  C("sats").textContent = Math.round(1e8 / lastPrice).toLocaleString(); C("fees").textContent = `${fees.fastestFee} sat/vB`;
+  tickClock(); showChange();
+};
+const trend = async () => { // the last week's price, one point a day (hour-rounded so responses cache)
+  const hour = Math.floor(Date.now() / 3600000) * 3600;
+  const pts = (await Promise.all([7, 6, 5, 4, 3, 2, 1].map((d) => api(`/v1/historical-price?currency=${cur}&timestamp=${hour - d * 86400}`).then((r) => r.prices[0]?.[cur]).catch(() => null)))).filter(Boolean);
+  dayAgo = pts[pts.length - 1]; if (lastPrice) pts.push(lastPrice);
+  if (pts.length < 2) return;
+  const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1;
+  const line = pts.map((v, i) => `${((i / (pts.length - 1)) * 200).toFixed(1)},${(44 - ((v - lo) / span) * 40).toFixed(1)}`).join(" ");
+  C("spark").innerHTML = `<polygon class="area" points="0,48 ${line} 200,48"></polygon><polyline class="line" points="${line}"></polyline>`;
+  showChange();
+};
+C("place").textContent = (S.location || "DC").toUpperCase();
+C("tz").textContent = `Time zone: ${tz.replace(/_/g, " ")}`;
+// Where the window glass is on screen, so the app can grow out of it and shrink back into it.
+const glassRect = () => {
+  const b = new THREE.Box3().setFromObject(windowGlass), r = canvas.getBoundingClientRect(), xs = [], ys = [];
+  for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) {
+    const q = new THREE.Vector3(x, y, b.max.z).project(camera); xs.push(r.left + ((q.x + 1) / 2) * r.width); ys.push(r.top + ((1 - q.y) / 2) * r.height);
+  }
+  return { left: Math.min(...xs), top: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+};
+const fromGlass = () => {
+  const g = glassRect(), t = win.getBoundingClientRect();
+  return `translate(${g.left - t.left}px, ${g.top - t.top}px) scale(${Math.max(0.05, g.width / t.width)}, ${Math.max(0.05, g.height / t.height)})`;
+};
+const openClock = () => {
+  if (!app.hidden) return;
+  hideTip(); app.hidden = false;
+  tickClock(); liveBlocks().then(trend).catch((e) => console.warn("mempool:", e.message));
+  clockTimers = [setInterval(tickClock, 1000), setInterval(() => liveBlocks().catch(() => {}), 20000)];
+  if (!reduce) { win.classList.remove("flying"); win.style.transform = fromGlass(); win.getBoundingClientRect(); win.classList.add("flying"); win.style.transform = ""; }
+  requestAnimationFrame(() => app.classList.add("on"));
+  app.querySelector(".h-app-close").focus({ preventScroll: true });
+};
+const closeClock = () => {
+  if (app.hidden) return;
+  clockTimers.forEach(clearInterval); app.classList.remove("on");
+  if (reduce) { app.hidden = true; return; }
+  win.classList.add("flying"); win.style.transform = fromGlass();
+  setTimeout(() => { app.hidden = true; win.classList.remove("flying"); win.style.transform = ""; }, 560);
+};
+app.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", closeClock));
 
 // ---------- the movie shelf, up close ----------
 // The pulled-out case (shared with the main page): it renders on top of the room in a second pass.
@@ -534,7 +621,7 @@ const showTip = (e, h) => {
   const tw = ui.tip.offsetWidth, th = ui.tip.offsetHeight;
   ui.tip.style.transform = `translate(${Math.min(e.clientX + 16, innerWidth - tw - 8)}px, ${Math.min(e.clientY + 16, innerHeight - th - 8)}px)`;
 };
-canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, drag: false }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, drag: false }; try { canvas.setPointerCapture(e.pointerId); } catch {} });
 canvas.addEventListener("pointermove", (e) => {
   if (cv.active) { // a case is out: drag spins it
     if (down) { if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) down.drag = true; cv.spin(e.clientX - down.lx, e.clientY - down.ly); down.lx = e.clientX; down.ly = e.clientY; }
@@ -648,7 +735,7 @@ const frame = (now) => {
   cv.render(); // a pulled-out case, on top
 };
 
-if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, shelfFaces, focus, get room() { return room; }, set yaw(v) { yaw = v; } };
+if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, shelfFaces, focus, openClock, closeClock, get room() { return room; }, set yaw(v) { yaw = v; } };
 
 // ---------- start ----------
 (async () => {

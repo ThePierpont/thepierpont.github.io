@@ -43,3 +43,69 @@ body.house { margin: 0; height: 100vh; height: 100dvh; overflow: hidden; backgro
 .h-fallback { display: none; }
 body.no-3d .h-fallback { position: fixed; inset: 0; z-index: 10; display: grid; place-content: center; gap: 16px; padding: 24px; text-align: center; background: #07050f; }
 body.no-3d .h-load { display: none; }
+
+/* The clock app: a window that opens out of the living room's window glass */
+.h-app { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; padding: max(64px, env(safe-area-inset-top)) 16px 24px; }
+.h-app[hidden] { display: none; }
+.h-app-backdrop { position: absolute; inset: 0; background: rgb(5 3 12 / .55); backdrop-filter: blur(4px); opacity: 0; transition: opacity .45s; }
+.h-app.on .h-app-backdrop { opacity: 1; }
+.h-app-win {
+  position: relative; width: min(1120px, 100%); max-height: 100%; display: grid; grid-template-rows: auto 1fr; overflow: hidden;
+  background: linear-gradient(160deg, rgb(28 22 70 / .96), rgb(10 8 24 / .97));
+  border: 1px solid rgb(5 217 232 / .7); box-shadow: 0 0 0 1px rgb(5 217 232 / .15), 0 0 60px rgb(5 217 232 / .25), 0 30px 80px rgb(0 0 0 / .6);
+  clip-path: var(--cut); transform-origin: 0 0; will-change: transform;
+}
+.h-app-win.flying { transition: transform .55s cubic-bezier(.2, .8, .2, 1), opacity .3s; }
+.h-app-bar { display: flex; align-items: center; gap: 12px; padding: 10px 24px 10px 14px; border-bottom: 1px solid var(--line); background: rgb(10 10 18 / .5); }
+.h-app-bar strong { font: 700 1rem var(--display); letter-spacing: .08em; color: var(--cyan); text-shadow: 0 0 10px rgb(5 217 232 / .5); }
+.h-app-dots { display: flex; gap: 6px; } .h-app-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.h-app-dots i:first-child { background: var(--mag); } .h-app-dots i:nth-child(2) { background: var(--acid); } .h-app-dots i:nth-child(3) { background: var(--cyan); }
+.h-app-sub { display: inline-flex; align-items: center; gap: 6px; font: .78rem var(--mono); color: var(--muted); }
+.h-app-close { margin-left: auto; width: 34px; height: 30px; font: 600 1rem var(--sans); color: var(--white); background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
+.h-app-close:hover { border-color: var(--mag); }
+.h-app-body { display: grid; grid-template-columns: 1fr 1.25fr; gap: 0; overflow: auto; }
+.h-app-body > div { padding: clamp(18px, 3vw, 34px); display: grid; align-content: start; gap: 10px; }
+.h-app-body > div + div { border-left: 1px solid var(--line); }
+.h-app.on .h-app-body { animation: ck-in .5s .25s both; }
+@keyframes ck-in { from { opacity: 0; transform: translateY(8px); } }
+.ck-label { margin: 0; font: 500 .8rem var(--mono); color: var(--muted); letter-spacing: .04em; }
+.ck-time { display: flex; align-items: baseline; gap: 10px; font: 700 clamp(3.4rem, 9vw, 6.6rem)/.95 var(--display); color: var(--cyan); text-shadow: 0 0 22px rgb(5 217 232 / .5); font-variant-numeric: tabular-nums; }
+.ck-time small { font: 500 clamp(1.2rem, 2.4vw, 1.8rem) var(--mono); color: var(--text); text-shadow: none; }
+.ck-date { margin: 0; font: 600 1.15rem var(--sans); color: var(--white); }
+.ck-foot { margin: 6px 0 0; font: .78rem var(--mono); color: var(--muted); }
+.ck-foot a { color: var(--cyan); }
+.ck-bar { height: 4px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.ck-bar i { display: block; height: 100%; width: 0; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); transition: width .9s linear; }
+.ck-bar.acid i { background: var(--acid); box-shadow: 0 0 10px var(--acid); }
+.ck-height { font: 500 clamp(2.8rem, 6.5vw, 4.8rem)/1 var(--mono); letter-spacing: -.03em; color: var(--acid); text-shadow: 0 0 22px rgb(249 240 2 / .4); font-variant-numeric: tabular-nums; }
+.ck-ago { margin: 0; color: var(--text); }
+.ck-blocks { list-style: none; margin: 6px 0 4px; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.ck-blocks li {
+  aspect-ratio: 1; padding: 8px; display: grid; align-content: space-between; min-width: 0;
+  background: linear-gradient(160deg, #5b2fb0, #2a1563); border: 1px solid rgb(185 140 255 / .45);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .05);
+}
+.ck-blocks li:first-child { background: linear-gradient(160deg, #b8a60a, #6b5e00); border-color: rgb(249 240 2 / .7); box-shadow: 0 0 16px rgb(249 240 2 / .3); }
+.ck-blocks b { font: 600 .82rem var(--mono); color: var(--white); overflow: hidden; text-overflow: ellipsis; }
+.ck-blocks span { font: .72rem var(--sans); color: rgb(244 243 255 / .8); line-height: 1.3; }
+.ck-price { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 18px; margin-top: 6px; }
+.ck-price b { display: block; font: 700 clamp(1.7rem, 3.2vw, 2.3rem)/1 var(--display); color: var(--white); font-variant-numeric: tabular-nums; }
+.ck-price em { font: normal 500 .82rem var(--mono); }
+.ck-price em.up { color: var(--cyan); } .ck-price em.down { color: #ff6b95; }
+.ck-k { display: block; font: .78rem var(--mono); color: var(--muted); }
+.ck-spark { width: 100%; height: 54px; overflow: visible; }
+.ck-spark .line { fill: none; stroke: var(--acid); stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 4px rgb(249 240 2 / .6)); }
+.ck-spark .area { fill: rgb(249 240 2 / .08); }
+.ck-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin: 8px 0 0; }
+.ck-stats .wide { grid-column: 1 / -1; }
+.ck-stats dt { font: .78rem var(--mono); color: var(--muted); }
+.ck-stats dd { margin: 2px 0 0; font: 600 1.05rem var(--sans); color: var(--white); }
+.ck-stats dd small { margin-left: 8px; font: .8rem var(--mono); color: var(--muted); }
+@media (max-width: 760px) {
+  .h-app { padding: max(60px, env(safe-area-inset-top)) 10px 14px; }
+  .h-app-body { grid-template-columns: 1fr; }
+  .h-app-body > div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .ck-blocks { grid-template-columns: repeat(3, 1fr); }
+  .ck-blocks li:nth-child(n + 4) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .h-app-win.flying { transition: none; } .h-app.on .h-app-body { animation: none; } }
