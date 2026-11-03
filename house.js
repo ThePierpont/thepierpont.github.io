@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793684480";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793684847";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -126,7 +126,7 @@ const buildOutside = () => {
 };
 
 // ---------- the living room (z 0 … -7) ----------
-let windowTex, windowCanvas, windowGlass;
+let windowTex, windowCanvas, windowGlass, mullion;
 const buildLiving = () => {
   const wallC = 0x2a1f58;
   slab(12, 0.1, 7, 0x1c1436, 0, -0.05, -3.5); slab(12, 0.1, 7, 0x140e2a, 0, H + 0.05, -3.5);
@@ -168,16 +168,17 @@ const buildLiving = () => {
   soon("GALLERY", 5.86, -3.6, -Math.PI / 2, 5.88, -3.6);
 
   // the window onto DC (a canvas: skyline + a little HUD with the time and block height)
-  windowCanvas = document.createElement("canvas"); windowCanvas.width = 2080; windowCanvas.height = 800;
+  windowCanvas = document.createElement("canvas"); windowCanvas.width = 2600; windowCanvas.height = 1000; // drawn in 2080 × 800 units, at 1.25× for sharpness
   windowTex = new THREE.CanvasTexture(windowCanvas); windowTex.colorSpace = THREE.SRGBColorSpace; windowTex.anisotropy = 8;
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 2.0), new THREE.MeshBasicMaterial({ map: windowTex, toneMapped: false }));
+  // a touch under full brightness, so white text on the glass doesn't bloom (the neon is drawn with its own glow)
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 2.0), new THREE.MeshBasicMaterial({ map: windowTex, toneMapped: false, color: new THREE.Color(0.8, 0.8, 0.8) }));
   glass.position.set(0, 1.9, -7.02); scene.add(glass);
   for (const s of [-1, 1]) tube(0.05, 2.06, 0.05, 0x05d9e8, s * 2.62, 1.9, -6.9, { k: 1.4 });
   for (const yy of [0.88, 2.92]) tube(5.3, 0.05, 0.05, 0x05d9e8, 0, yy, -6.9, { k: 1.4 });
-  block(0.07, 2.0, 0.07, 0x140e2a, 0, 1.9, -6.95, { ink: false });
+  mullion = block(0.07, 2.0, 0.07, 0x140e2a, 0, 1.9, -6.95, { ink: false }); // hidden while the clock app is up
   block(5.5, 0.08, 0.34, 0x3a2a75, 0, 0.92, -6.8, { r: 0.02 });
   windowGlass = glass;
-  addHot(glass, "living", "DC at night", touch ? "Tap to open the clock: local time and the Bitcoin block clock" : "Click to open the clock: local time and the Bitcoin block clock", () => openClock());
+  addHot(glass, "living", "DC at night", touch ? "Tap to open the clock on the window" : "Click to open the clock on the window", () => openWindowApp());
 
   // couch facing the window, coffee table, lamp, rug, plant, neon art
   block(5, 0.025, 3.2, 0x3d1f63, 0, 0.013, -5.2, { ink: false, r: 0.01 });
@@ -219,7 +220,7 @@ const shelfFaces = []; // { row, mesh, w, h, imax? }: the clickable shelf photos
 const buildTheater = () => {
   const wallC = 0x1d1340;
   slab(9, 0.1, 10, 0x120c22, -4.5, -0.05, -12); slab(9, 0.1, 10, 0x0c0818, -4.5, H + 0.05, -12);
-  slab(0.2, H, 10, wallC, -9, H / 2, -12); slab(0.2, H, 10, wallC, 0, H / 2, -12);
+  slab(0.2, H, 10, wallC, -9, H / 2, -12); slab(0.2, H, 9.8, wallC, 0, H / 2, -12.1); // stops short of the living room window
   slab(9, H, 0.2, wallC, -4.5, H / 2, -17); slab(3, H, 0.2, wallC, -7.5, H / 2, -7);
   // the screen: a canvas showing my latest Letterboxd watch
   block(6.5, 3.7, 0.12, 0x0b0816, -4.5, 2.0, -16.86, { r: 0.04 });
@@ -320,15 +321,25 @@ const drawSkyline = () => { // drawn once; the HUD is layered on top every few s
   layer("#12082a", 800, 60, 170, true);
   skyline = c;
 };
-const drawWindow = () => {
-  if (!windowCanvas) return;
-  if (!skyline) drawSkyline();
-  const x = windowCanvas.getContext("2d");
-  x.drawImage(skyline, 0, 0);
+// The window doubles as a screen. Closed: a small readout in the corner (time + block height).
+// Open (winApp → 1): CLOCK.APP grows out of that readout to fill most of the glass.
+let winApp = 0, winAnim = null; // 0 closed … 1 open, and the open/close animation in progress
+const drawHUD = (x, a) => {
+  x.globalAlpha = a;
   x.fillStyle = "rgba(10,6,24,.55)"; x.fillRect(60, 52, 600, height ? 200 : 140);
   x.font = "500 34px 'JetBrains Mono'"; x.fillStyle = "#9d9dc0"; x.textBaseline = "top"; x.fillText(`>> ${(S.location || "DC").toUpperCase()} · LOCAL TIME`, 86, 74);
   x.font = "700 96px Rajdhani"; x.fillStyle = "#05d9e8"; x.shadowColor = "#05d9e8"; x.shadowBlur = 18; x.fillText(clockFmt.format(new Date()), 84, 110); x.shadowBlur = 0;
   if (height) { x.font = "500 34px 'JetBrains Mono'"; x.fillStyle = "#f9f002"; x.fillText(`BLOCK ${height.toLocaleString()}`, 86, 210); }
+  x.globalAlpha = 1;
+};
+const drawWindow = () => {
+  if (!windowCanvas) return;
+  if (!skyline) drawSkyline();
+  const x = windowCanvas.getContext("2d");
+  x.setTransform(1.25, 0, 0, 1.25, 0, 0);
+  x.drawImage(skyline, 0, 0);
+  if (winApp < 0.35) drawHUD(x, 1 - winApp / 0.35);
+  if (winApp > 0) drawApp(x, winApp);
   windowTex.needsUpdate = true;
 };
 const stars = (n) => "★".repeat(Math.floor(n)) + (n % 1 ? "½" : "");
@@ -414,11 +425,13 @@ const flyTo = (pos, look, dur, after) => {
   if (reduce) { after?.(); return; }
   flight = { t0: performance.now(), dur, pos: new THREE.CatmullRomCurve3([camera.position.clone(), pos]), look: new THREE.CatmullRomCurve3([lookAt.clone(), look]), yaw0: yaw, pitch0: pitch, after };
 };
-const view = () => focusRow?.view || VIEWS[room];
+const view = () => focusRow?.view || winFocus?.view || VIEWS[room];
 const setRoomUI = () => {
   const v = VIEWS[room];
-  ui.room.textContent = focusRow ? `${v.name} · ${NAMES[focusRow.f.row.id] || ""}` : v.name;
-  ui.hint.textContent = focusRow ? (focusRow.pan ? "Swipe along the shelf · tap a movie to pull it out" : touch ? "Tap a movie to pull it out" : "Click a movie to pull it out") : v.hint;
+  ui.room.textContent = focusRow ? `${v.name} · ${NAMES[focusRow.f.row.id] || ""}` : winFocus ? `${v.name} · Clock` : v.name;
+  ui.hint.textContent = focusRow ? (focusRow.pan ? "Swipe along the shelf · tap a movie to pull it out" : touch ? "Tap a movie to pull it out" : "Click a movie to pull it out")
+    : winFocus ? (winFocus.pan ? "Swipe across the window · tap a block to open it" : "Click a block to open it on mempool.space · click off the window to close")
+    : v.hint;
   ui.back.hidden = room === "outside";
   document.title = room === "outside" ? "Pierpont's apartment" : `${v.name} · Pierpont's apartment`;
 };
@@ -426,6 +439,7 @@ const go = (to) => {
   if (flight || cv.active) return;
   if (to === "screen") { if (room !== "theater") go("theater"); return latest?.link && window.open(latest.link, "_blank", "noopener"); }
   if (focusRow) return unfocus(() => go(to));
+  if (winFocus) return closeWindowApp(() => go(to));
   if (to === room) return;
   hideTip();
   const from = room, a = ORDER.indexOf(from), b = ORDER.indexOf(to), route = [];
@@ -442,12 +456,12 @@ const go = (to) => {
 const back = () => {
   if (cv.active) return cv.close();
   if (focusRow) return unfocus();
+  if (winFocus) return closeWindowApp();
   if (room !== "outside") go(ORDER[ORDER.indexOf(room) - 1]);
 };
 ui.back.addEventListener("click", back);
 document.querySelectorAll(".h-nav [data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
 addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !$("#h-clock").hidden) return closeClock();
   if (e.key === "Escape") back();
   if (e.key === "Enter" && cv.active) cv.openReview();
 });
@@ -455,90 +469,137 @@ addEventListener("keydown", (e) => {
 let toastTimer;
 const toast = (msg) => { ui.toast.textContent = msg; ui.toast.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (ui.toast.hidden = true), 3200); };
 
-// ---------- the clock app: opens out of the living room window ----------
+// ---------- CLOCK.APP, on the window glass ----------
 // Local time to the second, and a Bitcoin block clock (mempool.space): the latest blocks, price,
 // fees, and how far along the halving and the next difficulty adjustment are.
-const app = $("#h-clock"), win = app.querySelector(".h-app-win");
-const C = (k) => app.querySelector(`[data-c="${k}"]`);
 const cur = S.bitcoin?.currency || "USD";
 const money = (n) => n.toLocaleString(undefined, { style: "currency", currency: cur, maximumFractionDigits: 0 });
 const tz = S.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 const fmtIn = (o) => { try { return new Intl.DateTimeFormat(undefined, { ...o, timeZone: tz }); } catch { return new Intl.DateTimeFormat(undefined, o); } };
-const partsF = fmtIn({ hour: "numeric", minute: "2-digit", second: "2-digit" }), dayF = fmtIn({ weekday: "long", month: "long", day: "numeric", year: "numeric" });
+const partsF = fmtIn({ hour: "numeric", minute: "2-digit", second: "2-digit", hourCycle: undefined }), dayF = fmtIn({ weekday: "long", month: "long", day: "numeric" });
+const hmsF = fmtIn({ hour: "numeric", minute: "numeric", second: "numeric", hour12: false });
 const api = (path) => fetch(`https://mempool.space/api${path}`).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
 const since = (t) => { const m = Math.floor((Date.now() / 1000 - t) / 60); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.floor(m / 60)} hr ${m % 60} min ago`; };
-let tipTime = 0, lastPrice = 0, dayAgo = 0, clockTimers = [];
-const tickClock = () => {
-  const now = new Date(), p = Object.fromEntries(partsF.formatToParts(now).map((x) => [x.type, x.value]));
-  C("time").textContent = `${p.hour}:${p.minute}`;
-  C("sec").textContent = `:${p.second}${p.dayPeriod ? ` ${p.dayPeriod}` : ""}`;
-  C("date").textContent = dayF.format(now);
-  const bar = C("secbar"); bar.style.transition = +p.second === 0 ? "none" : ""; bar.style.width = `${(+p.second / 59) * 100}%`;
-  if (tipTime) C("ago").textContent = `Last block found ${since(tipTime)}`;
-};
-const showChange = () => {
-  if (!lastPrice || !dayAgo) return;
-  const pct = ((lastPrice - dayAgo) / dayAgo) * 100, el = C("chg");
-  el.textContent = `${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}% today`; el.className = pct >= 0 ? "up" : "down";
-};
+const btc = { tip: 0, blocks: [], price: 0, dayAgo: 0, spark: [], sats: 0, fee: 0, halv: null, diff: null };
 const liveBlocks = async () => {
   const [blocks, prices, fees, diff] = await Promise.all([api("/v1/blocks"), api("/v1/prices"), api("/v1/fees/recommended"), api("/v1/difficulty-adjustment").catch(() => null)]);
-  const tip = blocks[0]; tipTime = tip.timestamp; height = tip.height; drawWindow();
-  C("height").textContent = tip.height.toLocaleString();
-  C("blocks").innerHTML = blocks.slice(0, 6).map((b) => `<li><b>${b.height.toLocaleString()}</b><span>${b.tx_count.toLocaleString()} txs<br>${(b.size / 1e6).toFixed(2)} MB<br>${since(b.timestamp)}</span></li>`).join("");
-  const into = tip.height % 210000, left = 210000 - into;
-  const eta = new Date(Date.now() + left * 600000).toLocaleDateString(undefined, { month: "short", year: "numeric" });
-  C("halving").innerHTML = `~${eta}<small>${left.toLocaleString()} blocks to go</small>`; C("halvbar").style.width = `${(into / 210000) * 100}%`;
-  if (diff) {
-    const when = new Date(diff.estimatedRetargetDate).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    C("diff").innerHTML = `${diff.difficultyChange >= 0 ? "+" : ""}${diff.difficultyChange.toFixed(1)}% expected<small>${diff.remainingBlocks.toLocaleString()} blocks · ~${when}</small>`;
-    C("diffbar").style.width = `${diff.progressPercent}%`;
-  }
-  lastPrice = prices[cur]; C("price").textContent = money(lastPrice);
-  C("sats").textContent = Math.round(1e8 / lastPrice).toLocaleString(); C("fees").textContent = `${fees.fastestFee} sat/vB`;
-  tickClock(); showChange();
+  const tip = blocks[0], into = tip.height % 210000, left = 210000 - into;
+  Object.assign(btc, { tip: tip.timestamp, blocks: blocks.slice(0, 6), price: prices[cur], sats: Math.round(1e8 / prices[cur]), fee: fees.fastestFee, diff,
+    halv: { left, pct: into / 210000, eta: new Date(Date.now() + left * 600000).toLocaleDateString(undefined, { month: "short", year: "numeric" }) } });
+  height = tip.height; drawWindow();
 };
-const trend = async () => { // the last week's price, one point a day (hour-rounded so responses cache)
+const trend = async () => { // the last week's price, a point a day (hour-rounded so responses cache)
   const hour = Math.floor(Date.now() / 3600000) * 3600;
   const pts = (await Promise.all([7, 6, 5, 4, 3, 2, 1].map((d) => api(`/v1/historical-price?currency=${cur}&timestamp=${hour - d * 86400}`).then((r) => r.prices[0]?.[cur]).catch(() => null)))).filter(Boolean);
-  dayAgo = pts[pts.length - 1]; if (lastPrice) pts.push(lastPrice);
-  if (pts.length < 2) return;
-  const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1;
-  const line = pts.map((v, i) => `${((i / (pts.length - 1)) * 200).toFixed(1)},${(44 - ((v - lo) / span) * 40).toFixed(1)}`).join(" ");
-  C("spark").innerHTML = `<polygon class="area" points="0,48 ${line} 200,48"></polygon><polyline class="line" points="${line}"></polyline>`;
-  showChange();
+  btc.dayAgo = pts[pts.length - 1]; btc.spark = btc.price ? [...pts, btc.price] : pts; drawWindow();
 };
-C("place").textContent = (S.location || "DC").toUpperCase();
-C("tz").textContent = `Time zone: ${tz.replace(/_/g, " ")}`;
-// Where the window glass is on screen, so the app can grow out of it and shrink back into it.
-const glassRect = () => {
-  const b = new THREE.Box3().setFromObject(windowGlass), r = canvas.getBoundingClientRect(), xs = [], ys = [];
-  for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) {
-    const q = new THREE.Vector3(x, y, b.max.z).project(camera); xs.push(r.left + ((q.x + 1) / 2) * r.width); ys.push(r.top + ((1 - q.y) / 2) * r.height);
+const APP = { x: 36, y: 36, w: 2008, h: 728 }, HUDR = { x: 60, y: 52, w: 600, h: 200 };
+const tileRects = []; // where the block tiles are (canvas units), for clicks
+const lerp = (a, b, t) => a + (b - a) * t;
+const drawApp = (x, k) => {
+  const e = ease(Math.min(1, k)), r = { x: lerp(HUDR.x, APP.x, e), y: lerp(HUDR.y, APP.y, e), w: lerp(HUDR.w, APP.w, e), h: lerp(HUDR.h, APP.h, e) };
+  // the window frame, with clipped corners like the site's panels
+  const cut = 28, frame = () => { x.beginPath(); x.moveTo(r.x, r.y); x.lineTo(r.x + r.w - cut, r.y); x.lineTo(r.x + r.w, r.y + cut); x.lineTo(r.x + r.w, r.y + r.h); x.lineTo(r.x + cut, r.y + r.h); x.lineTo(r.x, r.y + r.h - cut); x.closePath(); };
+  x.globalAlpha = Math.min(1, k * 3);
+  frame(); const g = x.createLinearGradient(r.x, r.y, r.x + r.w, r.y + r.h); g.addColorStop(0, "rgba(30,22,74,.93)"); g.addColorStop(1, "rgba(10,8,24,.95)"); x.fillStyle = g; x.fill();
+  x.strokeStyle = "#05d9e8"; x.lineWidth = 3; x.shadowColor = "#05d9e8"; x.shadowBlur = 24; frame(); x.stroke(); x.shadowBlur = 0;
+  const c = Math.max(0, Math.min(1, (k - 0.6) / 0.4)); // the contents fade in once the frame has grown
+  x.globalAlpha = c; tileRects.length = 0;
+  if (c > 0) {
+    const L = APP.x, T = APP.y, label = (t, px, py) => { x.font = "500 26px 'JetBrains Mono'"; x.fillStyle = "#9d9dc0"; x.fillText(t, px, py); };
+    x.textBaseline = "top";
+    // title bar
+    ["#ff2a6d", "#f9f002", "#05d9e8"].forEach((col, i) => { x.fillStyle = col; x.beginPath(); x.arc(L + 40 + i * 30, T + 36, 9, 0, Math.PI * 2); x.fill(); });
+    x.font = "700 40px Rajdhani"; x.fillStyle = "#05d9e8"; x.shadowColor = "#05d9e8"; x.shadowBlur = 12; x.fillText("CLOCK.APP", L + 150, T + 16); x.shadowBlur = 0;
+    x.fillStyle = "#05d9e8"; x.beginPath(); x.arc(L + 382, T + 37, 7, 0, Math.PI * 2); x.fill(); label("LIVE", L + 398, T + 23);
+    x.textAlign = "right"; label(touch ? "TAP OFF THE WINDOW TO CLOSE" : "ESC OR CLICK OFF THE WINDOW TO CLOSE", L + APP.w - 40, T + 23); x.textAlign = "left";
+    x.fillStyle = "rgba(157,157,192,.25)"; x.fillRect(L, T + 72, APP.w, 2);
+    for (const dx of [665, 1315]) x.fillRect(L + dx, T + 96, 2, APP.h - 120);
+    // 1 · local time
+    const now = new Date(), p = Object.fromEntries(partsF.formatToParts(now).map((q) => [q.type, q.value]));
+    const [hh, mm, ss] = hmsF.format(now).split(":").map(Number);
+    const a1 = L + 40;
+    label(`>> LOCAL TIME · ${(S.location || "DC").toUpperCase()}`, a1, T + 104);
+    x.font = "700 210px Rajdhani"; x.fillStyle = "#05d9e8"; x.shadowColor = "#05d9e8"; x.shadowBlur = 30;
+    const hm = `${p.hour}:${p.minute}`; x.fillText(hm, a1 - 6, T + 140); x.shadowBlur = 0;
+    const hmW = x.measureText(hm).width;
+    x.font = "500 50px 'JetBrains Mono'"; x.fillStyle = "#d6d6e7"; x.fillText(`:${p.second}`, a1 + hmW + 6, T + 252);
+    if (p.dayPeriod) x.fillText(p.dayPeriod, a1 + hmW + 6, T + 198);
+    x.font = "600 44px Inter"; x.fillStyle = "#f4f3ff"; x.fillText(dayF.format(now), a1, T + 380);
+    const bar = (bx, by, bw, frac, col) => { x.fillStyle = "rgba(157,157,192,.25)"; x.fillRect(bx, by, bw, 8); x.fillStyle = col; x.shadowColor = col; x.shadowBlur = 12; x.fillRect(bx, by, bw * Math.max(0, Math.min(1, frac)), 8); x.shadowBlur = 0; };
+    label("THIS MINUTE", a1, T + 460); bar(a1, T + 498, 580, ss / 59, "#05d9e8");
+    const dayFrac = (hh * 3600 + mm * 60 + ss) / 86400;
+    label(`TODAY · ${Math.round(dayFrac * 100)}% DONE`, a1, T + 540); bar(a1, T + 578, 580, dayFrac, "#ff2a6d");
+    label(`TIME ZONE · ${tz.replace(/_/g, " ").toUpperCase()}`, a1, T + 640);
+    // 2 · the block clock
+    const a2 = L + 705;
+    label(">> BITCOIN BLOCK CLOCK", a2, T + 104);
+    x.font = "500 124px 'JetBrains Mono'"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.shadowBlur = 26;
+    x.fillText(height ? height.toLocaleString() : "…", a2 - 4, T + 140); x.shadowBlur = 0;
+    x.font = "500 34px Inter"; x.fillStyle = "#d6d6e7"; x.fillText(btc.tip ? `Last block found ${since(btc.tip)}` : "Checking the chain…", a2, T + 282);
+    btc.blocks.forEach((b, i) => {
+      const tx = a2 + (i % 3) * 200, ty = T + 346 + Math.floor(i / 3) * 176, w = 184, h = 160;
+      const tg = x.createLinearGradient(tx, ty, tx + w, ty + h);
+      if (i) { tg.addColorStop(0, "#5b2fb0"); tg.addColorStop(1, "#2a1563"); } else { tg.addColorStop(0, "#b8a60a"); tg.addColorStop(1, "#6b5e00"); }
+      x.fillStyle = tg; x.fillRect(tx, ty, w, h);
+      x.strokeStyle = i ? "rgba(185,140,255,.6)" : "#f9f002"; x.lineWidth = 2; x.strokeRect(tx, ty, w, h);
+      x.font = "600 30px 'JetBrains Mono'"; x.fillStyle = "#f4f3ff"; x.fillText(b.height.toLocaleString(), tx + 14, ty + 14);
+      x.font = "400 24px Inter"; x.fillStyle = "rgba(244,243,255,.85)";
+      x.fillText(`${b.tx_count.toLocaleString()} txs`, tx + 14, ty + 62); x.fillText(`${(b.size / 1e6).toFixed(2)} MB`, tx + 14, ty + 92); x.fillText(since(b.timestamp), tx + 14, ty + 122);
+      tileRects.push({ x: tx, y: ty, w, h, height: b.height });
+    });
+    // 3 · price and the slow clocks
+    const a3 = L + 1355, w3 = APP.w - 1355 - 40;
+    label("PRICE", a3, T + 104);
+    x.font = "700 104px Rajdhani"; x.fillStyle = "#f4f3ff"; x.fillText(btc.price ? money(btc.price) : "…", a3, T + 132);
+    if (btc.price && btc.dayAgo) {
+      const pct = ((btc.price - btc.dayAgo) / btc.dayAgo) * 100;
+      x.font = "500 30px 'JetBrains Mono'"; x.fillStyle = pct >= 0 ? "#05d9e8" : "#ff6b95"; x.fillText(`${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}% TODAY`, a3, T + 244);
+    }
+    if (btc.spark.length > 1) {
+      const lo = Math.min(...btc.spark), hi = Math.max(...btc.spark), sy = T + 300, sh = 100;
+      x.beginPath(); btc.spark.forEach((v, i) => { const px = a3 + (i / (btc.spark.length - 1)) * w3, py = sy + sh - ((v - lo) / (hi - lo || 1)) * sh; i ? x.lineTo(px, py) : x.moveTo(px, py); });
+      x.strokeStyle = "#f9f002"; x.lineWidth = 4; x.shadowColor = "#f9f002"; x.shadowBlur = 12; x.stroke(); x.shadowBlur = 0;
+      label("LAST 7 DAYS", a3, sy + sh + 14);
+    }
+    const stat = (k2, v, px, py) => { label(k2, px, py); x.font = "600 36px Inter"; x.fillStyle = "#f4f3ff"; x.fillText(v, px, py + 32); };
+    stat("SATS PER DOLLAR", btc.sats ? btc.sats.toLocaleString() : "…", a3, T + 460);
+    stat("FEES, NEXT BLOCK", btc.fee ? `${btc.fee} sat/vB` : "…", a3 + 330, T + 460);
+    if (btc.halv) { stat("NEXT HALVING", `~${btc.halv.eta} · ${btc.halv.left.toLocaleString()} blocks`, a3, T + 548); bar(a3, T + 626, w3, btc.halv.pct, "#f9f002"); }
+    if (btc.diff) { const d = btc.diff; stat("DIFFICULTY ADJUSTMENT", `${d.difficultyChange >= 0 ? "+" : ""}${d.difficultyChange.toFixed(1)}% · ${d.remainingBlocks.toLocaleString()} blocks`, a3, T + 648); bar(a3, T + 726 - 10, w3, d.progressPercent / 100, "#05d9e8"); }
   }
-  return { left: Math.min(...xs), top: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+  x.globalAlpha = 1;
 };
-const fromGlass = () => {
-  const g = glassRect(), t = win.getBoundingClientRect();
-  return `translate(${g.left - t.left}px, ${g.top - t.top}px) scale(${Math.max(0.05, g.width / t.width)}, ${Math.max(0.05, g.height / t.height)})`;
+
+// Opening the app: the camera comes in behind the couch and squares up to the window.
+let winFocus = null, appTimers = [];
+const openWindowApp = () => {
+  if (winFocus || flight) return;
+  const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect), c = V(0, 1.9, -7.02);
+  let d = Math.max(1.15 / Math.tan(vf), 2.75 / Math.tan(hf)), pan = 0;
+  if (camera.aspect < 0.8) { d = 2.1; pan = Math.max(0, 2.55 - d * Math.tan(hf)); } // tall screens: swipe across the glass
+  d = Math.min(d, 6.4);
+  const start = c.clone(); start.x -= pan; // begin at the left panel
+  winFocus = { view: { pos: start.clone().add(V(0, 0, d)), look: start, yaw: pan ? 0 : 0.06 }, c, d, pan };
+  hideTip(); setRoomUI(); mullion.visible = false;
+  flyTo(winFocus.view.pos, winFocus.view.look, 1100);
+  winAnim = { t0: performance.now() + (reduce ? 0 : 450), from: winApp, to: 1 };
+  liveBlocks().then(trend).catch((e) => console.warn("mempool:", e.message));
+  appTimers = [setInterval(drawWindow, 1000), setInterval(() => liveBlocks().catch(() => {}), 20000)];
 };
-const openClock = () => {
-  if (!app.hidden) return;
-  hideTip(); app.hidden = false;
-  tickClock(); liveBlocks().then(trend).catch((e) => console.warn("mempool:", e.message));
-  clockTimers = [setInterval(tickClock, 1000), setInterval(() => liveBlocks().catch(() => {}), 20000)];
-  if (!reduce) { win.classList.remove("flying"); win.style.transform = fromGlass(); win.getBoundingClientRect(); win.classList.add("flying"); win.style.transform = ""; }
-  requestAnimationFrame(() => app.classList.add("on"));
-  app.querySelector(".h-app-close").focus({ preventScroll: true });
+const closeWindowApp = (after) => {
+  if (!winFocus) return after?.();
+  winFocus = null; appTimers.forEach(clearInterval); hideTip(); setRoomUI();
+  winAnim = { t0: performance.now(), from: winApp, to: 0 };
+  flyTo(VIEWS.living.pos, VIEWS.living.look, 1000, after);
 };
-const closeClock = () => {
-  if (app.hidden) return;
-  clockTimers.forEach(clearInterval); app.classList.remove("on");
-  if (reduce) { app.hidden = true; return; }
-  win.classList.add("flying"); win.style.transform = fromGlass();
-  setTimeout(() => { app.hidden = true; win.classList.remove("flying"); win.style.transform = ""; }, 560);
+// Which block tile (if any) is under the pointer, on the glass?
+const tileAt = (e) => {
+  const hit = setRay(e).intersectObject(windowGlass, false)[0];
+  if (!hit) return { off: true };
+  const cx = hit.uv.x * 2080, cy = (1 - hit.uv.y) * 800;
+  return { t: tileRects.find((t) => cx >= t.x && cx <= t.x + t.w && cy >= t.y && cy <= t.y + t.h) };
 };
-app.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", closeClock));
 
 // ---------- the movie shelf, up close ----------
 // The pulled-out case (shared with the main page): it renders on top of the room in a second pass.
@@ -631,6 +692,13 @@ canvas.addEventListener("pointermove", (e) => {
   }
   if (down) {
     if (!down.drag && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) { down.drag = true; hideTip(); }
+    if (down.drag && !flight && winFocus?.pan) { // slide across the window glass
+      const hf = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect);
+      const perPx = (2 * winFocus.d * Math.tan(hf)) / canvas.clientWidth, v = winFocus.view;
+      v.look.x = v.pos.x = THREE.MathUtils.clamp(v.look.x - (e.clientX - down.lx) * perPx, winFocus.c.x - winFocus.pan, winFocus.c.x + winFocus.pan);
+      down.lx = e.clientX; down.ly = e.clientY;
+      return;
+    }
     if (down.drag && !flight && focusRow?.pan) { // slide along the row, within its ends
       const hf = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect);
       const perPx = (2 * focusRow.d * Math.tan(hf)) / canvas.clientWidth, v = focusRow.view;
@@ -648,6 +716,12 @@ canvas.addEventListener("pointermove", (e) => {
     return;
   }
   if (e.pointerType !== "mouse" || flight) return;
+  if (winFocus) {
+    const w = tileAt(e);
+    if (w.t) { showTip(e, { label: `Block ${w.t.height.toLocaleString()}`, sub: "Open it on mempool.space ↗" }); canvas.style.cursor = "pointer"; }
+    else { hideTip(); canvas.style.cursor = w.off ? "zoom-out" : "default"; }
+    return;
+  }
   if (room === "shelf") {
     const s = shelfPick(e);
     if (!s) { hideTip(); canvas.style.cursor = focusRow ? "zoom-out" : "grab"; return; }
@@ -669,6 +743,12 @@ canvas.addEventListener("pointerup", (e) => {
     return;
   }
   if (wasDrag || flight) return;
+  if (winFocus) {
+    const w = tileAt(e);
+    if (w.t) window.open(`https://mempool.space/block/${w.t.height}`, "_blank", "noopener");
+    else if (w.off) closeWindowApp(); // off the glass: close the app
+    return;
+  }
   if (room === "shelf") {
     const s = shelfPick(e);
     if (!s) return focusRow && unfocus(); // clicking off the shelf steps back from the row
@@ -730,17 +810,22 @@ const frame = (now) => {
     const on = Math.sin(now / 1000 * 1.3 + s.userData.seed) > -0.97 || Math.random() < 0.5;
     s.material.color.setScalar(on ? s.userData.k : s.userData.k * 0.35);
   }
+  if (winAnim) { // the clock app growing out of (or shrinking back into) the corner readout
+    const t = reduce ? 1 : Math.max(0, Math.min(1, (now - winAnim.t0) / 650));
+    winApp = winAnim.from + (winAnim.to - winAnim.from) * t; drawWindow();
+    if (t === 1) { if (!winAnim.to) mullion.visible = true; winAnim = null; }
+  }
   cv.step(now);
   composer.render();
   cv.render(); // a pulled-out case, on top
 };
 
-if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, shelfFaces, focus, openClock, closeClock, get room() { return room; }, set yaw(v) { yaw = v; } };
+if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, shelfFaces, focus, openWindowApp, closeWindowApp, get room() { return room; }, set yaw(v) { yaw = v; } };
 
 // ---------- start ----------
 (async () => {
   await Promise.race([
-    Promise.all(["700 140px Rajdhani", "500 34px 'JetBrains Mono'", "500 38px Inter", "italic 400 38px Inter"].map((f) => document.fonts.load(f))),
+    Promise.all(["700 140px Rajdhani", "500 34px 'JetBrains Mono'", "500 38px Inter", "600 40px Inter", "italic 400 38px Inter"].map((f) => document.fonts.load(f))),
     new Promise((r) => setTimeout(r, 2500)),
   ]);
   buildOutside(); buildLiving(); buildTheater();

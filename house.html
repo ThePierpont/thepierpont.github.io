@@ -16,8 +16,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="style.css?v=1793684480">
-<link rel="stylesheet" href="house.css?v=1793684480">
+<link rel="stylesheet" href="style.css?v=1793684847">
+<link rel="stylesheet" href="house.css?v=1793684847">
 </head>
 <body class="house">
 <canvas id="house" aria-hidden="true"></canvas>
@@ -43,52 +43,13 @@
   <button type="button" data-go="outside">Back outside</button>
 </nav>
 
-<!-- The clock app: opens out of the living room window. Filled in by house.js. -->
-<div class="h-app" id="h-clock" hidden role="dialog" aria-modal="true" aria-labelledby="ck-title">
-  <div class="h-app-backdrop" data-close></div>
-  <section class="h-app-win">
-    <header class="h-app-bar">
-      <span class="h-app-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-      <strong id="ck-title">CLOCK.APP</strong>
-      <span class="h-app-sub"><span class="pulse" aria-hidden="true"></span>live</span>
-      <button type="button" class="h-app-close" data-close aria-label="Close the clock">✕</button>
-    </header>
-    <div class="h-app-body">
-      <div class="ck-local">
-        <p class="ck-label">&gt;&gt; LOCAL TIME · <span data-c="place"></span></p>
-        <div class="ck-time"><span data-c="time">--:--</span><small data-c="sec"></small></div>
-        <p class="ck-date" data-c="date"></p>
-        <div class="ck-bar" aria-hidden="true"><i data-c="secbar"></i></div>
-        <p class="ck-foot" data-c="tz"></p>
-      </div>
-      <div class="ck-btc">
-        <p class="ck-label">&gt;&gt; BITCOIN BLOCK CLOCK</p>
-        <div class="ck-height" data-c="height">…</div>
-        <p class="ck-ago" data-c="ago"></p>
-        <ol class="ck-blocks" data-c="blocks" aria-label="Latest blocks"></ol>
-        <div class="ck-price">
-          <div><span class="ck-k">Price</span><b data-c="price">…</b><em data-c="chg"></em></div>
-          <svg class="ck-spark" data-c="spark" viewBox="0 0 200 48" preserveAspectRatio="none" role="img" aria-label="Price over the last 7 days"></svg>
-        </div>
-        <dl class="ck-stats">
-          <div><dt>Sats per dollar</dt><dd data-c="sats">…</dd></div>
-          <div><dt>Fees, next block</dt><dd data-c="fees">…</dd></div>
-          <div class="wide"><dt>Next halving</dt><dd data-c="halving">…</dd><div class="ck-bar acid" aria-hidden="true"><i data-c="halvbar"></i></div></div>
-          <div class="wide"><dt>Difficulty adjustment</dt><dd data-c="diff">…</dd><div class="ck-bar" aria-hidden="true"><i data-c="diffbar"></i></div></div>
-        </dl>
-        <p class="ck-foot">Live from <a href="https://mempool.space" target="_blank" rel="noopener">mempool.space ↗</a></p>
-      </div>
-    </div>
-  </section>
-</div>
-
 <div class="h-load" id="h-load"><p>&gt;&gt; BOOTING APARTMENT…</p></div>
 <div class="h-fallback"><p>The apartment needs WebGL, which this browser doesn't have on.</p><a class="btn btn-hot" href="./">Go to the regular site</a></div>
 
 
-<script src="content.js?v=1793684480"></script>
-<script src="shelf-data.js?v=1793684480"></script>
+<script src="content.js?v=1793684847"></script>
+<script src="shelf-data.js?v=1793684847"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
-<script type="module" src="house.js?v=1793684480"></script>
+<script type="module" src="house.js?v=1793684847"></script>
 </body>
 </html>
