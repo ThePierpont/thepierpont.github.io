@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793691497";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793691744";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -122,11 +122,29 @@ const buildOutside = () => {
   slab(1.4, H - 2.4, 0.2, 0x353a4c, 0, 2.4 + (H - 2.4) / 2, 0);
   for (const s of [-1, 1]) tube(0.04, 2.44, 0.04, 0x05d9e8, s * 0.74, 1.22, 0.12, { k: 1.3 });
   tube(1.52, 0.04, 0.04, 0x05d9e8, 0, 2.44, 0.12, { k: 1.3 });
-  // my door: a single panel that slides straight up into the wall above the opening
+  // Doors are pressed steel, not wood: brushed grain, a soft sheen and a couple of factory seams.
+  const steelTex = canvasTex(256, 512, (x, w, h) => {
+    x.fillStyle = "#8e96a8"; x.fillRect(0, 0, w, h);
+    for (let i = 0; i < 420; i++) { // brushed grain, running up the door
+      const v = Math.random(); x.fillStyle = v > 0.5 ? `rgba(255,255,255,${0.03 + v * 0.05})` : `rgba(0,0,0,${0.04 + v * 0.06})`;
+      x.fillRect(Math.random() * w, Math.random() * h * 0.3, 1 + Math.random() * 1.5, h * (0.3 + Math.random() * 0.7));
+    }
+    const sheen = x.createLinearGradient(0, 0, w, h); sheen.addColorStop(0, "rgba(255,255,255,0)"); sheen.addColorStop(0.45, "rgba(255,255,255,.12)"); sheen.addColorStop(0.6, "rgba(255,255,255,0)");
+    x.fillStyle = sheen; x.fillRect(0, 0, w, h);
+    x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(0, h * 0.42, w, 3); // a factory seam
+    x.fillStyle = "rgba(255,255,255,.12)"; x.fillRect(0, h * 0.42 + 3, w, 1);
+  });
+  const steel = (tint) => toon(tint, { map: steelTex });
+  // ribs and a kick plate: the parts that make a sheet of steel read as a door
+  const steelDetail = (g, w, cx, front, tint) => {
+    for (let i = 0; i < 3; i++) block(w - 0.3, 0.035, 0.02, 0, cx, 0.5 + i * 0.12, front, { parent: g, r: 0.008, mat: steel(0xc4cad8) });
+    block(w - 0.06, 0.2, 0.015, 0x2a2e3a, cx, 0.12, front, { parent: g, r: 0.006, ink: false });
+  };
+  // my door: a single steel panel that slides straight up into the wall above the opening
   doorPivot = new THREE.Group(); doorPivot.position.set(-0.68, 0, 0); scene.add(doorPivot);
-  block(1.36, 2.36, 0.08, 0x1d1638, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03 }); // dark, so the neon P stands out (like the site icon)
-  block(1.0, 0.9, 0.03, 0x16112c, 0.68, 1.75, 0.05, { parent: doorPivot, r: 0.02 });
-  block(1.0, 0.9, 0.03, 0x16112c, 0.68, 0.62, 0.05, { parent: doorPivot, r: 0.02 });
+  block(1.36, 2.36, 0.08, 0, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03, mat: steel(0x6c7389) }); // gunmetal, a shade darker so the neon P stands out
+  block(0.92, 0.92, 0.02, 0x1b1e27, 0.68, 1.68, 0.045, { parent: doorPivot, r: 0.02 }); // a smoked inset behind the P
+  steelDetail(doorPivot, 1.36, 0.68, 0.045, 0x6c7389);
   tube(0.03, 0.5, 0.02, 0xf9f002, 1.22, 1.12, 0.05, { parent: doorPivot, k: 1.2 }); // a flush light strip instead of a knob
   sign("4B", 0.16, 0.68, 2.08, 0.07, { parent: doorPivot, color: "#f9f002", font: "700 100px Rajdhani", k: 1.1 });
   addHot(doorPivot, "outside", "Come on in", touch ? "Tap to open the door" : "Click to open the door", () => go("living"));
@@ -139,13 +157,15 @@ const buildOutside = () => {
   block(1.4, 0.03, 0.8, 0x3a2d63, 0, 0.015, 0.75, { r: 0.012 }); // doormat
   const mat = sign("WELCOME", 0.24, 0, 0.034, 0.75, { color: "#f9f002", k: 1.05 }); mat.rotation.x = -Math.PI / 2;
   // the neighbours: recessed metal frames, lit number plates and a little status light
-  const doorTones = [0x2e3346, 0x3a2f48, 0x2b3a3f, 0x3d3440];
+  const doorTones = [0x9aa2b4, 0x8f98a6, 0xa3a6b0, 0x939cb0]; // steel tints, a little different from batch to batch
   let nIdx = 0;
   const neighbour = (x, z, back, label) => {
     const g = new THREE.Group(); g.position.set(x, 0, z); if (back) g.rotation.y = Math.PI; scene.add(g);
     block(1.42, 2.5, 0.06, 0x4a5064, 0, 1.25, 0.03, { parent: g, r: 0.02 }); // frame
-    block(1.2, 2.3, 0.08, doorTones[nIdx++ % doorTones.length], 0, 1.15, 0.06, { parent: g, r: 0.02 });
-    block(0.05, 0.36, 0.05, 0xb8bcc8, 0.46, 1.1, 0.12, { parent: g, r: 0.02 }); // a long pull handle
+    const tint = doorTones[nIdx++ % doorTones.length];
+    block(1.2, 2.3, 0.08, 0, 0, 1.15, 0.06, { parent: g, r: 0.02, mat: steel(tint) }); // steel, slides up like mine
+    steelDetail(g, 1.2, 0, 0.105, tint);
+    tube(0.025, 0.42, 0.015, 0xb8c4e0, 0.46, 1.1, 0.105, { parent: g, k: 0.8 }); // a flush light strip, no handle
     block(0.34, 0.15, 0.03, 0x14161f, 0, 2.66, 0.07, { parent: g, r: 0.01 });
     sign(label, 0.11, 0, 2.66, 0.09, { parent: g, color: "#dfe6ff", font: "600 100px 'JetBrains Mono'", k: 1.0, glow: 0.05, core: 0 });
     blinkers.push({ m: tube(0.025, 0.025, 0.02, nIdx % 3 ? 0x2bff88 : 0xff3b5c, -0.46, 1.3, 0.11, { parent: g, k: 2.0 }), rate: 0.05, phase: nIdx }); // occupied / away
