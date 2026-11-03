@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793686169";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793686457";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -66,17 +66,17 @@ const tube = (w, h, d, color, x, y, z, { parent = scene, k = 2.2 } = {}) => {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), glowMat(color, k)); m.position.set(x, y, z); parent.add(m); return m;
 };
 // Neon lettering, drawn on a canvas with a glow and a hot white core.
-const textTexture = (text, font, color) => {
+const textTexture = (text, font, color, glow = 0.25, core = 0.22) => {
   const c = document.createElement("canvas"), x = c.getContext("2d"), px = +font.match(/(\d+)px/)[1], pad = px * 0.35;
   x.font = font; c.width = Math.ceil(x.measureText(text).width + pad * 2); c.height = Math.ceil(px * 1.35 + pad * 2);
   x.font = font; x.textAlign = "center"; x.textBaseline = "middle";
-  x.fillStyle = color; x.shadowColor = color; x.shadowBlur = px * 0.25; x.fillText(text, c.width / 2, c.height / 2);
-  x.shadowBlur = 0; x.globalAlpha = 0.22; x.fillStyle = "#fff"; x.fillText(text, c.width / 2, c.height / 2);
+  x.fillStyle = color; x.shadowColor = color; x.shadowBlur = px * glow; x.fillText(text, c.width / 2, c.height / 2);
+  x.shadowBlur = 0; if (core) { x.globalAlpha = core; x.fillStyle = "#fff"; x.fillText(text, c.width / 2, c.height / 2); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
 };
-const sign = (text, height, x, y, z, { color = "#ff2a6d", font = "700 140px Rajdhani", rotY = 0, parent = scene, k = 1.5 } = {}) => {
-  const t = textTexture(text, font, color), w = (height * t.image.width) / t.image.height;
+const sign = (text, height, x, y, z, { color = "#ff2a6d", font = "700 140px Rajdhani", rotY = 0, parent = scene, k = 1.5, glow, core } = {}) => {
+  const t = textTexture(text, font, color, glow, core), w = (height * t.image.width) / t.image.height;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, height), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, toneMapped: false, color: new THREE.Color(k, k, k) }));
   m.position.set(x, y, z); m.rotation.y = rotY; m.userData.k = k; parent.add(m);
   return m;
@@ -208,7 +208,8 @@ const buildLiving = () => {
   block(0.46, 0.5, 0.46, 0x5b3a8a, 5.45, 0.25, -6.4, { r: 0.05 });
   ball(0.34, 0x17b890, 5.45, 0.82, -6.4); ball(0.26, 0x1fd6a5, 5.25, 1.12, -6.35); ball(0.24, 0x149e7c, 5.62, 1.08, -6.5);
   // neon art: I stack sats
-  sign("STACK SATS", 0.42, -5.88, 2.05, -4.8, { color: "#f9f002", rotY: Math.PI / 2, k: 1.45 }).userData.flicker = true;
+  block(0.04, 0.56, 2.5, 0x0c0818, -5.88, 2.05, -4.8, { r: 0.015 }); // a dark plate, so the letters read
+  sign("STACK SATS", 0.42, -5.84, 2.05, -4.8, { color: "#f7931a", rotY: Math.PI / 2, k: 0.92, glow: 0.08, core: 0 });
   tube(11.6, 0.03, 0.06, 0xff2a6d, 0, H - 0.03, -0.25, { k: 1.4 });
   const winLight = new THREE.PointLight(0x7b5cff, 6, 9); winLight.position.set(0, 2.2, -6.2); scene.add(winLight);
   const fill = new THREE.PointLight(0x05d9e8, 3, 10); fill.position.set(3.5, 2.6, -2); scene.add(fill);
@@ -358,22 +359,46 @@ const buildDecor = () => {
   }
   sign("NODE", 0.12, 0, 1.52, 0.26, { parent: node, color: "#f9f002", font: "700 100px Rajdhani", k: 1.4 });
   addHot(node, "living", "My Bitcoin node", "Click for its status", () => toast(height ? `My node is synced to block ${height.toLocaleString()}. Don't trust, verify.` : "My node is syncing…"));
-  // arcade cabinet (beside the window): plays me at chess
-  const arc = new THREE.Group(); arc.position.set(5.58, 0, -5.05); arc.rotation.y = -Math.PI / 2; scene.add(arc); // against the right wall
-  block(0.7, 1.0, 0.6, 0x3b1d7a, 0, 0.5, 0, { parent: arc, r: 0.04 });
-  block(0.7, 0.8, 0.42, 0x3b1d7a, 0, 1.4, -0.08, { parent: arc, r: 0.04 });
-  block(0.72, 0.18, 0.5, 0xff2a6d, 0, 1.88, -0.04, { parent: arc, r: 0.03 });
-  block(0.66, 0.08, 0.28, 0x16102e, 0, 1.02, 0.25, { parent: arc, r: 0.02 }); // control deck
-  ball(0.035, 0xff2a6d, -0.15, 1.08, 0.28, { parent: arc }); ball(0.03, 0x05d9e8, 0.08, 1.08, 0.3, { parent: arc }); ball(0.03, 0xf9f002, 0.17, 1.08, 0.28, { parent: arc });
+  // a chess table against the right wall, a game in progress: plays me at chess
+  const ct = new THREE.Group(); ct.position.set(5.45, 0, -5.05); ct.rotation.y = -Math.PI / 2; scene.add(ct); // local +z faces into the room
+  const wood = 0x5a3a2a;
+  block(0.66, 0.05, 0.66, wood, 0, 0.74, 0, { parent: ct, r: 0.02 });
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.7, 12), toon(wood)); stem.position.y = 0.37; ct.add(stem);
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.27, 0.04, 20), toon(0x3a2418)); foot.position.y = 0.02; ct.add(foot);
+  for (const o of [stem, foot]) { const ink = new THREE.Mesh(o.geometry, inkMat); ink.scale.set(1.12, 1.01, 1.12); o.add(ink); }
+  const B = 0.52, sq = B / 8;
+  const board = panel(B, B, canvasTex(512, 512, (x, w) => {
+    const c = w / 8;
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) { x.fillStyle = (r + f) % 2 ? "#4b2f7a" : "#e9dfcc"; x.fillRect(f * c, r * c, c, c); }
+    x.strokeStyle = "#05d9e8"; x.lineWidth = 8; x.strokeRect(4, 4, w - 8, w - 8);
+  }), 0, 0.768, 0, { parent: ct, k: 0.95 });
+  board.rotation.x = -Math.PI / 2;
+  // pieces, built from simple shapes. A middlegame: (file 0–7, rank 0–7, type, side)
+  const piece = (f, r, type, white) => {
+    const g = new THREE.Group(); g.position.set((f - 3.5) * sq, 0.77, (3.5 - r) * sq); ct.add(g);
+    const col = white ? 0xf3eee6 : 0x24233a, m = toon(col), add = (geo, y) => { const o = new THREE.Mesh(geo, m); o.position.y = y; g.add(o); return o; };
+    add(new THREE.CylinderGeometry(0.019, 0.022, 0.012, 12), 0.006);
+    if (type === "p") { add(new THREE.CylinderGeometry(0.008, 0.014, 0.03, 10), 0.026); add(new THREE.SphereGeometry(0.012, 10, 8), 0.046); }
+    if (type === "r") { add(new THREE.CylinderGeometry(0.014, 0.016, 0.042, 10), 0.033); add(new THREE.CylinderGeometry(0.017, 0.017, 0.012, 10), 0.058); }
+    if (type === "n") { add(new THREE.CylinderGeometry(0.012, 0.016, 0.03, 10), 0.027); const h = add(new THREE.BoxGeometry(0.016, 0.03, 0.028), 0.055); h.rotation.x = white ? -0.4 : 0.4; }
+    if (type === "b") { add(new THREE.CylinderGeometry(0.007, 0.015, 0.045, 10), 0.033); add(new THREE.SphereGeometry(0.012, 10, 8), 0.063); }
+    if (type === "q" || type === "k") {
+      add(new THREE.CylinderGeometry(0.009, 0.017, 0.06, 10), 0.04); add(new THREE.SphereGeometry(0.014, 10, 8), 0.076);
+      if (type === "k") { add(new THREE.BoxGeometry(0.005, 0.022, 0.005), 0.098); add(new THREE.BoxGeometry(0.014, 0.005, 0.005), 0.1); }
+    }
+  };
+  [[4, 0, "k", 1], [3, 2, "q", 1], [0, 0, "r", 1], [5, 0, "r", 1], [2, 2, "n", 1], [4, 3, "p", 1], [3, 3, "p", 1], [5, 1, "p", 1], [6, 1, "p", 1], [7, 2, "p", 1], [1, 1, "p", 1], [2, 3, "b", 1],
+   [6, 7, "k", 0], [3, 7, "q", 0], [0, 7, "r", 0], [5, 7, "r", 0], [5, 5, "n", 0], [4, 4, "p", 0], [3, 5, "p", 0], [5, 6, "p", 0], [6, 6, "p", 0], [7, 5, "p", 0], [1, 6, "p", 0], [6, 4, "b", 0]]
+    .forEach(([f, r, t, w]) => piece(f, r, t, !!w));
+  // two stools
+  for (const sx of [-0.55, 0.55]) {
+    const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.07, 18), toon(0x3b2f8f)); seat.position.set(sx, 0.48, 0.05); ct.add(seat);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.45, 8), toon(0x221a40)); leg.position.set(sx, 0.225, 0.05); ct.add(leg);
+    for (const o of [seat, leg]) { const ink = new THREE.Mesh(o.geometry, inkMat); ink.scale.set(1.12, 1.04, 1.12); o.add(ink); }
+  }
+  sign("♚ PLAY ME", 0.14, 0, 1.55, -0.32, { parent: ct, color: "#05d9e8", font: "700 100px Rajdhani", k: 1.0, glow: 0.1, core: 0 });
   const chessUser = S.chess?.username;
-  panel(0.56, 0.48, canvasTex(280, 240, (x, w, h) => {
-    x.fillStyle = "#0a0420"; x.fillRect(0, 0, w, h);
-    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { x.fillStyle = (r + c) % 2 ? "#1f1448" : "#3a2a75"; x.fillRect(40 + c * 50, 30 + r * 40, 50, 40); }
-    x.textAlign = "center"; x.textBaseline = "middle"; x.font = "64px serif"; x.fillStyle = "#f4f3ff"; x.shadowColor = "#05d9e8"; x.shadowBlur = 16; x.fillText("♚", w / 2, 110);
-    x.font = "700 40px Rajdhani"; x.fillStyle = "#f9f002"; x.shadowColor = "#f9f002"; x.fillText("PLAY ME", w / 2, 210);
-  }), 0, 1.42, 0.14, { parent: arc, k: 1.25 });
-  sign("ARCADE", 0.12, 0, 1.88, 0.22, { parent: arc, color: "#f4f3ff", font: "700 100px Rajdhani", k: 1.3 });
-  if (chessUser) addHot(arc, "living", "Arcade: play me at chess", "Opens a challenge on Chess.com", () => window.open(`https://www.chess.com/play/online/new?opponent=${encodeURIComponent(chessUser)}`, "_blank", "noopener"));
+  if (chessUser) addHot(ct, "living", "Play me at chess", "Opens a challenge on Chess.com", () => window.open(`https://www.chess.com/play/online/new?opponent=${encodeURIComponent(chessUser)}`, "_blank", "noopener"));
   // the plant moves to the other corner to make room
   // hologram projector on the coffee table: a slowly turning wireframe gem
   block(0.26, 0.05, 0.26, 0x16102e, 0, 0.525, -5.95, { r: 0.02 });
