@@ -9,7 +9,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793692038";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793692241";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -145,10 +145,12 @@ const buildOutside = () => {
   block(1.36, 2.36, 0.08, 0, 0.68, 1.18, 0, { parent: doorPivot, r: 0.03, mat: steel(0x6c7389) }); // gunmetal, a shade darker so the neon P stands out
   steelDetail(doorPivot, 1.36, 0.68, 0.045, 0x6c7389);
   // a tall pin pad set into the door where a handle would be: a little readout, keys running down, a status light
-  block(0.17, 0.5, 0.025, 0x101219, 1.2, 1.15, 0.045, { parent: doorPivot, r: 0.012 });
-  tube(0.12, 0.035, 0.01, 0x05d9e8, 1.2, 1.35, 0.06, { parent: doorPivot, k: 0.9 });
-  for (let i = 0; i < 12; i++) tube(0.028, 0.028, 0.01, 0x05d9e8, 1.155 + (i % 3) * 0.045, 1.28 - Math.floor(i / 3) * 0.055, 0.06, { parent: doorPivot, k: 1.3 });
-  keypadLed = tube(0.05, 0.012, 0.01, unlocked ? 0x2bff88 : 0xff3b5c, 1.2, 0.96, 0.06, { parent: doorPivot, k: 2.2 }); // red while locked
+  const padG = new THREE.Group(); doorPivot.add(padG);
+  block(0.17, 0.5, 0.025, 0x101219, 1.2, 1.15, 0.045, { parent: padG, r: 0.012 });
+  tube(0.12, 0.035, 0.01, 0x05d9e8, 1.2, 1.35, 0.06, { parent: padG, k: 0.9 });
+  for (let i = 0; i < 12; i++) tube(0.028, 0.028, 0.01, 0x05d9e8, 1.155 + (i % 3) * 0.045, 1.28 - Math.floor(i / 3) * 0.055, 0.06, { parent: padG, k: 1.3 });
+  keypadLed = tube(0.05, 0.012, 0.01, 0xff3b5c, 1.2, 0.96, 0.06, { parent: padG, k: 2.2 }); // red while locked
+  addHot(padG, "outside", "Door keypad", touch ? "Tap to enter the code" : "Click to enter the code", () => go("living"));
   blinkers.push({ m: keypadLed, rate: 0.25, phase: 0 });
   sign("4B", 0.16, 0.68, 2.16, 0.05, { parent: doorPivot, color: "#f9f002", font: "700 100px Rajdhani", k: 1.1 });
   addHot(doorPivot, "outside", "Come on in", touch ? "Tap to open the door" : "Click to open the door", () => go("living"));
@@ -180,7 +182,7 @@ const buildOutside = () => {
     blinkers.push({ m: tube(0.025, 0.025, 0.02, nIdx % 3 ? 0x2bff88 : 0xff3b5c, -0.46, 1.3, 0.11, { parent: g, k: 2.0 }), rate: 0.05, phase: nIdx }); // occupied / away
     block(1.0, 0.025, 0.55, 0x1e2029, 0, 0.012, 0.42, { parent: g, r: 0.01, ink: false }); // their mat
   };
-  neighbour(-5.2, 0, false, "4A"); neighbour(5.2, 0, false, "4C"); neighbour(10.4, 0, false, "4D");
+  neighbour(-5.2, 0.1, false, "4A"); neighbour(5.2, 0.1, false, "4C"); neighbour(10.4, 0.1, false, "4D"); // on the face of my wall, which is 0.1 thick each side of z 0
   neighbour(8.6, Dp, true, "4E"); neighbour(2.8, Dp, true, "4F"); neighbour(-2.6, Dp, true, "4G"); neighbour(-8.4, Dp, true, "4H");
   // the lift at the far end (down to the pizza place)
   const lift = new THREE.Group(); lift.position.set(-10.6, 0, 0); scene.add(lift);
@@ -918,7 +920,8 @@ const go = (to) => {
   const step = (i, cur) => {
     if (i >= route.length) return;
     const nxt = route[i];
-    const launch = () => fly(cur, nxt, () => { room = nxt; setRoomUI(); if (nxt === "outside") doorTo = 0; step(i + 1, nxt); });
+    // back outside, the door shuts and locks behind you
+    const launch = () => fly(cur, nxt, () => { room = nxt; setRoomUI(); if (nxt === "outside") { doorTo = 0; lockDoor(); } step(i + 1, nxt); });
     if (cur === "outside" && nxt === "living" && doorOpen < 0.99) { doorTo = 1; setTimeout(launch, reduce ? 0 : 650); } else launch();
   };
   ui.hint.textContent = "";
@@ -1089,8 +1092,8 @@ const tileAt = (e) => {
 // Only a hash of the code is in the page. (A code checked in the browser keeps casual visitors out;
 // it isn't real security.) Once in, it stays unlocked for the rest of the browser session.
 const PASS_HASH = "09b51bb1c30fc4f572cf45ead15e8da7a27ca2212225899c46237fd1d0af0671";
-let unlocked = false, keypadLed = null;
-try { unlocked = sessionStorage.getItem("apt4b") === "1"; } catch {}
+let unlocked = false, keypadLed = null; // locked on every visit
+const lockDoor = () => { unlocked = false; keypadLed?.material.color.copy(new THREE.Color(0xff3b5c).multiplyScalar(2.2)); };
 const pad = $("#h-pad"), padBox = pad.querySelector(".h-pad-box"), padDots = [...pad.querySelectorAll(".pad-dots i")], padMsg = $("#pad-msg");
 let entry = "", padAfter = null, checking = false;
 const sha256 = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -1111,7 +1114,7 @@ const checkCode = async () => {
   if (checking) return; checking = true;
   const ok = !!crypto.subtle && (await sha256(`pierpont-4b:${entry}`)) === PASS_HASH;
   if (ok) {
-    unlocked = true; try { sessionStorage.setItem("apt4b", "1"); } catch {}
+    unlocked = true;
     pad.classList.add("granted"); padMsg.textContent = "ACCESS GRANTED";
     keypadLed?.material.color.copy(new THREE.Color(0x2bff88).multiplyScalar(2.2));
     setTimeout(() => { const a = padAfter; closePad(); checking = false; a?.(); }, 650);
