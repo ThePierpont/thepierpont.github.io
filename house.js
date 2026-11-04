@@ -12,7 +12,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793773522";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793775605";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -1667,7 +1667,7 @@ const clockFmt = (() => {
   try { return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", timeZone: S.timezone || undefined }); }
   catch { return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }); }
 })();
-let height = 0, skyline = null;
+let height = 0, skyline = null, cityPhoto = null, glassMat = null;
 const drawSkyline = () => { // painted once; the HUD is layered on top every few seconds
   // DC at night, painted to read like a long-exposure photo rather than a cartoon: a smoggy sky lit from below
   // by the city, layers of towers fading into haze with real window grids (warm homes, cool offices, dark floors),
@@ -1861,10 +1861,13 @@ const drawHUD = (x, a) => {
 };
 const drawWindow = () => {
   if (!windowCanvas) return;
-  if (!skyline) drawSkyline();
   const x = windowCanvas.getContext("2d");
   x.setTransform(1.25, 0, 0, 1.25, 0, 0);
-  x.drawImage(skyline, 0, 0);
+  // the view itself: on desktop the glass shader draws the photo layers, so this canvas only carries the HUD;
+  // phones get the flattened photo; the painted skyline is the fallback if the photos haven't loaded
+  if (glassMat) x.clearRect(0, 0, 2080, 800);
+  else { if (!cityPhoto && !skyline) drawSkyline(); x.drawImage(cityPhoto || skyline, 0, 0, 2080, 800); }
+  if (glassMat) glassMat.uniforms.rainK.value = 1 - winApp;
   if (winApp < 0.35) drawHUD(x, 1 - winApp / 0.35);
   if (winApp > 0) drawApp(x, winApp);
   if (rainMesh) rainMesh.material.opacity = 0.18 * (1 - winApp); // rain clears off the glass while the app is up
@@ -2863,6 +2866,7 @@ const frame = (now) => {
   }
   if (!lite && (flight || Math.abs(doorTo - doorOpen) > 0.002 || now - (frame.shadowT || 0) > 400)) { renderer.shadowMap.needsUpdate = true; frame.shadowT = now; }
   if (lens && !reduce) lens.uniforms.time.value = (now % 10000) / 1000;
+  if (glassMat && !reduce) glassMat.uniforms.time.value = now / 1000;
   cv.step(now);
   composer.render();
   cv.render(); // a pulled-out case, on top
@@ -2872,13 +2876,95 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
   openNode, closeNode,
   peek(p, l) { peekView = p ? { pos: V(...p), look: V(...l), yaw: 0 } : null; }, get room() { return room; }, set yaw(v) { yaw = v; } };
 
+// ---------- the city through the window ----------
+// A photo composite of a cyberpunk-future DC (the Capitol and the Monument among megatowers, built from
+// public-domain / CC0 night photos: images/city). Desktop draws it through a glass shader:
+//  · depth: four layers (sky, far towers, megatowers, DC and the Mall) sit at different distances, so the
+//    view shifts properly as you move, like a real window
+//  · rain: drops on the glass act as tiny lenses (each one a small flipped view of the city), a few sliding down
+//  · focus: the city is a touch soft behind the sharp drops
+//  · reflection: a faint ghost of the room on the glass (captured once from the window)
+// Phones get the same photo flattened into one image on the plain glass.
+// Sources (Wikimedia Commons, public domain or CC0): "US Capitol Building at night Jan 2006", "US Navy 040709-N-0295M-004
+// The Washington Monument and Thomas Jefferson Memorial…", "Roppongi at night seen from Shibuya Stream" (CC0),
+// "Hong Kong Island Building" (CC0). Cut out, graded and layered by hand; the screens are drawn on.
+const buildCity = () => {
+  const P = "images/city/", CITY_V = "?v=1793775605"; // bump when the pictures change
+  if (lite) { const im = new Image(); im.onload = () => { cityPhoto = im; drawWindow(); }; im.src = P + "flat.jpg" + CITY_V; return; }
+  const tex = (n) => new Promise((ok, no) => loader.load(P + n + CITY_V, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = THREE.MirroredRepeatWrapping; ok(t); }, undefined, no));
+  // drops: a normal map painted on a canvas (red/green = how the drop bends light, blue = drop or not)
+  const drops = (() => { const c = document.createElement("canvas"); c.width = c.height = 512; const x = c.getContext("2d");
+    x.fillStyle = "rgb(128,128,0)"; x.fillRect(0, 0, 512, 512); const im = x.getImageData(0, 0, 512, 512), d = im.data;
+    let sd = 7; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 110; i++) { const cx = r() * 512, cy = r() * 512, rad = 3 + Math.pow(r(), 2.2) * 13, ry = rad * (1 + r() * 0.5);
+      for (let yy = Math.floor(cy - ry); yy <= cy + ry; yy++) for (let xx = Math.floor(cx - rad); xx <= cx + rad; xx++) {
+        const nx = (xx - cx) / rad, ny = (yy - cy) / ry, l = nx * nx + ny * ny; if (l > 1) continue;
+        const k = (((yy + 512) % 512) * 512 + ((xx + 512) % 512)) * 4; d[k] = 128 + nx * 120; d[k + 1] = 128 - ny * 120; d[k + 2] = 255; } }
+    x.putImageData(im, 0, 0); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; return t; })();
+  // the room, as seen from the window: rendered once into a small cube map for the reflection
+  const cubeRT = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
+  const cubeCam = new THREE.CubeCamera(0.1, 30, cubeRT); cubeCam.position.set(0, 1.9, -6.8); scene.add(cubeCam);
+  const capture = () => { const hide = [windowGlass, rainMesh].filter(Boolean); hide.forEach((m) => (m.visible = false)); cubeCam.update(renderer, scene); hide.forEach((m) => (m.visible = true)); if (rainMesh) rainMesh.visible = false; };
+  Promise.all(["L0_sky.webp", "L1_far.webp", "L2_mid.webp", "L3_dc.webp"].map(tex)).then(([sky, far, mid, dc]) => {
+    glassMat = new THREE.ShaderMaterial({
+      uniforms: { tSky: { value: sky }, tFar: { value: far }, tMid: { value: mid }, tDC: { value: dc }, tHUD: { value: windowTex }, tDrops: { value: drops }, tRoom: { value: cubeRT.texture },
+        eye0: { value: V(0, 1.9, -1.1) }, time: { value: 0 }, rainK: { value: 1 }, reflK: { value: 0.07 }, gain: { value: 0.9 } },
+      vertexShader: `varying vec3 vWorld; varying vec2 vUv;
+        void main() { vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+      fragmentShader: `uniform sampler2D tSky, tFar, tMid, tDC, tHUD, tDrops; uniform samplerCube tRoom;
+        uniform vec3 eye0; uniform float time, rainK, reflK, gain; varying vec3 vWorld; varying vec2 vUv;
+        const float GZ = -7.02; // the glass, 5.2 x 2 m, centred at (0, 1.9)
+        // where a layer D metres behind the glass is hit, in the layer's own picture coordinates
+        vec2 lay(vec3 v, float D, vec2 off) {
+          vec3 q = vWorld + v * (D / max(0.04, -v.z));
+          float d0 = eye0.z - GZ, t = d0 / (d0 + D);
+          vec2 g = eye0.xy + (q.xy - eye0.xy) * t;
+          vec2 w = vec2((g.x + 2.6) / 5.2, (g.y - 0.9) / 2.0) + off;
+          w = (w - vec2(0.5, 0.12)) / 1.22 + vec2(0.5, 0.12); // the city a little closer than composed
+          vec2 u = (w + 0.125) / 1.25; return vec2(u.x, clamp(u.y, 0.002, 0.998)); // sideways, the city carries on (mirrored) past the edges
+        }
+        vec3 over(vec3 c, vec4 l) { return mix(c, l.rgb, l.a); }
+        vec3 city(vec3 v, vec2 off, float b) {
+          vec3 c = texture(tSky, lay(v, 400.0, off * 0.3), b + 0.6).rgb;
+          c = over(c, texture(tFar, lay(v, 120.0, off * 0.5), b));
+          c = over(c, texture(tMid, lay(v, 45.0, off * 0.8), b));
+          c = over(c, texture(tDC, lay(v, 18.0, off), b));
+          return c;
+        }
+        void main() {
+          vec3 v = normalize(vWorld - cameraPosition);
+          // drops: a still scatter, and a sparser set sliding slowly down
+          vec2 ru = vUv * vec2(5.2, 2.0);
+          vec4 d1 = texture(tDrops, ru * 0.9);
+          vec4 d2 = texture(tDrops, ru * 1.3 + vec2(0.37, time * 0.02));
+          vec4 dr = d2.b > 0.5 ? d2 : d1; float isDrop = dr.b * rainK;
+          vec2 n = (dr.rg - 0.5) * 2.0;
+          // each drop is a little lens: a sharp, flipped, shrunk view; between drops the city is soft
+          vec3 sharp = city(v, -n * 0.03, -0.5), soft = city(v, vec2(0.0), 0.8);
+          float rim = smoothstep(0.45, 1.0, dot(n, n)); // the edge of a drop bends light away: a dark ring
+          vec3 drop = sharp * (1.15 - 0.75 * rim) + pow(max(0.0, dot(n, normalize(vec2(-0.5, 0.8)))), 10.0) * 0.5; // and a glint where the room's light catches it
+          vec3 col = mix(soft, drop, isDrop);
+          col *= gain;
+          // the room's faint reflection: stronger at a glancing angle
+          vec3 r = reflect(v, vec3(0.0, 0.0, 1.0));
+          float fres = reflK * (0.6 + 2.4 * pow(1.0 - abs(v.z), 3.0));
+          col += texture(tRoom, r).rgb * fres;
+          vec4 hud = texture(tHUD, vUv); col = mix(col, hud.rgb * 0.85, hud.a);
+          gl_FragColor = vec4(col, 1.0);
+        }`,
+    });
+    windowGlass.material = glassMat; if (rainMesh) rainMesh.visible = false;
+    drawWindow(); capture(); setTimeout(capture, 4000); // again once the shelf photos and posters have streamed in
+  }).catch(() => {}); // the painted city stays if the photos don't load
+};
+
 // ---------- start ----------
 (async () => {
   await Promise.race([
     Promise.all(["700 140px Rajdhani", "500 34px 'JetBrains Mono'", "500 38px Inter", "600 40px Inter", "italic 400 38px Inter"].map((f) => document.fonts.load(f))),
     new Promise((r) => setTimeout(r, 2500)),
   ]);
-  buildOutside(); buildLiving(); buildTheater(); buildKitchen(); buildKitchenMore(); buildGallery(); buildDecor(); buildHallMore(); buildCats(); buildHolo();
+  buildOutside(); buildLiving(); buildTheater(); buildKitchen(); buildKitchenMore(); buildGallery(); buildDecor(); buildHallMore(); buildCats(); buildHolo(); buildCity();
   scene.add(new THREE.AmbientLight(0x5b4a9a, 0.3)); // low: the room's light comes from its lamps, neon and the city
   scene.add(new THREE.HemisphereLight(0x9d8cff, 0x1a0f30, 0.45));
   const key = new THREE.DirectionalLight(0xffffff, 0.7); key.position.set(3, 6, 4); scene.add(key);
