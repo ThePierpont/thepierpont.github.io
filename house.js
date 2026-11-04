@@ -1,5 +1,6 @@
 // The 3D apartment (house.html): front door → living room → theater, more rooms to come.
-// Cartoon look: toon-shaded rounded blocks with ink outlines, lit by neon (bloom makes it glow).
+// Look: physically based materials lit by neon and city light, with soft reflections, ambient occlusion
+// and bloom. A step towards real, not all the way (the cartoon version is tagged apartment-cartoon-v1).
 // Live bits: the theater screen shows my latest Letterboxd watch, the window shows DC's time and
 // the Bitcoin block height, and the theater has my real movie shelf: walk up, lean into a row,
 // and pull any movie out (the case pop-out is shared with the main page: case-viewer.js).
@@ -9,7 +10,8 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793742775";
+import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793771874";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -21,8 +23,26 @@ const ui = { room: $("#h-room"), back: $("#h-back"), hint: $("#h-hint"), tip: $(
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" }); }
 catch (e) { document.body.classList.add("no-3d"); throw e; }
-renderer.setPixelRatio(Math.min(devicePixelRatio, touch ? 1.5 : 2));
+// Phones get a lighter build (and this is as heavy as the phone version goes): simpler matte shading
+// instead of PBR, no shadows, no ambient occlusion, lower resolution and a cheaper bloom. Desktop gets it all.
+const lite = touch || location.search.includes("lite"); // ?lite previews the phone build on a computer
+renderer.setPixelRatio(Math.min(devicePixelRatio, lite ? 1.15 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+// Tone mapping: Khronos "PBR Neutral" (written in by hand, three r160 predates it). It leaves the
+// mid-tones alone and only rolls off the highlights, so neon keeps its colour instead of going pastel.
+THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace("vec3 CustomToneMapping( vec3 color ) { return color; }", `
+vec3 CustomToneMapping( vec3 color ) {
+  const float startC = 0.76; const float desat = 0.15;
+  color *= toneMappingExposure;
+  float x = min( color.r, min( color.g, color.b ) );
+  color -= x < 0.08 ? x - 6.25 * x * x : 0.04;
+  float peak = max( color.r, max( color.g, color.b ) );
+  if ( peak < startC ) return color;
+  float d = 1.0 - startC, np = 1.0 - d * d / ( peak + d - startC );
+  color *= np / peak;
+  return mix( color, vec3( np ), 1.0 - 1.0 / ( desat * ( peak - np ) + 1.0 ) );
+}`);
+renderer.toneMapping = THREE.CustomToneMapping; renderer.toneMappingExposure = 1.0;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x07050f);
 scene.fog = new THREE.Fog(0x07050f, 16, 34);
@@ -31,20 +51,36 @@ const loader = new THREE.TextureLoader();
 
 // ---------- materials + building blocks ----------
 const H = 3.4; // ceiling height (metres)
-const grad = new THREE.DataTexture(new Uint8Array([80, 80, 80, 255, 165, 165, 165, 255, 255, 255, 255, 255]), 3, 1);
-grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true; // three flat bands of light: the cartoon look
-const toon = (color, o = {}) => new THREE.MeshToonMaterial({ color, gradientMap: grad, ...o });
+// Every surface is a standard (PBR) material: satin by default, so the neon and the city catch in it.
+// (Still called `toon` from the cartoon days, so the build code stays the same.)
+const toon = (color, o = {}) => {
+  if (!lite) return new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.04, ...o });
+  const { roughness, metalness, ...rest } = o; // phones: Lambert (one cheap diffuse term per light), shiny metal gets Phong
+  return metalness > 0.5 ? new THREE.MeshPhongMaterial({ color, shininess: 50, specular: 0x555a66, ...rest }) : new THREE.MeshLambertMaterial({ color, ...rest });
+};
+// soft fabric: fully matte, with a fine woven texture you only notice up close
+let weaveTex;
+const fabricM = (color) => {
+  weaveTex ||= (() => { const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d");
+    x.fillStyle = "#808080"; x.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 128; i += 4) { x.fillStyle = "rgba(255,255,255,.18)"; x.fillRect(i, 0, 2, 128); x.fillStyle = "rgba(0,0,0,.16)"; x.fillRect(0, i, 128, 2); }
+    for (let i = 0; i < 900; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? "0,0,0" : "255,255,255"},${Math.random() * 0.12})`; x.fillRect(Math.random() * 128, Math.random() * 128, 2, 2); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 6); return t; })();
+  return lite ? new THREE.MeshLambertMaterial({ color }) : new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0, bumpMap: weaveTex, bumpScale: 0.6 });
+};
 const glowMat = (color, k = 2) => new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false });
-const inkMat = new THREE.MeshBasicMaterial({ color: 0x05030a, side: THREE.BackSide });
-const lineMat = new THREE.LineBasicMaterial({ color: 0x05030a });
+// the cartoon ink outlines are retired: anything still made with these is simply not drawn
+const inkMat = new THREE.MeshBasicMaterial({ visible: false });
+const lineMat = new THREE.LineBasicMaterial({ visible: false });
 
-// A chunky rounded block with a cartoon ink outline (a slightly bigger, inside-out black copy).
-const block = (w, h, d, color, x, y, z, { parent = scene, r = 0.07, mat, ink = true, rot } = {}) => {
+// A rounded block (tighter radii than the cartoon days, so edges read as made, not inflated).
+const block = (w, h, d, color, x, y, z, { parent = scene, r = 0.07, mat, ink = false, rot } = {}) => {
+  r = Math.min(r, 0.045);
   const geo = new RoundedBoxGeometry(w, h, d, 3, Math.max(0.004, Math.min(r, Math.min(w, h, d) / 2 - 0.002)));
   const m = new THREE.Mesh(geo, mat || toon(color));
   m.position.set(x, y, z);
   if (rot) m.rotation.set(...rot);
-  if (ink) { const o = 0.045, hull = new THREE.Mesh(geo, inkMat); hull.scale.set((w + o) / w, (h + o) / h, (d + o) / d); m.add(hull); }
+  if (ink && false) { const o = 0.045, hull = new THREE.Mesh(geo, inkMat); hull.scale.set((w + o) / w, (h + o) / h, (d + o) / d); m.add(hull); }
   parent.add(m);
   return m;
 };
@@ -52,13 +88,12 @@ const block = (w, h, d, color, x, y, z, { parent = scene, r = 0.07, mat, ink = t
 const slab = (w, h, d, color, x, y, z, { parent = scene } = {}) => {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toon(color));
   m.position.set(x, y, z);
-  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), lineMat));
   parent.add(m);
   return m;
 };
 const ball = (r, color, x, y, z, { parent = scene } = {}) => {
   const geo = new THREE.SphereGeometry(r, 18, 14), m = new THREE.Mesh(geo, toon(color));
-  m.position.set(x, y, z); const hull = new THREE.Mesh(geo, inkMat); hull.scale.setScalar(1 + 0.05 / r); m.add(hull);
+  m.position.set(x, y, z);
   parent.add(m); return m;
 };
 // A neon tube: a thin glowing bar.
@@ -95,7 +130,7 @@ const addHot = (obj, room, label, sub, act) => { obj.userData.hot = hot.length; 
 
 // ---------- the front hallway (outside the apartment, +z) ----------
 let doorPivot, steelTex;
-const steelM = (tint) => toon(tint, { map: steelTex }); // brushed steel, made in buildOutside
+const steelM = (tint) => toon(tint, { map: steelTex, metalness: 0.75, roughness: 0.36 }); // brushed steel, made in buildOutside
 const buildOutside = () => {
   // The building's hallway: it runs left and right (x), my door is partway along the near wall,
   // and there are neighbours on both sides and across the hall behind you. It fades out both ways.
@@ -118,7 +153,7 @@ const buildOutside = () => {
     const gl = x.createLinearGradient(0, 0, w, w); gl.addColorStop(0.3, "rgba(255,255,255,0)"); gl.addColorStop(0.5, "rgba(170,200,255,.07)"); gl.addColorStop(0.7, "rgba(255,255,255,0)"); x.fillStyle = gl; x.fillRect(0, 0, w, w); // a wet sheen
     x.strokeStyle = "#0e0f16"; x.lineWidth = 4; for (let i = 0; i <= n; i++) { x.beginPath(); x.moveTo(i * c, 0); x.lineTo(i * c, w); x.stroke(); x.beginPath(); x.moveTo(0, i * c); x.lineTo(w, i * c); x.stroke(); }
   }); floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set((2 * L) / 1.2, Dp / 1.2);
-  finish(2 * L, 0.1, Dp, floorTex, 0, -0.05, Dp / 2);
+  finish(2 * L, 0.1, Dp, floorTex, 0, -0.05, Dp / 2).material.roughness = 0.3; // wet-look polished tiles
   slab(2 * L, 0.1, Dp, 0x1c1e28, 0, H + 0.05, Dp / 2);
   finish(2 * L, H, 0.2, wallTex(2 * L), 0, H / 2, Dp + 0.1); // across the hall
   for (const s of [-1, 1]) finish(0.2, H, Dp, wallTex(Dp), s * (L + 0.1), H / 2, Dp / 2);
@@ -139,7 +174,7 @@ const buildOutside = () => {
     x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(0, h * 0.42, w, 3); // a factory seam
     x.fillStyle = "rgba(255,255,255,.12)"; x.fillRect(0, h * 0.42 + 3, w, 1);
   });
-  const steel = (tint) => toon(tint, { map: steelTex });
+  const steel = steelM;
   // ribs and a kick plate: the parts that make a sheet of steel read as a door
   const steelDetail = (g, w, cx, front, tint) => {
     for (let i = 0; i < 3; i++) block(w - 0.3, 0.035, 0.02, 0, cx, 0.5 + i * 0.12, front, { parent: g, r: 0.008, mat: steel(0xc4cad8) });
@@ -207,7 +242,7 @@ const buildOutside = () => {
   for (const zz of [0.2, Dp - 0.2]) for (const [dy, r, c] of [[0.12, 0.035, 0x6c7389], [0.2, 0.022, 0xb36b2c]]) {
     const pipe = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 2 * L, 12), steelM(c)); pipe.rotation.z = Math.PI / 2; pipe.position.set(0, H - dy, zz + (zz < 1 ? 0.02 : -0.02)); scene.add(pipe); }
   for (let xx = -L + 1; xx < L; xx += 2.2) for (const zz of [0.17, Dp - 0.17]) block(0.04, 0.14, 0.07, 0x1a1d28, xx, H - 0.15, zz, { r: 0.01, ink: false });
-  for (const xx of [-8, 0, 8]) { const hl = new THREE.PointLight(0xc8d0ff, 2.4, 9); hl.position.set(xx, 3.0, Dp / 2); scene.add(hl); }
+  for (const xx of [-8, 0, 8]) { const hl = new THREE.PointLight(0xc8d0ff, 2.4, 9); hl.position.set(xx, 3.0, Dp / 2); hl.userData.shadow = xx === 0 ? 2 : 0; scene.add(hl); }
 };
 
 // the hallway, lived in: windows onto the city at both ends, warm sconces against the cool light,
@@ -292,7 +327,7 @@ const buildLiving = () => {
   const plain = 0x1d2232;
   const floorTex = canvasTex(512, 512, (x, w) => { x.fillStyle = "#0c0d14"; x.fillRect(0, 0, w, w); x.fillStyle = "rgba(255,255,255,.035)"; x.fillRect(0, 0, w, 3); x.fillRect(0, 0, 3, w); x.fillStyle = "rgba(120,170,255,.05)"; x.fillRect(20, 20, w - 40, w * 0.4); }); // big glossy tiles with a sheen
   floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(12 / 1.5, 7 / 1.5);
-  { const f = new THREE.Mesh(new THREE.BoxGeometry(12, 0.1, 7), toon(0xffffff, { map: floorTex })); f.position.set(0, -0.05, -3.5); scene.add(f); }
+  { const f = new THREE.Mesh(new THREE.BoxGeometry(12, 0.1, 7), toon(0xffffff, { map: floorTex, roughness: 0.28 })); f.position.set(0, -0.05, -3.5); scene.add(f); }
   slab(12, 0.1, 7, 0x0b0c12, 0, H + 0.05, -3.5);
   wall(0.2, H, 7, -6, H / 2, -3.5, 7);
   wall(0.2, H, 2.9, 6, H / 2, -1.45, 2.9); wall(0.2, H, 2.7, 6, H / 2, -5.65, 2.7); slab(0.2, H - 2.4, 1.4, plain, 6, 2.4 + (H - 2.4) / 2, -3.6); // the right wall, with the gallery doorway
@@ -395,10 +430,10 @@ const buildLiving = () => {
       for (let y = -zig; y < h + zig; y += zig) { x.strokeStyle = (y / zig) % 2 ? "#c9ccd6" : "#2a2d38"; x.beginPath(); for (let px = 0, up = true; px <= w + zig; px += zig, up = !up) x.lineTo(px, y + (up ? 0 : zig * 0.6)); x.stroke(); }
       x.strokeStyle = "#0e1018"; x.lineWidth = 28; x.strokeRect(14, 14, w - 28, h - 28); x.strokeStyle = "#c9ccd6"; x.lineWidth = 4; x.strokeRect(34, 34, w - 68, h - 68);
     });
-    const rug = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 3.0), toon(0xffffff, { map: rugTex })); rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.012, -5.2); scene.add(rug); }
+    const rugM = fabricM(0xffffff); rugM.map = rugTex; rugM.bumpScale = 1.2; const rug = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 3.0), rugM); rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.012, -5.2); scene.add(rug); }
   // Lounge furniture: white composite on recessed dark bases, cyan light lines, chunky chamfered arms with
   // little screens set into their tops. A three-seat sofa facing the window, an armchair beside it, the coffee table.
-  const shell = 0xe6e9f0, cush = 0xd3d8e3;
+  const shell = 0xc9ced8, cush = 0x9fa6b5; // pale composite frame, grey woven cushions
   const uiTex = (w, h, big) => canvasTex(w, h, (x) => {
     x.fillStyle = "#081018"; x.fillRect(0, 0, w, h); x.strokeStyle = "#05d9e8"; x.lineWidth = 3; x.strokeRect(4, 4, w - 8, h - 8);
     x.fillStyle = "#05d9e8"; x.font = `600 ${big ? 34 : 24}px 'JetBrains Mono'`; x.fillText(big ? "LOUNGE · AMBIENT" : "21°", 16, big ? 48 : 40);
@@ -416,9 +451,9 @@ const buildLiving = () => {
     tube(W + 0.6, 0.012, 0.012, 0x05d9e8, 0, 0.04, -D / 2 + 0.06, { parent: g, k: 0.9 }); // underglow
     block(W, 0.35, D, shell, 0, 0.245, 0, { parent: g, r: 0.03 }); // the plinth
     tube(W, 0.014, 0.01, 0x05d9e8, 0, 0.2, -D / 2 - 0.006, { parent: g, k: 1.0 }); // a light line along its front
-    for (let i = 0; i < seats; i++) block(sw - 0.04, 0.26, D - 0.18, cush, (i - (seats - 1) / 2) * sw, 0.55, -0.07, { parent: g, r: 0.05 }); // seat cushions
+    for (let i = 0; i < seats; i++) block(sw - 0.04, 0.26, D - 0.18, cush, (i - (seats - 1) / 2) * sw, 0.55, -0.07, { parent: g, r: 0.05, mat: fabricM(cush) }); // seat cushions
     block(W, 0.62, 0.16, shell, 0, 0.73, D / 2 - 0.08, { parent: g, r: 0.03 }); // the back
-    for (let i = 0; i < seats; i++) block(sw - 0.06, 0.42, 0.18, cush, (i - (seats - 1) / 2) * sw, 0.9, D / 2 - 0.24, { parent: g, r: 0.06, rot: [0.12, 0, 0] }); // back cushions
+    for (let i = 0; i < seats; i++) block(sw - 0.06, 0.42, 0.18, cush, (i - (seats - 1) / 2) * sw, 0.9, D / 2 - 0.24, { parent: g, r: 0.06, rot: [0.12, 0, 0], mat: fabricM(cush) }); // back cushions
     for (const s of [-1, 1]) {
       const arm = new THREE.Mesh(armGeo, toon(shell)); arm.position.set(s * W / 2, 0.07, 0); arm.scale.x = s; g.add(arm);
       arm.add(new THREE.LineSegments(new THREE.EdgesGeometry(armGeo, 25), lineMat));
@@ -464,7 +499,7 @@ const buildLiving = () => {
     const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, "rgba(255,42,109,.45)"); g.addColorStop(1, "rgba(255,42,109,0)"); x.fillStyle = g; x.fillRect(0, 0, w, w);
   }), transparent: true, depthWrite: false, toneMapped: false }));
   pool.rotation.x = -Math.PI / 2; pool.position.y = 0.032; lamp.add(pool); // soft light on the rug
-  const lampLight = new THREE.PointLight(0xff4f8b, 2.6, 6); lampLight.position.set(2.6, 1.58, -4.75); scene.add(lampLight);
+  const lampLight = new THREE.PointLight(0xff4f8b, 2.6, 6); lampLight.position.set(2.6, 1.58, -4.75); lampLight.userData.shadow = 2; scene.add(lampLight);
   animators.push((now) => {
     outer.rotation.y = now / 3200; inner.rotation.y = -now / 2300; inner.rotation.x = Math.sin(now / 2600) * 0.35;
     orb.position.y = Math.sin(now / 900) * 0.03; lampLight.intensity = 2.6 + Math.sin(now / 1300) * 0.25; // a slow breathe
@@ -498,8 +533,8 @@ const buildLiving = () => {
   // neon art: I stack sats
   sign("STACK SATS", 0.42, -5.88, 2.05, -4.8, { color: "#f7931a", rotY: Math.PI / 2, k: 0.92, glow: 0.08, core: 0 }); // just the letters: a tight glow keeps them readable
   tube(11.6, 0.03, 0.06, 0xff2a6d, 0, H - 0.03, -0.25, { k: 1.4 });
-  const winLight = new THREE.PointLight(0x5a8fff, 4.5, 9); winLight.position.set(0, 2.2, -6.2); scene.add(winLight); // cool city light
-  const fill = new THREE.PointLight(0x05d9e8, 2, 10); fill.position.set(3.5, 2.6, -2); scene.add(fill);
+  const winLight = new THREE.PointLight(0x5a8fff, 4.5, 9); winLight.position.set(0, 2.2, -6.2); winLight.userData.shadow = 1; scene.add(winLight); // cool city light
+  const fill = new THREE.PointLight(0x05d9e8, 1.2, 10); fill.position.set(3.5, 2.6, -2); scene.add(fill);
   // neon caught in the glossy floor: soft pools under the window and the tubes
   const floorGlow = (w, d, x, z, col, o) => { const t = canvasTex(256, 128, (c, cw, ch) => { const gr = c.createRadialGradient(cw / 2, ch / 2, 4, cw / 2, ch / 2, cw / 2); gr.addColorStop(0, col); gr.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = gr; c.fillRect(0, 0, cw, ch); });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.006, z); m.raycast = () => {}; scene.add(m); };
@@ -586,7 +621,7 @@ const buildTheater = () => {
     const geo = new THREE.CylinderGeometry(4.3, 0.04, len, 4, 1, true); geo.rotateY(Math.PI / 4);
     const cone = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x5a8fb8, transparent: true, opacity: 0.012, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide }));
     cone.position.copy(from).lerp(to, 0.5); cone.lookAt(to); cone.rotateX(Math.PI / 2); cone.scale.set(1, 1, 0.56); cone.raycast = () => {}; scene.add(cone); }
-  const glow = new THREE.PointLight(0x9ad7ff, 5, 11); glow.position.set(-4.5, 2.0, -15.3); scene.add(glow);
+  const glow = new THREE.PointLight(0x9ad7ff, 5, 11); glow.position.set(-4.5, 2.0, -15.3); glow.userData.shadow = 1; scene.add(glow);
   // seats: two rows of steel-framed recliners, the back one on a riser with a step light
   block(9, 0.3, 2.6, 0x15161f, -4.5, 0.15, -10.3, { ink: false, r: 0.01 });
   tube(8.8, 0.012, 0.012, 0x05d9e8, -4.5, 0.29, -11.6, { k: 0.8 });
@@ -892,7 +927,7 @@ const buildGallery = () => {
   tube(0.025, 0.025, Z0 - Z1, 0xffa040, X1 - 0.02, H - 0.07, CZ, { k: 0.85 });
   // track lighting: a steel track round the ceiling a metre in from the walls
   for (const [w, d, x, z] of [[X1 - X0 - 2, 0.04, CX, Z0 - 1], [X1 - X0 - 2, 0.04, CX, Z1 + 1], [0.04, Z0 - Z1 - 2, X1 - 1, CZ], [0.04, Z0 - Z1 - 2, X0 + 1, CZ]]) block(w, 0.04, d, 0x2a2e3a, x, H - 0.04, z, { r: 0.01, ink: false });
-  for (const [x, z] of [[CX - 1.5, CZ], [CX + 1.5, CZ]]) { const l = new THREE.PointLight(0xfff1dc, 3, 8); l.position.set(x, 2.8, z); scene.add(l); }
+  for (const [x, z] of [[CX - 1.5, CZ], [CX + 1.5, CZ]]) { const l = new THREE.PointLight(0xfff1dc, 3, 8); l.position.set(x, 2.8, z); l.userData.shadow = x < CX ? 2 : 0; scene.add(l); }
   { const l = new THREE.PointLight(0xfff1dc, 1.2, 5); l.position.set(11.6, 2.2, -1.2); scene.add(l); }
   // the photos: each frame faces into the room; slots in hanging order, newest first
   const slots = [ // [x, y, z, rotY]
@@ -2062,7 +2097,29 @@ let unlocked = false, keypadLed = null; // locked on every visit
 const lockDoor = () => { unlocked = false; keypadLed?.material.color.copy(new THREE.Color(0xff3b5c).multiplyScalar(2.2)); };
 const pad = $("#h-pad"), padBox = pad.querySelector(".h-pad-box"), padDots = [...pad.querySelectorAll(".pad-dots i")], padMsg = $("#pad-msg");
 let entry = "", padAfter = null, checking = false;
-const sha256 = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+// SHA-256. Browsers only offer crypto.subtle on HTTPS or localhost, so on a plain-http address (testing
+// from a phone over Wi-Fi) a small hand-written version does the same job.
+const sha256js = (t) => {
+  const K = [], H = [], isP = (n) => { for (let f = 2; f * f <= n; f++) if (n % f === 0) return false; return true; };
+  for (let n = 2, i = 0; i < 64; n++) if (isP(n)) { if (i < 8) H[i] = (Math.pow(n, 1 / 2) * 2 ** 32) | 0; K[i++] = (Math.pow(n, 1 / 3) * 2 ** 32) | 0; }
+  const m = [...new TextEncoder().encode(t)], l = m.length * 8; m.push(0x80); while (m.length % 64 !== 56) m.push(0);
+  for (let i = 7; i >= 0; i--) m.push(i > 3 ? 0 : (l >>> (i * 8)) & 255);
+  const r = (x, n) => (x >>> n) | (x << (32 - n)), w = new Array(64);
+  for (let o = 0; o < m.length; o += 64) {
+    for (let i = 0; i < 16; i++) w[i] = (m[o + i * 4] << 24) | (m[o + i * 4 + 1] << 16) | (m[o + i * 4 + 2] << 8) | m[o + i * 4 + 3];
+    for (let i = 16; i < 64; i++) { const a = w[i - 15], b = w[i - 2]; w[i] = (w[i - 16] + (r(a, 7) ^ r(a, 18) ^ (a >>> 3)) + w[i - 7] + (r(b, 17) ^ r(b, 19) ^ (b >>> 10))) | 0; }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 64; i++) {
+      const t1 = (h + (r(e, 6) ^ r(e, 11) ^ r(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0, t2 = ((r(a, 2) ^ r(a, 13) ^ r(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    [a, b, c, d, e, f, g, h].forEach((v, i) => { H[i] = (H[i] + v) | 0; });
+  }
+  return H.map((v) => (v >>> 0).toString(16).padStart(8, "0")).join("");
+};
+const sha256 = async (t) => crypto.subtle
+  ? [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("")
+  : sha256js(t);
 const showDots = () => padDots.forEach((d, i) => d.classList.toggle("on", i < entry.length));
 const openPad = (after) => {
   padAfter = after; entry = ""; showDots(); padMsg.textContent = "Residents and guests only";
@@ -2078,7 +2135,7 @@ const openPad = (after) => {
 const closePad = () => { pad.hidden = true; padAfter = null; };
 const checkCode = async () => {
   if (checking) return; checking = true;
-  const ok = !!crypto.subtle && (await sha256(`pierpont-4b:${entry}`)) === PASS_HASH;
+  const ok = (await sha256(`pierpont-4b:${entry}`)) === PASS_HASH;
   if (ok) {
     unlocked = true;
     pad.classList.add("granted"); padMsg.textContent = "ACCESS GRANTED";
@@ -2491,7 +2548,7 @@ const pickAt = (e) => {
 };
 const setGlow = (h, on) => {
   const list = h.obj.userData.glow || [];
-  h.obj.traverse((o) => { if (o.material?.isMeshToonMaterial) o.material.emissive.setHex(on ? 0x2a0c22 : 0); });
+  h.obj.traverse((o) => { if (o.material?.emissive && o.material.visible !== false) o.material.emissive.setHex(on ? 0x2a0c22 : 0); });
   for (const s of list) s.material.color.setScalar(on ? s.userData.k * 1.5 : s.userData.k);
 };
 const hideTip = () => { ui.tip.hidden = true; if (hovered) setGlow(hovered, false); hovered = null; canvas.style.cursor = ""; showZone(null); };
@@ -2588,15 +2645,38 @@ canvas.addEventListener("pointerup", (e) => {
 canvas.addEventListener("pointerleave", hideTip);
 
 // ---------- size, loop ----------
+// Reflections: a small made-up room of neon strips and a city-blue window, blurred into an environment
+// map, so glossy and metal surfaces pick up colour that belongs here (not a photo studio's white).
+if (!lite) { const env = new THREE.Scene(), pm = new THREE.PMREMGenerator(renderer);
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(20, 8, 20), new THREE.MeshBasicMaterial({ color: 0x0b0918, side: THREE.BackSide })));
+  const strip = (c, k, w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k) })); m.position.set(x, y, z); env.add(m); };
+  strip(0x3a66ff, 1.6, 10, 3.5, 0.1, 0, 0.6, -9.9);   // the big window
+  strip(0xff2a6d, 3, 0.2, 0.2, 18, -9.8, 3.6, 0);     // pink neon along one wall
+  strip(0x05d9e8, 3, 0.2, 0.2, 18, 9.8, 3.6, 0);      // cyan along the other
+  strip(0xffb070, 2.2, 3, 0.1, 3, 0, 3.95, 3);        // a warm ceiling light
+  strip(0xc8d0ff, 1.2, 5, 0.1, 2, 0, 3.95, -3);       // a cool one
+  scene.environment = pm.fromScene(env, 0.04).texture; pm.dispose(); }
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
+// ambient occlusion: the soft darkening where things meet (desktop only; phones keep their frame rate)
+let gtao = null;
+if (!lite) {
+  gtao = new GTAOPass(scene, camera, 512, 512);
+  gtao.updateGtaoMaterial({ radius: 1.0, distanceExponent: 1, thickness: 3, scale: 1.6, distanceFallOff: 1, samples: 16 });
+  gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+  gtao.blendIntensity = 1;
+  // glowing and see-through things (neon, signs, screens) don't cast occlusion
+  const ov = gtao.overrideVisibility.bind(gtao);
+  gtao.overrideVisibility = () => { ov(); scene.traverse((o) => { const m = o.material; if (o.isMesh && o.visible && m && (m.transparent || m.toneMapped === false || m.isMeshBasicMaterial)) { gtao._visibilityCache.set(o, o.visible); o.visible = false; } }); };
+  composer.addPass(gtao);
+}
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.5, 0.82);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const resize = () => {
   const w = innerWidth, h = innerHeight;
-  renderer.setSize(w, h, false); composer.setSize(w, h);
-  bloom.resolution.set(w / 2, h / 2);
+  renderer.setSize(w, h, false); composer.setSize(w, h); gtao?.setSize(w, h);
+  bloom.resolution.set(w / (lite ? 4 : 2), h / (lite ? 4 : 2));
   camera.aspect = w / h;
   // Keep about 75° across on any screen (phones get a taller view; swipe to look around).
   camera.fov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(37)) / camera.aspect)), 50, 78);
@@ -2653,12 +2733,13 @@ const frame = (now) => {
     winApp = winAnim.from + (winAnim.to - winAnim.from) * t; drawWindow();
     if (t === 1) { if (!winAnim.to) mullion.visible = true; winAnim = null; }
   }
+  if (!lite && (flight || Math.abs(doorTo - doorOpen) > 0.002 || now - (frame.shadowT || 0) > 400)) { renderer.shadowMap.needsUpdate = true; frame.shadowT = now; }
   cv.step(now);
   composer.render();
   cv.render(); // a pulled-out case, on top
 };
 
-if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, shelfFaces, focus, openWindowApp, closeWindowApp,
+if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, renderer, get gtao() { return gtao; }, shelfFaces, focus, openWindowApp, closeWindowApp,
   openNode, closeNode,
   peek(p, l) { peekView = p ? { pos: V(...p), look: V(...l), yaw: 0 } : null; }, get room() { return room; }, set yaw(v) { yaw = v; } };
 
@@ -2669,10 +2750,22 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
     new Promise((r) => setTimeout(r, 2500)),
   ]);
   buildOutside(); buildLiving(); buildTheater(); buildKitchen(); buildKitchenMore(); buildGallery(); buildDecor(); buildHallMore(); buildCats(); buildHolo();
-  scene.add(new THREE.AmbientLight(0x5b4a9a, 0.9));
-  scene.add(new THREE.HemisphereLight(0x9d8cff, 0x1a0f30, 0.7));
+  scene.add(new THREE.AmbientLight(0x5b4a9a, 0.3)); // low: the room's light comes from its lamps, neon and the city
+  scene.add(new THREE.HemisphereLight(0x9d8cff, 0x1a0f30, 0.45));
   const key = new THREE.DirectionalLight(0xffffff, 0.7); key.position.set(3, 6, 4); scene.add(key);
   scene.traverse((o) => { if (o.userData.flicker) { o.userData.seed = Math.random() * 10; flickers.push(o); } });
+  // Shadows: a handful of key lights cast them (the city through the window, the theater screen, the lamp,
+  // the hall light over my door, the gallery). Everything solid casts and catches them. Phones skip
+  // them. The shadow maps are only redrawn while something moves, not every frame.
+  renderer.shadowMap.enabled = !lite; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
+  scene.traverse((o) => {
+    if (!lite && o.isPointLight && o.userData.shadow) {
+      o.castShadow = true; o.shadow.mapSize.setScalar(512); o.shadow.bias = -0.004; o.shadow.normalBias = 0.03; o.shadow.radius = 4;
+      o.shadow.camera.near = 0.1; o.shadow.camera.far = o.distance || 12;
+    }
+    if (o.isMesh && o.material?.isMeshStandardMaterial && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; }
+  });
   drawScreen(null); loadLive();
   resize(); setRoomUI(); aim(VIEWS.outside.pos, VIEWS.outside.look, 0, 0);
   renderer.setAnimationLoop(frame);
