@@ -1,9 +1,21 @@
 {
-  "updated": "2026-11-04T09:13:06+00:00",
+  "updated": "2026-11-04T16:08:36+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
     "diary": [
+      {
+        "title": "Godzilla Minus One",
+        "year": "2023",
+        "rating": 3.5,
+        "liked": true,
+        "rewatch": false,
+        "watched": "2024-11-04",
+        "poster": "https://a.ltrbxd.com/resized/film-poster/8/4/5/7/0/6/845706-godzilla-minus-one-0-600-0-900-crop.jpg?v=77a601d6de",
+        "review": "Best Godzilla movie , but it’s easy competition",
+        "link": "https://letterboxd.com/thepierpont/film/godzilla-minus-one/",
+        "published": "2026-11-04T16:01:46+00:00"
+      },
       {
         "title": "Clayface",
         "year": "2026",
@@ -591,18 +603,6 @@
         "review": "It’s a classic demon horror movie where the jump scares are more loud than scary, but they did use a projector as a light source and that was very cool.",
         "link": "https://letterboxd.com/thepierpont/film/passenger-2026/",
         "published": "2026-05-25T18:08:28+00:00"
-      },
-      {
-        "title": "Dunkirk",
-        "year": "2017",
-        "rating": 3.5,
-        "liked": true,
-        "rewatch": false,
-        "watched": "2026-05-16",
-        "poster": "https://a.ltrbxd.com/resized/sm/upload/md/nb/pu/3i/bOXBV303Fgkzn2K4FeKDc0O31q4-0-600-0-900-crop.jpg?v=7307b1ff5b",
-        "review": "He can do Odyssey \nA slightly confusing movie compared to his other work",
-        "link": "https://letterboxd.com/thepierpont/film/dunkirk-2017/",
-        "published": "2026-05-16T20:05:29+00:00"
       }
     ],
     "lists": [
@@ -975,44 +975,44 @@
     "source": "Citadel Wire",
     "items": [
       {
-        "title": "Oracle Scraps $7 Billion Tencent AI Deal Under US Pressure",
-        "link": "https://citadelwire.com/posts/2026-11-04-070007",
-        "published": "2026-11-04T07:00:07+00:00"
+        "title": "Google Backstops TeraWulf's $19 Billion Anthropic Leases in Kentucky",
+        "link": "https://citadelwire.com/posts/2026-11-04-150008",
+        "published": "2026-11-04T15:00:08+00:00"
       },
       {
-        "title": "Analysts Slash Cipher Digital Targets as Financing Costs Bite",
-        "link": "https://citadelwire.com/posts/2026-11-04-070007",
-        "published": "2026-11-04T07:00:07+00:00"
+        "title": "Riot Signs 15-Year, 910 MW Corsicana Lease With a Frontier AI Lab Worth About $28 Billion",
+        "link": "https://citadelwire.com/posts/2026-11-04-150008",
+        "published": "2026-11-04T15:00:08+00:00"
       },
       {
-        "title": "Democrats Win Senate Control as Republicans Routed in Swing States",
-        "link": "https://citadelwire.com/posts/2026-11-04-060007",
-        "published": "2026-11-04T06:00:07+00:00"
+        "title": "SpaceX Taps Qualcomm to Build Base Stations for Starlink Mobile",
+        "link": "https://citadelwire.com/posts/2026-11-04-150008",
+        "published": "2026-11-04T15:00:08+00:00"
       },
       {
-        "title": "North Korea Fires Multiple Missiles and Rejects FBI Blame for Binance Heist",
-        "link": "https://citadelwire.com/posts/2026-11-04-060007",
-        "published": "2026-11-04T06:00:07+00:00"
+        "title": "Police Tie Belfast Explosives Haul to Rightwing Terrorism",
+        "link": "https://citadelwire.com/posts/2026-11-04-150008",
+        "published": "2026-11-04T15:00:08+00:00"
       },
       {
-        "title": "Iran Calls US Hormuz Reply 'Unconvincing' as Trump Confirms Strikes",
-        "link": "https://citadelwire.com/posts/2026-11-04-060007",
-        "published": "2026-11-04T06:00:07+00:00"
+        "title": "Hackers Raise Temperatures at French Blood Service Cold Stores",
+        "link": "https://citadelwire.com/posts/2026-11-04-140008",
+        "published": "2026-11-04T14:00:08+00:00"
       },
       {
-        "title": "Stocks and Dollar Slide as Democratic Wins Stoke Fears Over AI Build-Out",
-        "link": "https://citadelwire.com/posts/2026-11-04-060007",
-        "published": "2026-11-04T06:00:07+00:00"
+        "title": "Private Payrolls Rise 86,000 in October, Topping Forecasts",
+        "link": "https://citadelwire.com/posts/2026-11-04-140008",
+        "published": "2026-11-04T14:00:08+00:00"
       },
       {
-        "title": "Democrats Break Through Districts Republicans Redrew to Favor the GOP",
-        "link": "https://citadelwire.com/posts/2026-11-04-060007",
-        "published": "2026-11-04T06:00:07+00:00"
+        "title": "UK Prepares Facial Recognition Rollout for Immigration Enforcement",
+        "link": "https://citadelwire.com/posts/2026-11-04-140008",
+        "published": "2026-11-04T14:00:08+00:00"
       },
       {
-        "title": "Democrats Flip Ohio and Texas Senate Seats, Closing on Majority",
-        "link": "https://citadelwire.com/posts/2026-11-04-050007",
-        "published": "2026-11-04T05:00:07+00:00"
+        "title": "Trump Blames Iran War for Republican Rout and Threatens Vetoes",
+        "link": "https://citadelwire.com/posts/2026-11-04-140008",
+        "published": "2026-11-04T14:00:08+00:00"
       }
     ]
   }
