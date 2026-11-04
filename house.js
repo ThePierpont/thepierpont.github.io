@@ -12,7 +12,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793775605";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793776127";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -2889,7 +2889,7 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
 // The Washington Monument and Thomas Jefferson Memorial…", "Roppongi at night seen from Shibuya Stream" (CC0),
 // "Hong Kong Island Building" (CC0). Cut out, graded and layered by hand; the screens are drawn on.
 const buildCity = () => {
-  const P = "images/city/", CITY_V = "?v=1793775605"; // bump when the pictures change
+  const P = "images/city/", CITY_V = "?v=1793776127"; // bump when the pictures change
   if (lite) { const im = new Image(); im.onload = () => { cityPhoto = im; drawWindow(); }; im.src = P + "flat.jpg" + CITY_V; return; }
   const tex = (n) => new Promise((ok, no) => loader.load(P + n + CITY_V, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = THREE.MirroredRepeatWrapping; ok(t); }, undefined, no));
   // drops: a normal map painted on a canvas (red/green = how the drop bends light, blue = drop or not)
