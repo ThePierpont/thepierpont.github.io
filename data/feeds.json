@@ -1,9 +1,21 @@
 {
-  "updated": "2026-11-04T16:08:36+00:00",
+  "updated": "2026-11-04T21:06:47+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
     "diary": [
+      {
+        "title": "Godzilla Minus Zero",
+        "year": "2026",
+        "rating": 4.0,
+        "liked": true,
+        "rewatch": false,
+        "watched": "2026-11-04",
+        "poster": "https://a.ltrbxd.com/resized/film-poster/1/2/6/6/6/8/4/1266684-godzilla-minus-zero-0-600-0-900-crop.jpg?v=38989be61d",
+        "review": "It’s just, at times, it feels to much like a soap opera\nBest sound design and soundtrack so far this year , incredible action and for a small moment, best gore shot I’ve ever seen",
+        "link": "https://letterboxd.com/thepierpont/film/godzilla-minus-zero/",
+        "published": "2026-11-04T20:39:37+00:00"
+      },
       {
         "title": "Godzilla Minus One",
         "year": "2023",
@@ -591,18 +603,6 @@
         "review": "Dude",
         "link": "https://letterboxd.com/thepierpont/film/obsession-2025/",
         "published": "2026-05-26T01:55:33+00:00"
-      },
-      {
-        "title": "Passenger",
-        "year": "2026",
-        "rating": 3.0,
-        "liked": true,
-        "rewatch": false,
-        "watched": "2026-05-25",
-        "poster": "https://a.ltrbxd.com/resized/film-poster/1/2/5/5/7/0/7/1255707-passenger-2026-0-600-0-900-crop.jpg?v=ccfca39ccc",
-        "review": "It’s a classic demon horror movie where the jump scares are more loud than scary, but they did use a projector as a light source and that was very cool.",
-        "link": "https://letterboxd.com/thepierpont/film/passenger-2026/",
-        "published": "2026-05-25T18:08:28+00:00"
       }
     ],
     "lists": [
