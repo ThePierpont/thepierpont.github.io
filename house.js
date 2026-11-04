@@ -12,7 +12,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793776127";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793779210";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -1415,6 +1415,246 @@ const buildDecor = () => {
 // Finn: a big long-haired brown tabby (dark saddle, pale ruff and bib, lynx-tipped ears, a huge banded plume of a tail).
 // Phoebe: a slim short-haired ginger (thin mackerel stripes, oversized pink-lined ears, cream chest, a long ringed tail).
 // `sit: true` builds them sitting up instead (awake, watching the city from the couch with you).
+// ---- desktop: real fur on the cats ----
+// Fur is drawn with shells: each furry part is drawn again in up to 32 thin layers pushed out along its
+// surface, and each layer keeps only the hairs tall enough to reach it (a noise texture of hair heights,
+// sampled in 3D so there's no seam or pinch), so you get soft strands with dark roots and bright tips.
+// The fur is combed: the layers slide along the body (down and back) instead of straight out, so it lies
+// the way a coat does, and it's longer on the belly and ruff. Tips catch a rim of light at the edges.
+// The coat pattern (tabby stripes, Finn's dark saddle, white chins and bellies) is painted in the shader
+// from the part's own shape, so it carries on into the fur. One draw per layer stack (an InstancedMesh,
+// one instance per layer). Phones keep the original cats.
+let hairTex;
+const hairNoise = () => hairTex ||= (() => {
+  const s = 128, d = new Uint8Array(s * s * 4);
+  for (let i = 0; i < s * s; i++) { d[i * 4] = Math.pow(Math.random(), 0.7) * 255; d[i * 4 + 1] = Math.random() * 255; d[i * 4 + 2] = Math.random() * 255; d[i * 4 + 3] = 255; } // r: hair height, g/b: per-hair shade
+  const t = new THREE.DataTexture(d, s, s); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true; return t;
+})();
+const lin = (c) => new THREE.Color(c ?? 0); // THREE.Color converts the sRGB hex to linear for the shader
+// their real coats, cut from the photos (images/cats): a strip of each cat's flank, belly / back / belly, tail to head
+const coatTexs = {};
+const coatTex = (name) => coatTexs[name] ||= (() => { const t = loader.load(`images/cats/${name}-coat.jpg?v=1`); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t; })();
+// coat: { mode: 0 stripes by position | 1 rings along the uv | 2 plain | 3 the photo wrapped round the body, fur, stripe, chin, saddle, axis, back, belly, freq, stripeK, saddleK, chinK, r }
+const furMat = (base, coat, { len = 0, shells = 0, comb = V(0, -0.6, 0), lenBelly = 0, hair = 6, tick = 0.05 } = {}, shell = false) => {
+  const m = new THREE.MeshStandardMaterial({ color: base, roughness: 0.9, metalness: 0 });
+  m.defines = { USE_UV: "" }; if (shell) m.defines.FUR_SHELL = "";
+  const u = {
+    uFur: { value: lin(coat.fur) }, uStripe: { value: lin(coat.stripe) }, uChin: { value: lin(coat.chin) }, uSaddle: { value: lin(coat.saddle ?? coat.fur) },
+    uAxis: { value: (coat.axis || V(1, 0, 0)).clone().normalize() }, uBack: { value: (coat.back || V(0, 1, 0)).clone().normalize() }, uBelly: { value: (coat.belly || V(0, -1, 0)).clone().normalize() },
+    uFreq: { value: coat.freq ?? 10 }, uStripeK: { value: coat.stripeK ?? 0 }, uSaddleK: { value: coat.saddleK ?? 0 }, uChinK: { value: coat.chinK ?? 0 },
+    uCoat: { value: coat.coat || null }, uSide: { value: new THREE.Vector3().crossVectors((coat.back || V(0, 1, 0)), (coat.axis || V(1, 0, 0))).normalize() },
+    uMode: { value: coat.mode ?? 2 }, uR: { value: coat.r ?? 0.2 }, uChinLo: { value: coat.chinLo ?? 0.15 }, uChinHi: { value: coat.chinHi ?? 0.7 }, uLen: { value: len }, uShells: { value: Math.max(1, shells) }, uComb: { value: comb.clone() }, uLenBelly: { value: lenBelly },
+    uHair: { value: hair }, uTick: { value: tick }, uNoise: { value: hairNoise() },
+  };
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = "uniform float uLen, uShells, uLenBelly, uR; uniform vec3 uComb, uBelly; varying float vLayer; varying vec3 vObj, vNObj;\n" + sh.vertexShader.replace("#include <begin_vertex>", `#include <begin_vertex>
+      vObj = position; vNObj = normal; vLayer = 0.0;
+      #ifdef FUR_SHELL
+        vLayer = (float(gl_InstanceID) + 1.0) / uShells;
+        float L = uLen * (1.0 + uLenBelly * smoothstep(0.0, 0.8, dot(normalize(position / uR), uBelly))); // longer underneath
+        vec3 dir = normalize(normal + uComb); // combed: along the body, not straight out
+        transformed += dir * L * vLayer;
+        transformed.y -= L * 0.35 * vLayer * vLayer; // the tips droop
+      #endif`);
+    sh.fragmentShader = `uniform vec3 uFur, uStripe, uChin, uSaddle, uAxis, uBack, uBelly; uniform float uFreq, uStripeK, uSaddleK, uChinK, uMode, uR, uHair, uTick, uChinLo, uChinHi; uniform vec3 uSide;
+      uniform sampler2D uNoise, uCoat; varying float vLayer; varying vec3 vObj, vNObj;\n` + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+      vec3 an = abs(vNObj); vec2 hc = an.x > an.y && an.x > an.z ? vObj.yz : an.y > an.z ? vObj.xz : vObj.xy; // hairs placed in 3D: no seams, no pinching at the poles
+      vec3 hn = texture(uNoise, hc * uHair).rgb; float hair = hn.r;
+      vec3 p = vObj / uR;
+      if (uMode > 2.5) { // the photo of their coat, wrapped round the body: along the spine, and round from back to belly
+        vec2 cu = vec2(dot(p, uAxis) * 0.5 + 0.5, atan(dot(p, uSide), dot(p, uBack)) / 6.2831853 + 0.5);
+        diffuseColor.rgb = mix(texture(uCoat, cu).rgb, uChin, uChinK * smoothstep(uChinLo, uChinHi, dot(p, uBelly) + (hn.g - 0.5) * 0.25));
+      }
+      if (uMode < 1.5) {
+        float along = uMode < 0.5 ? dot(p, uAxis) : vUv.x;
+        float wob = uMode < 0.5 ? sin(p.x * 7.0 + p.z * 5.0) * 0.35 + sin(p.y * 11.0 - p.z * 6.0) * 0.2 : 0.0;
+        float st = smoothstep(0.25, 0.8, sin(along * uFreq + wob) * 0.5 + 0.5 + (hn.g - 0.5) * 0.45); // stripes with ragged, hair-by-hair edges
+        float back = uMode < 0.5 ? smoothstep(-0.2, 0.45, dot(p, uBack)) : 1.0;
+        vec3 c = uFur;
+        c = mix(c, uSaddle, uSaddleK * smoothstep(0.2, 0.8, dot(p, uBack) + (hn.g - 0.5) * 0.3));
+        c = mix(c, uStripe, st * uStripeK * back);
+        c = mix(c, uChin, uChinK * smoothstep(uChinLo, uChinHi, dot(p, uBelly) + (hn.g - 0.5) * 0.25));
+        diffuseColor.rgb = c;
+      }
+      diffuseColor.rgb *= 0.84 + 0.32 * hn.g; // each hair a slightly different shade
+      #ifdef FUR_SHELL
+        if (hair < vLayer * 0.92 + 0.06) discard; // only the longer hairs reach the outer layers
+        diffuseColor.rgb *= mix(0.45, 1.1, vLayer); // dark at the roots, bright at the tips
+        diffuseColor.rgb *= 1.0 + uTick * sin(vLayer * 9.0 + hn.b * 6.0); // agouti banding along each hair
+      #else
+        diffuseColor.rgb *= 0.5; // the undercoat, in shadow
+      #endif`).replace("#include <opaque_fragment>", `
+      #ifdef FUR_SHELL
+        float rimF = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 3.0); // light through the tips at the edges
+        outgoingLight += (diffuseColor.rgb * 1.2 + 0.05) * rimF * (0.2 + 0.8 * vLayer) * 0.7;
+      #endif
+      #include <opaque_fragment>`);
+  };
+  return m;
+};
+// give a mesh fur: its own surface becomes the undercoat, and a stack of shells goes on top
+const furry = (mesh, coat, o) => {
+  mesh.material = furMat(mesh.material.color?.getHex?.() ?? 0xffffff, coat, o);
+  if (!o.shells) return mesh;
+  const sh = new THREE.InstancedMesh(mesh.geometry, furMat(mesh.material.color.getHex(), coat, o, true), o.shells);
+  const id = new THREE.Matrix4(); for (let i = 0; i < o.shells; i++) sh.setMatrixAt(i, id);
+  sh.raycast = () => {}; sh.castShadow = false; sh.receiveShadow = true; sh.userData.noAO = true; sh.frustumCulled = false;
+  mesh.add(sh); return mesh;
+};
+// push a sphere's vertices about to make a shape (fn gets the point in units of the radius)
+const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const sculpt = (r, fn, w = 48, h = 32) => {
+  const geo = new THREE.SphereGeometry(r, w, h), p = geo.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).divideScalar(r); fn(v); p.setXYZ(i, v.x * r, v.y * r, v.z * r); }
+  geo.computeVertexNormals(); return geo;
+};
+// a smooth tapered tail through the old bead positions
+const tailTube = (pts, radii) => {
+  const curve = new THREE.CatmullRomCurve3(pts, false, "centripetal"), segs = 64, rad = 12;
+  const geo = new THREE.TubeGeometry(curve, segs, 1, rad, false), p = geo.attributes.position, c = new THREE.Vector3(), q = new THREE.Vector3();
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs, f = t * (radii.length - 1), k = Math.floor(f), r = THREE.MathUtils.lerp(radii[k], radii[Math.min(k + 1, radii.length - 1)], f - k) * (t > 0.92 ? 1 - (t - 0.92) / 0.1 : 1);
+    curve.getPointAt(t, c);
+    for (let j = 0; j <= rad; j++) { const vi = i * (rad + 1) + j; q.fromBufferAttribute(p, vi).sub(c).multiplyScalar(Math.max(0.003, r)).add(c); p.setXYZ(vi, q.x, q.y, q.z); }
+  }
+  geo.computeVertexNormals(); return geo;
+};
+// a cat's ear: a thin cupped leaf, pointed, leaning back a little (local: base at the origin, tip up +y, open side +x)
+const earGeo = (w, h, cup) => {
+  const g = new THREE.PlaneGeometry(1, 1, 8, 14), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const px = p.getX(i), t = p.getY(i) + 0.5; // t: 0 at the base, 1 at the tip
+    const half = w * (Math.pow(1 - t, 0.85) * 0.95 + 0.05) * (0.8 + 0.2 * ss(0, 0.2, t));
+    p.setXYZ(i, cup * (px * 2) ** 2 * (1 - t * 0.5) - t * h * 0.18, t * h, px * 2 * half);
+  }
+  g.computeVertexNormals(); return g;
+};
+// Upgrade one cat (desktop): a sculpted body and head, combed fur with the coat pattern, a smooth tail,
+// leaf-shaped ears, real eyes with lids and liner, a nose with nostrils and a mouth, whiskers, toes.
+// The cartoon bits (painted-on stripe bands, cone tufts, bead tail, floating z's) go.
+const furUp = (g, c) => {
+  const { fur, stripe, chin, saddle, ruff, inner, nose, fluffy, lean, sit, body, skull, head, hr, R, tailPts, eyes, ears, zs } = c;
+  const long = fluffy ? 1 : 0.32, N = fluffy ? 32 : 16;
+  zs.forEach((z) => (z.visible = false));
+  // drop the cartoon decorations: stripe bands, painted head stripes, saddle and crown caps, cone tufts
+  g.traverse((o) => {
+    if (!o.isMesh || o.material?.isMeshBasicMaterial) return;
+    const gp = o.geometry.parameters || {}, isCap = o.geometry.type === "SphereGeometry" && gp.thetaLength < Math.PI * 0.5;
+    if (o.geometry.type === "TorusGeometry" || (o.geometry.type === "BoxGeometry" && o.parent === head) || isCap || (o.geometry.type === "ConeGeometry" && o.parent === g)) o.visible = false;
+  });
+  // The body, with a cat's proportions. Sitting: broad round haunches sitting flat, a torso that narrows up to
+  // the shoulders and leans forward over the front legs, a straight back, the chest out, a neck up to the head.
+  // Asleep: a curled bean, flat on the bed, the back a high outer arc rising to the rump, the belly side tucked in.
+  body.geometry = sculpt(R, sit ? (u) => {
+    const t = ss(-0.1, 1, u.y), nar = lean ? 0.2 : 0.3;
+    u.x *= 1 - nar * t; u.z *= 1 - nar * t;
+    u.z *= 1 + 0.28 * Math.exp(-(((u.y + 0.5) / 0.45) ** 2));
+    if (u.y < -0.6) u.y = -0.6 + (u.y + 0.6) * 0.35;
+    u.x += 0.22 * ss(0.1, 1, u.y);
+    if (u.x > 0) u.x *= 1 + 0.12 * Math.exp(-(((u.y - 0.05) / 0.4) ** 2));
+    if (u.x < 0) u.x *= 1 - 0.12 * ss(-0.3, 1, u.y);
+  } : (u) => {
+    if (u.y < 0) u.y *= 0.5;
+    if (u.y > 0) u.y *= 1 + 0.18 * ss(-0.3, 1, u.z) + 0.2 * ss(-0.1, -0.9, u.x);
+    u.y -= 0.12 * Math.exp(-(((u.x - 0.55) / 0.25) ** 2)) * Math.max(0, u.y);
+    if (u.z < 0) u.z *= 1 - 0.3 * Math.exp(-((u.x / 0.5) ** 2));
+    if (u.z > 0) u.z *= 1 + 0.1 * Math.exp(-(((u.x + 0.5) / 0.4) ** 2));
+    u.z *= 1 - 0.1 * Math.max(0, u.y) * ss(0.3, 1, u.x);
+  });
+  // proportions: the head a touch smaller on Finn (it's the ruff that's big, not the skull), held up on a neck when
+  // sitting; the big white bib ball goes (the coat paints the white front now), the sleeping bib tucks in; thicker legs on Finn
+  if (fluffy) head.scale.setScalar(0.93);
+  const chest = g.children.find((o) => o.isMesh && o.geometry.type === "SphereGeometry" && Math.abs(o.geometry.parameters.radius - R * (sit ? 0.5 : 0.55)) < 1e-6);
+  if (chest) { if (sit) chest.visible = false; else { chest.scale.setScalar(0.75); chest.position.x -= 0.04; } }
+  if (sit) {
+    const piv = new THREE.Group(); piv.position.y = lean ? 0.025 : 0.04; g.add(piv); piv.add(head);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(hr * 0.62, hr * 0.78, 0.11, 16), new THREE.MeshStandardMaterial({ color: fur })); neck.position.set(R * body.scale.x * 0.3, 0.37, 0); neck.rotation.z = -0.25; g.add(neck);
+    furry(neck, { mode: 3, coat: coatTex(fluffy ? "finn" : "phoebe"), fur, stripe, chin: fluffy ? ruff : chin, saddle, r: hr, freq: 20, stripeK: 0.5, saddleK: saddle ? 0.7 : 0, chinK: 0.9, axis: V(0, 1, 0), back: V(-1, 0.3, 0), belly: V(1, -0.1, 0), chinLo: 0.5, chinHi: 0.9 }, { len: 0.028 * long + 0.003, shells: N, comb: V(-0.3, -0.9, 0), lenBelly: fluffy ? 0.9 : 0.2 });
+    for (const o of g.children) if (o.isMesh && o.geometry.type === "CylinderGeometry" && o !== neck && fluffy) { o.scale.x = o.scale.z = 1.25; }
+  }
+  const coatBody = { mode: 3, coat: coatTex(fluffy ? "finn" : "phoebe"), fur, stripe, chin: fluffy ? ruff : chin, saddle, r: R, freq: lean ? 26 : 16, stripeK: lean ? 0.85 : 0.6, saddleK: saddle ? 0.85 : 0, chinK: 0.9,
+    axis: sit ? V(0, 1, 0) : V(1, 0, 0), back: sit ? V(-1, 0.35, 0) : V(0, 1, 0.1), belly: sit ? V(1, -0.3, 0) : V(0.4, -1, 0), chinLo: sit ? 0.55 : 0.15, chinHi: sit ? 0.9 : 0.7 }; // sitting, only the chest is white
+  furry(body, coatBody, { len: fluffy ? 0.033 : 0.03 * long, shells: N, comb: sit ? V(-0.25, -0.9, 0) : V(-0.7, -0.6, 0), lenBelly: fluffy ? 0.7 : 0.3, tick: 0.12 });
+  // the head: a wedge of a muzzle, a flatter crown, cheeks (big ones on Finn), a brow
+  skull.geometry = sculpt(hr, (u) => {
+    u.x += 0.25 * Math.exp(-(((u.y + 0.3) / 0.35) ** 2)) * Math.exp(-((u.z / 0.5) ** 2)) * Math.max(0, u.x);
+    if (u.y > 0.3) u.y *= 1 - 0.08 * ss(0.3, 1, u.y);
+    u.z *= 1 + (fluffy ? 0.14 : 0.06) * Math.exp(-(((u.y + 0.15) / 0.4) ** 2)) * ss(0.4, -0.6, u.x);
+    u.y += 0.06 * Math.exp(-(((u.x - 0.75) / 0.3) ** 2)) * Math.exp(-(((u.y - 0.3) / 0.3) ** 2));
+  }, 40, 28);
+  const headFur = 0.016 * long + 0.004;
+  furry(skull, { mode: 3, coat: coatTex(fluffy ? "finn" : "phoebe"), fur, stripe, chin, saddle, r: hr, freq: lean ? 34 : 26, stripeK: 0.55, saddleK: saddle ? 0.6 : 0, chinK: 0.9, axis: V(0, 0, 1), back: V(-0.2, 1, 0), belly: V(0.4, -1, 0), chinLo: 0.3, chinHi: 0.75 },
+    { len: headFur, shells: N, comb: V(-0.6, -0.5, 0), lenBelly: fluffy ? 1.0 : 0.2, tick: 0.1 }); // Finn's ruff fans out under the chin
+  // the eyes and nose sit out at the surface of the fur, not under it
+  // (and turned to face properly outward: the original lookAt was given head-space points, so they faced inward)
+  g.updateMatrixWorld(true); const hc = skull.getWorldPosition(V(0, 0, 0)), wp = V(0, 0, 0);
+  for (const e of eyes) { const eg = e.closed.parent; eg.position.multiplyScalar(1 + (headFur * 0.8) / hr); eg.updateMatrixWorld(true); eg.getWorldPosition(wp); eg.lookAt(wp.clone().add(wp.clone().sub(hc).normalize())); }
+  // the other round parts (chest, bib, haunches, paws, whisker pads, chin): plain fur in their own colours
+  const small = [];
+  g.traverse((o) => { if (o.isMesh && o.visible && o !== body && o !== skull && !tailPts.includes(o) && o.geometry.type === "SphereGeometry" && !o.isInstancedMesh && !o.material.isMeshBasicMaterial && o.geometry.parameters.radius > 0.015 && !eyes.some((e) => e.lidTop === o || e.open.children.includes(o))) small.push(o); });
+  const paws = small.filter((o) => o.scale.y < 0.8 && o.geometry.parameters.radius <= 0.041);
+  for (const o of small) if (o.parent === head) { o.position.x -= hr * 0.1; o.scale.multiplyScalar(0.88); } // the muzzle pads and chin sit back into the new muzzle
+  if (fluffy) for (const pad of small) if (pad.parent === head && Math.abs(pad.position.z) > 0.001) { // Finn's freckled whisker pads
+    const pr = pad.geometry.parameters.radius * pad.scale.x, dz = Math.sign(pad.position.z);
+    for (let k = 0; k < 5; k++) { const dot = new THREE.Mesh(new THREE.SphereGeometry(pr * 0.09, 6, 5), new THREE.MeshStandardMaterial({ color: 0x1c1512 })); dot.position.copy(pad.position).add(V(pr * 0.92, pr * (0.35 - (k % 3) * 0.3), dz * pr * (0.1 + Math.floor(k / 3) * 0.35 + (k % 2) * 0.12))); head.add(dot); } }
+  for (const o of small) furry(o, o.parent === g && !paws.includes(o) ? { mode: 3, coat: coatTex(fluffy ? "finn" : "phoebe"), r: o.geometry.parameters.radius, axis: coatBody.axis, back: V(0, 1, 0) } : { mode: 2, r: o.geometry.parameters.radius }, { len: (fluffy && o.parent === g && !paws.includes(o) ? 0.016 : 0.007) * long + 0.003, shells: Math.round(N * 0.6), comb: V(0, -0.8, 0) });
+  for (const o of g.children) if (o.isMesh && o.geometry.type === "CylinderGeometry") furry(o, { mode: 2, r: 0.03 }, { len: 0.012 * long + 0.003, shells: Math.round(N * 0.6), comb: V(0, -0.9, 0) }); // front legs
+  // toes on the paws
+  for (const pw of paws) { const r = pw.geometry.parameters.radius; for (const k of [-1, 0, 1]) {
+    const toe = new THREE.Mesh(new THREE.SphereGeometry(r * 0.4, 12, 10), new THREE.MeshStandardMaterial({ color: pw.material.color })); toe.scale.set(1, 0.75, 1);
+    toe.position.copy(pw.position).add(V(r * pw.scale.x * 0.85, -r * 0.1, k * r * 0.55)); pw.parent.add(toe); furry(toe, { mode: 2, r: r * 0.4 }, { len: 0.004 + 0.004 * long, shells: 8, comb: V(0.4, -0.6, 0) }); } }
+  // the tail: one smooth tapered tube with rings, and a long plume on Finn
+  if (tailPts.length) {
+    const pts = tailPts.map((s) => { const q = s.position.clone(); if (!sit && q.z < 0) q.z += 0.28 * R * body.scale.z * Math.exp(-((q.x / (0.5 * R * body.scale.x)) ** 2)); return q; }), radii = tailPts.map((s) => s.geometry.parameters.radius * s.scale.x * (fluffy ? 0.7 : 1));
+    tailPts.forEach((s) => (s.visible = false));
+    const tail = new THREE.Mesh(tailTube(pts, radii), new THREE.MeshStandardMaterial({ color: fur })); tail.castShadow = true; g.add(tail);
+    furry(tail, { mode: 1, fur: fluffy ? saddle : fur, stripe: fluffy ? 0x5a534c : stripe, chin: fur, freq: (fluffy ? 7 : 11) * Math.PI * 2, stripeK: fluffy ? 0.3 : 0.85, r: 0.05 }, { len: fluffy ? 0.045 : 0.006, shells: N, comb: V(0, -0.7, 0), tick: 0.12 });
+  }
+  // eyes: a deep iris with a glossy cornea over it and a dark rim of liner; the sleeping eye a thin dark line
+  for (const e of eyes) {
+    const [rim, iris, pupil, glint] = e.open.children, re = iris.geometry.parameters.radius;
+    iris.material = new THREE.MeshStandardMaterial({ color: iris.material.color, roughness: 0.35, emissive: iris.material.color.clone().multiplyScalar(0.3) }); // cats' eyes catch the light
+    pupil.material = new THREE.MeshStandardMaterial({ color: 0x020203, roughness: 0.2 });
+    glint.scale.setScalar(0.45); rim.scale.z = 0.2; rim.position.z = -0.003; pupil.scale.set(0.62, 0.74, 0.34); // at night the pupils are big and round // the dark rim sits behind the iris, only showing round its edge
+    const cornea = new THREE.Mesh(new THREE.SphereGeometry(re, 20, 14), new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.06, metalness: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    cornea.scale.set(1.2, 0.98, 0.42); cornea.position.z = 0.006; e.open.add(cornea);
+    const liner = new THREE.Mesh(new THREE.TorusGeometry(re * 1.08, re * 0.09, 6, 24), new THREE.MeshStandardMaterial({ color: 0x1a0f14, roughness: 0.6 })); liner.scale.set(1.25, 1.0, 0.5); liner.position.z = 0.003; e.open.add(liner);
+    const pale = new THREE.Mesh(new THREE.TorusGeometry(re * 1.16, re * 0.06, 6, 24), new THREE.MeshStandardMaterial({ color: chin, roughness: 0.9 })); pale.scale.set(1.25, 1.0, 0.25); pale.position.z = 0.0; e.open.add(pale); // the pale ring of fur round a tabby's eye
+    e.closed.geometry = new THREE.TorusGeometry(re * 1.05, re * 0.1, 6, 18, Math.PI);
+    e.open.scale.x = e.open.scale.z = lean ? 0.8 : 0.9; e.closed.scale.x = lean ? 0.8 : 0.9; // smaller, almond-shaped eyes (the y scale is the lids opening)
+    e.lidTop.material = furMat(fur, { mode: 2, r: re }, {});
+  }
+  // ears: leaf-shaped, cupped forward, pink inside, short fur on the back (and lynx tips on Finn)
+  const er = lean ? 0.052 : 0.04, eh = lean ? 0.12 : 0.08;
+  for (const eg of ears) {
+    eg.children.forEach((o) => (o.visible = false));
+    const geo = earGeo(er * (lean ? 0.62 : 0.75), eh * 1.05, er * 0.45);
+    const back = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: saddle ?? fur, side: THREE.DoubleSide })); eg.add(back);
+    furry(back, { mode: 2, r: er }, { len: fluffy ? 0.007 : 0.004, shells: 10, comb: V(-0.4, 0.5, 0) });
+    const pink = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: inner, roughness: 0.7, side: THREE.DoubleSide })); pink.scale.set(0.9, 0.93, 0.86); pink.position.x = 0.0025; eg.add(pink);
+    if (fluffy) { const tufts = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: chin })); tufts.scale.set(0.8, 0.85, 0.75); tufts.position.x = 0.004; eg.add(tufts);
+      furry(tufts, { mode: 2, r: er }, { len: 0.016, shells: 10, comb: V(0.7, 0.3, 0) }); tufts.material.visible = false; } // pale furnishings inside his ears
+    if (fluffy) { const tip = new THREE.Mesh(new THREE.ConeGeometry(0.004, 0.035, 6), new THREE.MeshStandardMaterial({ color: saddle })); tip.position.set(-eh * 1.05 * 0.18, eh * 1.05 + 0.012, 0); tip.rotation.z = 0.15; eg.add(tip); }
+  }
+  // nose: a soft leather with nostrils, and a mouth line below it
+  let cone; head.traverse((o) => { if (o.isMesh && o.geometry.type === "ConeGeometry" && o.parent === head) cone = o; });
+  if (cone) {
+    cone.visible = false;
+    const nz = new THREE.Mesh(new THREE.SphereGeometry(hr * 0.13, 14, 10), new THREE.MeshStandardMaterial({ color: nose, roughness: 0.25 })); nz.scale.set(0.9, 0.7, 1.15);
+    nz.position.copy(cone.position).add(V(headFur * 0.9 + hr * 0.1, hr * 0.02, 0)); head.add(nz);
+    for (const dz of [-1, 1]) { const n = new THREE.Mesh(new THREE.SphereGeometry(hr * 0.03, 8, 6), new THREE.MeshStandardMaterial({ color: 0x1a0a10 })); n.position.set(hr * 0.11, -hr * 0.03, dz * hr * 0.06); nz.add(n); }
+    const mm = new THREE.MeshStandardMaterial({ color: 0x24141a, roughness: 0.8 });
+    for (const dz of [-1, 1]) { const m = new THREE.Mesh(new THREE.TorusGeometry(hr * 0.11, hr * 0.012, 4, 12, Math.PI), mm); m.position.set(nz.position.x - hr * 0.02, nz.position.y - hr * 0.14, dz * hr * 0.11); m.rotation.set(0, Math.PI / 2, Math.PI); head.add(m); }
+  }
+  // whiskers: three a side fanning from the pads, and a couple over each eye
+  const wm = new THREE.MeshBasicMaterial({ color: 0xf4f0ff, transparent: true, opacity: 0.45, depthWrite: false });
+  const whisker = (len, at, rot) => { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.0003, 0.0007, len, 3), wm); w.geometry.translate(0, len / 2, 0); const piv = new THREE.Group(); piv.position.copy(at); piv.rotation.set(...rot); head.add(piv); piv.add(w); w.raycast = () => {}; };
+  for (const dz of [-1, 1]) {
+    for (let k = 0; k < 3; k++) whisker(hr * (1.05 + k * 0.1), V(hr * 0.85, -hr * (0.25 + k * 0.08), dz * hr * 0.3), [dz * (1.45 + k * 0.1), 0, -0.25 - k * 0.22]); // out to the sides, fanning slightly down
+    for (let k = 0; k < 2; k++) whisker(hr * 0.7, V(hr * 0.55, hr * 0.5, dz * hr * 0.4), [dz * (0.9 + k * 0.3), 0, 0.5 - k * 0.25]); // eyebrows
+  }
+};
 const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, eye = 0xd8a830, size = 1, fluffy = false, lean = false }, x, y, z, rotY = 0, { sit = false } = {}) => {
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; g.scale.setScalar(size); g.userData.size = size; scene.add(g);
   const sx = sit ? (lean ? 0.62 : 0.78) : lean ? 1.5 : 1.35, sy = sit ? 0.9 : lean ? 0.52 : 0.7, sz = sit ? (lean ? 0.55 : 0.72) : lean ? 0.82 : 1.1, R = 0.2;
@@ -1538,6 +1778,7 @@ const cat = ({ fur, stripe, chin, saddle, ruff, inner, nose, eye = 0xd8a830, siz
     zs.forEach((z1, i) => { const t = (now / 2600 + phase + i / 3) % 1; z1.position.set(0.3 + t * 0.12, 0.27 + t * 0.35, 0.05 - t * 0.05); z1.material.opacity = Math.sin(t * Math.PI) * 0.9 * (1 - Math.min(1, awake * 1.7)); z1.lookAt(camera.position); });
     if (g.userData.twitch) { const k = (now - g.userData.twitch) / 500; ears.forEach((e, i) => { e.rotation.y = k < 1 ? Math.sin(k * Math.PI * 4) * 0.5 * (i ? 1 : -1) : 0; }); if (k >= 1) g.userData.twitch = 0; }
   });
+  if (!lite) furUp(g, { fur, stripe, chin, saddle, ruff, inner, nose, fluffy, lean, sit, body, skull, head, hr, R, tailPts, eyes, ears, zs });
   return g;
 };
 // A cat tree like theirs: dark gray carpet, cubbies with arched doorways, sisal posts, a perch on top.
@@ -1607,7 +1848,7 @@ const toyMouse = (x, y, z, rotY = 0, color = 0x9b3dd6) => {
   const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(-0.06, 0.02, 0), V(-0.12, 0.01, 0.04), V(-0.17, 0.01, -0.02)]), 10, 0.005, 4), toon(color)); g.add(t);
   return g;
 };
-const FIN = { fur: 0x9a7b58, stripe: 0x2e241c, chin: 0xf2ece0, saddle: 0x4e3e2e, ruff: 0xc9ab82, inner: 0xe8cdb8, nose: 0xd99a86, eye: 0xe8b52a, size: 1.15, fluffy: true };
+const FIN = { fur: 0x8a7d68, stripe: 0x3a3530, chin: 0xeee8dc, saddle: 0x37332f, ruff: 0xcdb08c, inner: 0xd9c6b8, nose: 0xc9867e, eye: 0xdcb436, size: 1.15, fluffy: true }; // taupe-grey, a near-black back, a cream-tan ruff, yellow-gold eyes
 let latestBook = null, setBook = () => {}; // my latest Goodreads read, for the copy on the coffee table
 const listPosters = []; // the four framed posters in the theater: { art, capC, capT, hotIx, neonC, list }
 const setListPosters = (lists) => lists.slice(0, listPosters.length).forEach((l, i) => {
@@ -1620,7 +1861,7 @@ const setListPosters = (lists) => lists.slice(0, listPosters.length).forEach((l,
   loader.load(`${l.poster}?${encodeURIComponent(l.top[0]?.link || "")}`, (t) => { t.colorSpace = THREE.SRGBColorSpace; p.art.material.map = t; p.art.material.color.setScalar(0.74); p.art.material.needsUpdate = true; }); // dimmed a little, so bright posters don't bloom out
 });
 let couchCats = [], seatCats = [], kitchenCats = []; // [sleeping cat, sitting cat, name] for each: on the couch, and in the theater seats
-const PHOEBE = { fur: 0xec9a4c, stripe: 0xbb6128, chin: 0xf8ead4, inner: 0xf4a6b4, nose: 0xf29aa6, eye: 0xc98d32, size: 0.62, lean: true };
+const PHOEBE = { fur: 0xe8a058, stripe: 0xc9702e, chin: 0xf4e6d2, inner: 0xf4a6b4, nose: 0xec9ca4, eye: 0xb07c30, size: 0.62, lean: true }; // soft orange, strong darker bands, a cream chest, amber-brown eyes
 const buildCats = () => {
   const napper = (g, name) => { g.userData.fromCat = "spot"; addHot(g, "living", name, ["Shh… napping", touch ? "Tap to tiptoe closer" : "Click to tiptoe closer"], () => { g.userData.twitch = performance.now(); spot?.g === g ? askCat() : openCat(g, name); }); };
   // living room: Phoebe on top of the cat tree (back wall, left of the window), Finn in his bed (back wall, right)
@@ -2781,7 +3022,7 @@ if (!lite) {
   gtao.blendIntensity = 1;
   // glowing and see-through things (neon, signs, screens) don't cast occlusion
   const ov = gtao.overrideVisibility.bind(gtao);
-  gtao.overrideVisibility = () => { ov(); scene.traverse((o) => { const m = o.material; if (o.isMesh && o.visible && m && (m.transparent || m.toneMapped === false || m.isMeshBasicMaterial)) { gtao._visibilityCache.set(o, o.visible); o.visible = false; } }); };
+  gtao.overrideVisibility = () => { ov(); scene.traverse((o) => { const m = o.material; if (o.isMesh && o.visible && m && (m.transparent || m.toneMapped === false || m.isMeshBasicMaterial || o.userData.noAO)) { gtao._visibilityCache.set(o, o.visible); o.visible = false; } }); };
   composer.addPass(gtao);
 }
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.5, 0.82);
@@ -2889,7 +3130,7 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
 // The Washington Monument and Thomas Jefferson Memorial…", "Roppongi at night seen from Shibuya Stream" (CC0),
 // "Hong Kong Island Building" (CC0). Cut out, graded and layered by hand; the screens are drawn on.
 const buildCity = () => {
-  const P = "images/city/", CITY_V = "?v=1793776127"; // bump when the pictures change
+  const P = "images/city/", CITY_V = "?v=1793779210"; // bump when the pictures change
   if (lite) { const im = new Image(); im.onload = () => { cityPhoto = im; drawWindow(); }; im.src = P + "flat.jpg" + CITY_V; return; }
   const tex = (n) => new Promise((ok, no) => loader.load(P + n + CITY_V, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = THREE.MirroredRepeatWrapping; ok(t); }, undefined, no));
   // drops: a normal map painted on a canvas (red/green = how the drop bends light, blue = drop or not)
