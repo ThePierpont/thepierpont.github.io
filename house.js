@@ -11,7 +11,8 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793771874";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793773522";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -69,6 +70,28 @@ const fabricM = (color) => {
   return lite ? new THREE.MeshLambertMaterial({ color }) : new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0, bumpMap: weaveTex, bumpScale: 0.6 });
 };
 const glowMat = (color, k = 2) => new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false });
+// Foliage (desktop): curved, tapering leaf blades with a midrib crease, waxy and a little see-through
+// at the edges of the light. `leafy` fans `n` of them out of a pot at (x, y, z) in `parent`.
+// Phones keep the old simple cone leaves.
+const bladeGeo = (len, wid, bend) => {
+  const g = new THREE.PlaneGeometry(wid, len, 2, 8); g.translate(0, len / 2, 0); const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const t = p.getY(i) / len, x = p.getX(i);
+    p.setX(i, x * Math.sin(Math.PI * Math.min(1, 0.12 + t * 0.95)) * (1 - t * 0.35)); // pointed tip, narrow base
+    p.setZ(i, bend * t * t * len - Math.abs(x) * 0.35); // arching over, and folded along the midrib
+  }
+  g.computeVertexNormals(); return g;
+};
+const leafMats = new Map();
+const leafM = (c) => { if (!leafMats.has(c)) leafMats.set(c, new THREE.MeshStandardMaterial({ color: c, roughness: 0.42, metalness: 0, side: THREE.DoubleSide })); return leafMats.get(c); };
+const leafy = (parent, x, y, z, { n = 9, len = 0.6, wid = 0.07, bend = 0.5, tilt = 0.35, colors = [0x1f8f5a, 0x2aa56a, 0x17784a], seed = 1 } = {}) => {
+  let r = seed * 9301; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < n; i++) {
+    const piv = new THREE.Group(); piv.position.set(x, y, z); piv.rotation.y = i * 2.39996 + rnd() * 0.4;
+    const l = len * (0.7 + rnd() * 0.5), m = new THREE.Mesh(bladeGeo(l, wid * (0.8 + rnd() * 0.4), bend * (0.6 + rnd() * 0.8)), leafM(colors[i % colors.length]));
+    m.rotation.x = tilt * (0.4 + rnd() * 1.1); piv.add(m); parent.add(piv);
+  }
+};
 // the cartoon ink outlines are retired: anything still made with these is simply not drawn
 const inkMat = new THREE.MeshBasicMaterial({ visible: false });
 const lineMat = new THREE.LineBasicMaterial({ visible: false });
@@ -275,7 +298,8 @@ const buildHallMore = () => {
     const l = new THREE.PointLight(s > 0 ? 0xff4f8b : 0x3fd8ff, 1.6, 6); l.position.set(s * (L - 0.8), 1.8, Dp / 2); scene.add(l);
     // a big planter under each window
     const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 18), steelM(0x2a2e3a)); pot.position.set(s * (L - 0.5), 0.25, Dp / 2 + 1.5); scene.add(pot);
-    for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 2, leaf = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.9 + (k % 3) * 0.2, 5), toon(k % 2 ? 0x2f8f4e : 0x3fae5e)); leaf.position.set(s * (L - 0.5) + Math.cos(a) * 0.1, 0.9, Dp / 2 + 1.5 + Math.sin(a) * 0.1); leaf.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35); scene.add(leaf); }
+    if (!lite) leafy(scene, s * (L - 0.5), 0.48, Dp / 2 + 1.5, { n: 22, len: 1.15, wid: 0.15, bend: 0.6, tilt: 0.62, seed: s + 3 });
+    else for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 2, leaf = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.9 + (k % 3) * 0.2, 5), toon(k % 2 ? 0x2f8f4e : 0x3fae5e)); leaf.position.set(s * (L - 0.5) + Math.cos(a) * 0.1, 0.9, Dp / 2 + 1.5 + Math.sin(a) * 0.1); leaf.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35); scene.add(leaf); }
   }
   // warm amber sconces between the doors, each washing its bit of wall
   for (const [x, back] of [[-4.0, false], [3.9, false], [-4.05, true], [1.55, true], [4.25, true]]) {
@@ -296,7 +320,8 @@ const buildHallMore = () => {
   pool(1.9, 1.2, 0x05d9e8, 0.1, 0, 0.034, 1.3, -Math.PI / 2); pool(0.9, 0.6, 0xff2a6d, 0.12, 0, 0.036, 0.6, -Math.PI / 2);
   // a planter by my door
   { const box = block(0.7, 0.42, 0.3, 0, 2.6, 0.21, 0.3, { r: 0.02, mat: steelM(0x6c7389) });
-    for (let k = 0; k < 7; k++) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), toon(k % 2 ? 0x2f8f4e : 0x3fae5e)); leaf.scale.set(1, 0.6 + (k % 3) * 0.25, 1); leaf.position.set(2.36 + k * 0.08, 0.5 + (k % 2) * 0.08, 0.3 + ((k % 3) - 1) * 0.05); scene.add(leaf); }
+    if (!lite) for (let k = 0; k < 4; k++) leafy(scene, 2.4 + k * 0.13, 0.4, 0.3, { n: 10, len: 0.4, wid: 0.075, bend: 0.9, tilt: 0.75, seed: k + 11, colors: [0x2f8f4e, 0x3fae5e, 0x24733f] });
+    else for (let k = 0; k < 7; k++) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), toon(k % 2 ? 0x2f8f4e : 0x3fae5e)); leaf.scale.set(1, 0.6 + (k % 3) * 0.25, 1); leaf.position.set(2.36 + k * 0.08, 0.5 + (k % 2) * 0.08, 0.3 + ((k % 3) - 1) * 0.05); scene.add(leaf); }
     tube(0.6, 0.012, 0.012, 0xb48cff, 2.6, 0.43, 0.46, { k: 0.6 }); }
   // low vents along both walls
   for (const [x, back] of [[-1.6, false], [7.0, false], [-12.6, true], [6.9, true], [13.8, false]]) {
@@ -403,21 +428,7 @@ const buildLiving = () => {
   { const inner = new THREE.Mesh(new THREE.TubeGeometry(roundRect(5.36, 2.16, 0.22, 0), 160, 0.026, 8, true), glowMat(0x05d9e8, 1.3)); inner.position.set(0, 1.9, -6.9); scene.add(inner);
     const outer = new THREE.Mesh(new THREE.TubeGeometry(roundRect(5.62, 2.42, 0.32, 0), 160, 0.012, 6, true), glowMat(0xff2a6d, 1.1)); outer.position.set(0, 1.9, -6.89); scene.add(outer); }
   for (const s of [-1, 1]) tube(0.03, 2.7, 0.03, 0xff2a6d, s * 3.02, 1.7, -6.88, { k: 1.2 }); // pink tubes standing either side
-  // things moving out in the city: two lanes of air traffic each way, and a train crossing on the viaduct
-  { const movers = [];
-    const mover = (tw, th, draw, z, speed) => {
-      const t = canvasTex(tw, th, draw); t.wrapS = THREE.RepeatWrapping;
-      const m = panel(5.2, 2.0, t, 0, 1.9, z, { transparent: true, k: 1 }); m.raycast = () => {}; movers.push({ m, t, speed });
-    };
-    const lane = (x, y, n, head, seedK) => { let sd = seedK; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
-      for (let i = 0; i < n; i++) { const px = r() * 1024, col = head ? "rgba(255,246,220,.95)" : "rgba(255,60,90,.9)"; x.fillStyle = col; x.shadowColor = col; x.shadowBlur = 6; x.fillRect(px, y + (r() - 0.5) * 6, 4, 2); x.fillRect(px + 7, y + (r() - 0.5) * 6, 4, 2); } x.shadowBlur = 0; };
-    mover(1024, 400, (x) => { lane(x, 92, 22, true, 3); lane(x, 128, 18, true, 9); }, -7.016, 0.000012);   // coming this way: headlights
-    mover(1024, 400, (x) => { lane(x, 108, 20, false, 5); lane(x, 150, 16, false, 13); }, -7.015, -0.000018); // going away: tail lights
-    mover(2048, 400, (x) => { // the train: a lit carriage set with a glowing stripe, then a long gap
-      x.fillStyle = "#0d1428"; x.fillRect(40, 286, 620, 12); x.fillStyle = "#05d9e8"; x.shadowColor = "#05d9e8"; x.shadowBlur = 10; x.fillRect(40, 296, 620, 2); x.shadowBlur = 0;
-      for (let k = 0; k < 4; k++) { x.fillStyle = "#0d1428"; x.fillRect(40 + k * 156, 284, 150, 2); for (let w = 0; w < 9; w++) { x.fillStyle = "rgba(255,226,160,.9)"; x.fillRect(48 + k * 156 + w * 16, 288, 9, 5); } }
-    }, -7.014, 0.00003);
-    animators.push((now, dt) => { for (const v of movers) { v.t.offset.x += dt * v.speed; v.m.material.opacity = 1 - winApp; } }); }
+  // (the city is a still now: its traffic is baked in as long-exposure light trails, see drawSkyline)
   mullion = block(0.07, 2.0, 0.07, 0x140e2a, 0, 1.9, -6.95, { ink: false }); // hidden while the clock app is up
   block(5.5, 0.08, 0.34, 0, 0, 0.92, -6.8, { r: 0.02, mat: steelM(0x6c7389) }); // the sill
   windowGlass = glass;
@@ -575,7 +586,8 @@ const buildLiving = () => {
     const plant = (x, y, z, size, tall) => {
       const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(size); scene.add(g);
       block(0.16, 0.14, 0.16, 0, 0, 0.07, 0, { parent: g, r: 0.03, mat: steelM(0x4a5064) });
-      for (let i = 0; i < (tall ? 9 : 6); i++) { const a = i * 2.4, lf = new THREE.Mesh(new THREE.ConeGeometry(0.035, tall ? 0.5 + (i % 3) * 0.12 : 0.22 + (i % 3) * 0.05, 4), toon(leafC[i % 3]));
+      if (!lite) leafy(g, 0, 0.13, 0, tall ? { n: 20, len: 0.75, wid: 0.085, bend: 0.55, tilt: 0.6, seed: x * 7 } : { n: 14, len: 0.34, wid: 0.06, bend: 1.0, tilt: 0.85, seed: x * 7 + 2 });
+      else for (let i = 0; i < (tall ? 9 : 6); i++) { const a = i * 2.4, lf = new THREE.Mesh(new THREE.ConeGeometry(0.035, tall ? 0.5 + (i % 3) * 0.12 : 0.22 + (i % 3) * 0.05, 4), toon(leafC[i % 3]));
         lf.position.set(Math.cos(a) * 0.03, tall ? 0.38 : 0.22, Math.sin(a) * 0.03); lf.rotation.set(Math.sin(a) * 0.35, 0, Math.cos(a) * 0.35); g.add(lf); const ink = new THREE.Mesh(lf.geometry, inkMat); ink.scale.setScalar(1.12); lf.add(ink); }
       return g; };
     for (const [px, sz] of [[-2.3, 1], [-1.7, 0.8], [1.3, 1.1], [2.1, 0.85]]) plant(px, 0.96, -6.82, sz, false); // clear of the Capitol and the Monument
@@ -776,7 +788,8 @@ const buildTheater = () => {
   for (const [px, pz] of [[-8.45, -7.55], [-0.55, -7.55]]) {
     const g = new THREE.Group(); g.position.set(px, 0, pz); scene.add(g);
     block(0.3, 0.36, 0.3, 0, 0, 0.18, 0, { parent: g, r: 0.04, mat: steelM(0x4a5064) });
-    for (let i = 0; i < 11; i++) { const a = i * 2.3, lf = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.8 + (i % 4) * 0.18, 4), toon([0x1fb87a, 0x2bd68f, 0x169a66][i % 3]));
+    if (!lite) leafy(g, 0, 0.34, 0, { n: 24, len: 1.35, wid: 0.14, bend: 0.6, tilt: 0.6, seed: px });
+    else for (let i = 0; i < 11; i++) { const a = i * 2.3, lf = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.8 + (i % 4) * 0.18, 4), toon([0x1fb87a, 0x2bd68f, 0x169a66][i % 3]));
       lf.position.set(Math.cos(a) * 0.05, 0.75, Math.sin(a) * 0.05); lf.rotation.set(Math.sin(a) * 0.3, 0, Math.cos(a) * 0.3); g.add(lf); const ink = new THREE.Mesh(lf.geometry, inkMat); ink.scale.setScalar(1.1); lf.add(ink); }
   }
   // the screen's glow, caught in the floor in front of the stage
@@ -1373,16 +1386,16 @@ const buildDecor = () => {
     f.position.set(-5.6 + Math.sin(t * 1.7) * 0.08, 0.85 + i * 0.12 + Math.sin(t * 3) * 0.03, z);
     f.rotation.y = Math.cos(t) > 0 ? -Math.PI / 2 : Math.PI / 2; // turn round at each end
   }));
-  // rain running down the window (fades out while the clock app is on the glass)
+  // rain on the window, sliding down slowly (fades out while the clock app is on the glass)
   const rainTex = canvasTex(256, 512, (x, w, h) => {
-    x.clearRect(0, 0, w, h); x.strokeStyle = "rgba(180,220,255,.55)"; x.lineWidth = 1.5;
+    x.clearRect(0, 0, w, h); x.strokeStyle = "rgba(180,220,255,.4)"; x.lineWidth = 1;
     let seed = 3; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     for (let i = 0; i < 70; i++) { const px = rnd() * w, py = rnd() * h, len = 12 + rnd() * 30; x.beginPath(); x.moveTo(px, py); x.lineTo(px - 2, py + len); x.stroke(); }
     for (let i = 0; i < 40; i++) { x.fillStyle = "rgba(200,230,255,.4)"; x.beginPath(); x.arc(rnd() * w, rnd() * h, 1.5 + rnd() * 2, 0, Math.PI * 2); x.fill(); }
   });
   rainTex.wrapS = rainTex.wrapT = THREE.RepeatWrapping; rainTex.repeat.set(5, 1.2);
-  rainMesh = panel(5.2, 2.0, rainTex, 0, 1.9, -7.0, { transparent: true, k: 1 }); rainMesh.material.opacity = 0.32; rainMesh.raycast = () => {}; // never blocks clicks on the glass
-  animators.push((now, dt) => { rainTex.offset.y += dt * 0.00035; });
+  rainMesh = panel(5.2, 2.0, rainTex, 0, 1.9, -7.0, { transparent: true, k: 1 }); rainMesh.material.opacity = 0.18; rainMesh.raycast = () => {}; // never blocks clicks on the glass
+  animators.push((now, dt) => { rainTex.offset.y += dt * 0.00012; }); // slow drips: the one thing that moves out there
 
   // ---- theater
   for (const xx of [-7.75, -1.25]) {
@@ -1655,86 +1668,184 @@ const clockFmt = (() => {
   catch { return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }); }
 })();
 let height = 0, skyline = null;
-const drawSkyline = () => { // drawn once; the HUD is layered on top every few seconds
-  // A dense neon megacity at night, layered far to near: hazy towers with vertical sign strips, the Capitol and the
-  // Monument (it's still DC), holo billboards, an elevated train line, close dark towers, fog at street level.
-  // Traffic and the train move on their own overlays (see buildLiving); rain runs on the glass.
-  const c = document.createElement("canvas"); c.width = 2080; c.height = 800; const x = c.getContext("2d");
-  const g = x.createLinearGradient(0, 0, 0, 800); g.addColorStop(0, "#04060f"); g.addColorStop(0.45, "#0b1b30"); g.addColorStop(0.78, "#3a1550"); g.addColorStop(1, "#7a2160");
-  x.fillStyle = g; x.fillRect(0, 0, 2080, 800);
+const drawSkyline = () => { // painted once; the HUD is layered on top every few seconds
+  // DC at night, painted to read like a long-exposure photo rather than a cartoon: a smoggy sky lit from below
+  // by the city, layers of towers fading into haze with real window grids (warm homes, cool offices, dark floors),
+  // rooftop plant and red aviation lights, the floodlit Capitol and Monument across the Mall, streetlights and
+  // long-exposure traffic trails below, near buildings framing it, and grain so it doesn't look digital.
+  // It's static: no moving traffic or trains (the rain on the glass is the only thing that moves).
+  const W = 2080, Hh = 800;
+  const c = document.createElement("canvas"); c.width = W; c.height = Hh; const ctx0 = c.getContext("2d"); let x = ctx0;
+  // paint some layers on their own sheet, then lay it down slightly softened (a lens, and the air, aren't pin sharp)
+  const soft = (px, fn) => { const t = document.createElement("canvas"); t.width = W; t.height = Hh; x = t.getContext("2d"); fn(); x = ctx0; x.save(); x.filter = `blur(${px}px)`; x.drawImage(t, 0, 0); x.restore(); };
   let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  for (let i = 0; i < 90; i++) { x.fillStyle = `rgba(255,255,255,${0.15 + rnd() * 0.4})`; x.fillRect(rnd() * 2080, rnd() * 260, 2, 2); } // a few stars through the smog
-  x.fillStyle = "rgba(255,233,245,.85)"; x.shadowColor = "#ff9fc8"; x.shadowBlur = 50; x.beginPath(); x.arc(1760, 120, 46, 0, Math.PI * 2); x.fill(); x.shadowBlur = 0;
-  const neon = ["#ff2a6d", "#05d9e8", "#f9f002", "#b98cff", "#ff7a1a", "#2bff88"];
-  const glyphs = "BAR·OPEN·24H·HOTEL·NOODLE·SAKE·LIVE·CLUB·RAMEN·DATA·BIO·LOFT".split("·");
-  const clear = [[500, 1040, 640], [1200, 1380, 700]]; // [from x, to x, lowest roofline allowed] around the Capitol and the Monument
-  const towers = (color, base, min, max, wMin, wMax, { lit = 0, signs = 0, gap = 4, keepClear = false } = {}) => {
-    for (let px = -30; px < 2110;) {
-      const w = wMin + rnd() * (wMax - wMin); let h = min + rnd() * (max - min);
-      if (keepClear) for (const [a, b, roof] of clear) if (px + w > a && px < b) h = Math.min(h, base - (typeof keepClear === "number" ? keepClear : roof)); // a number: that roofline everywhere near them
-      const top = base - h;
-      x.fillStyle = color; x.fillRect(px, top, w, h + 300);
-      if (rnd() < 0.3) { x.fillRect(px + w * 0.3, top - 30, w * 0.4, 30); if (rnd() < 0.5) { x.fillStyle = "#ff2a6d"; x.fillRect(px + w / 2 - 1, top - 60, 3, 30); x.fillStyle = color; } } // setbacks, antennae
-      if (lit) for (let wy = top + 12; wy < base - 8; wy += 18) for (let wx = px + 6; wx < px + w - 8; wx += 14)
-        if (rnd() < lit) { x.fillStyle = rnd() < 0.65 ? "rgba(255,211,107,.85)" : "rgba(5,217,232,.8)"; x.fillRect(wx, wy, 6, 8); }
-      if (rnd() < signs) { // a vertical neon sign strip down the side
-        const col = neon[Math.floor(rnd() * neon.length)], sh = 120 + rnd() * 180, sx = px + (rnd() < 0.5 ? 4 : w - 26), sy = top + 20 + rnd() * 60;
-        x.fillStyle = "rgba(0,0,0,.6)"; x.fillRect(sx, sy, 22, sh);
-        x.shadowColor = col; x.shadowBlur = 18; x.strokeStyle = col; x.lineWidth = 2; x.strokeRect(sx, sy, 22, sh);
-        x.fillStyle = col; x.font = "700 16px 'JetBrains Mono'"; x.textAlign = "center"; const word = glyphs[Math.floor(rnd() * glyphs.length)];
-        [...word].forEach((ch, k) => x.fillText(ch, sx + 11, sy + 22 + k * 20)); x.textAlign = "left"; x.shadowBlur = 0;
+  const rgba = (r, g, b, a) => `rgba(${r | 0},${g | 0},${b | 0},${a})`;
+  const glowDot = (px, py, rad, col, a) => { const gr = x.createRadialGradient(px, py, 0, px, py, rad); gr.addColorStop(0, rgba(...col, a)); gr.addColorStop(1, rgba(...col, 0)); x.fillStyle = gr; x.fillRect(px - rad, py - rad, rad * 2, rad * 2); };
+
+  // the sky: near-black overhead, the city's sodium-and-neon glow banked up along the horizon
+  const sky = x.createLinearGradient(0, 0, 0, Hh);
+  sky.addColorStop(0, "#03040a"); sky.addColorStop(0.35, "#0a1020"); sky.addColorStop(0.62, "#23182e"); sky.addColorStop(0.78, "#4a2638"); sky.addColorStop(1, "#5c3030");
+  x.fillStyle = sky; x.fillRect(0, 0, W, Hh);
+  // low cloud, lit from underneath (soft blobs, brighter towards the horizon)
+  x.save(); x.filter = "blur(18px)";
+  for (let i = 0; i < 140; i++) {
+    const cy = 40 + Math.pow(rnd(), 0.7) * 380, k = cy / 420;
+    x.fillStyle = rgba(120 + k * 90, 70 + k * 40, 90 + k * 10, 0.05 + rnd() * 0.07 * k);
+    x.beginPath(); x.ellipse(rnd() * W, cy, 120 + rnd() * 260, 14 + rnd() * 30, 0, 0, Math.PI * 2); x.fill();
+  }
+  x.restore();
+  // the moon, half lost in the haze
+  glowDot(1760, 120, 120, [255, 230, 240], 0.12); x.fillStyle = "rgba(255,240,236,.55)"; x.beginPath(); x.arc(1760, 120, 30, 0, Math.PI * 2); x.fill();
+  for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(255,255,255,${0.08 + rnd() * 0.25})`; x.fillRect(rnd() * W, rnd() * 200, 1.5, 1.5); } // the odd star
+
+  // the Capitol and the Monument need clear sky round them: [from x, to x, lowest roofline]
+  const clear = [[520, 1020, 600], [1215, 1365, 660]];
+  const cap = (px, w, top, base, extra = 0) => { for (const [a, b, roof] of clear) if (px + w > a && px < b) top = Math.max(top, roof + extra); return Math.min(top, base - 6); };
+
+  // a lit crown on some of the tall ones: uplighting washing the top floors, fading down
+  const crown = (px, w, top, depth) => {
+    if (rnd() > 0.22 || w < 34) return;
+    const cc = [[230, 235, 255], [5, 217, 232], [255, 120, 190], [255, 200, 130]][Math.floor(rnd() * 4)], ch = 30 + depth * 30;
+    const gr = x.createLinearGradient(0, top, 0, top + ch); gr.addColorStop(0, rgba(...cc, 0.55)); gr.addColorStop(1, rgba(...cc, 0)); x.fillStyle = gr; x.fillRect(px, top, w, ch);
+    x.fillStyle = rgba(...cc, 0.8); x.fillRect(px, top, w, 1.5);
+  };
+  // A building: facade shaded top to bottom, a rim of light down one edge, a grid of windows.
+  // depth 0 = far (small, hazy) … 1 = near (big, crisp)
+  const building = (px, w, top, base, depth, haze) => {
+    const fh = 5 + depth * 9, ww = 2 + depth * 4, gap = 2 + depth * 4; // floor height, window size, spacing
+    const tone = 10 + rnd() * 10, fac = x.createLinearGradient(0, top, 0, base);
+    fac.addColorStop(0, rgba(tone + 6, tone + 8, tone + 18, 1)); fac.addColorStop(1, rgba(tone + 22, tone + 10, tone + 20, 1)); // street glow creeping up the walls
+    x.fillStyle = fac; x.fillRect(px, top, w, base - top + 2);
+    if (rnd() < 0.5) { x.fillStyle = rgba(160, 170, 210, 0.08 + depth * 0.08); x.fillRect(px, top, Math.max(1, depth * 3), base - top); } // rim light
+    const style = rnd(); // most are punched-window blocks; some are glass curtain-wall towers; some have fins
+    if (style < 0.25 && base - top > 120) { // glass tower: the sky in its glass, faint floor lines, a few floors still lit
+      const gl = x.createLinearGradient(px, 0, px + w, 0); gl.addColorStop(0, rgba(30, 34, 60, 1)); gl.addColorStop(0.5 + rnd() * 0.3, rgba(70 + depth * 30, 60, 95, 1)); gl.addColorStop(1, rgba(20, 22, 40, 1));
+      x.fillStyle = gl; x.fillRect(px, top, w, base - top + 2);
+      x.fillStyle = rgba(0, 0, 0, 0.25); for (let wy = top; wy < base; wy += fh) x.fillRect(px, wy, w, 1);
+      x.fillStyle = rgba(0, 0, 0, 0.18); for (let wx = px; wx < px + w; wx += ww * 2 + gap) x.fillRect(wx, top, 1, base - top);
+      const lc = rnd() < 0.6 ? [220, 232, 255] : [255, 205, 140];
+      for (let wy = top + fh; wy < base - fh; wy += fh) if (rnd() < 0.18) { x.fillStyle = rgba(...lc, 0.35 + rnd() * 0.4); x.fillRect(px + 1, wy + 1, w - 2, fh * 0.6); }
+      crown(px, w, top, depth); if (haze) { x.fillStyle = haze; x.fillRect(px, top - 80, w, base - top + 80); } return;
+    }
+    const fins = style > 0.82;
+    // windows: each building has its own light (warm flats, cool offices, a few teal), whole floors on or off
+    const kind = rnd(), warm = kind < 0.55, cool = kind > 0.85, litK = 0.15 + rnd() * 0.5;
+    const col = warm ? [255, 196, 120] : cool ? [150, 235, 255] : [215, 228, 255];
+    const office = !warm && rnd() < 0.6;
+    for (let wy = top + fh * 0.8; wy < base - fh * 0.6; wy += fh) {
+      const floorOn = office ? rnd() < litK + 0.15 : true;
+      for (let wx = px + gap; wx < px + w - ww - 1; wx += ww + gap) {
+        const on = floorOn && rnd() < (office ? 0.85 : litK);
+        if (on) { const b = 0.55 + rnd() * 0.45; x.fillStyle = rgba(col[0] * b, col[1] * b, col[2] * b, 0.55 + depth * 0.4); }
+        else x.fillStyle = rgba(40, 46, 70, 0.35); // dark glass, catching a bit of sky
+        x.fillRect(wx, wy, ww, fh * 0.55);
       }
-      px += w + gap;
+    }
+    if (fins) { x.fillStyle = rgba(tone - 4, tone - 2, tone + 6, 0.9); for (let wx = px + gap / 2; wx < px + w; wx += (ww + gap) * 2) x.fillRect(wx - 1, top, Math.max(1.5, gap * 0.7), base - top); }
+    crown(px, w, top, depth);
+    // roof: plant rooms, water tanks, a mast with a red aviation light
+    if (rnd() < 0.55) { x.fillStyle = rgba(tone, tone + 2, tone + 10, 1); const rw = w * (0.3 + rnd() * 0.3); x.fillRect(px + (w - rw) * rnd(), top - fh * 1.2, rw, fh * 1.2); }
+    if (w > 40 && rnd() < 0.35) { const mx = px + w * (0.3 + rnd() * 0.4), mh = 20 + rnd() * 50 * (1 - depth * 0.4); x.fillStyle = "#0a0c14"; x.fillRect(mx, top - mh, 2, mh); glowDot(mx + 1, top - mh, 8 + depth * 6, [255, 40, 50], 0.8); }
+    if (haze) { x.fillStyle = haze; x.fillRect(px, top - 80, w, base - top + 80); }
+  };
+  const layer = (base, min, max, wMin, wMax, depth, haze, extra) => {
+    for (let px = -40; px < W + 40;) {
+      const w = wMin + rnd() * (wMax - wMin), top = cap(px, w, base - (min + rnd() * (max - min)), base, extra);
+      building(px, w, top, base, depth, haze);
+      px += w + rnd() * 6;
     }
   };
-  towers("#101c33", 640, 260, 520, 40, 90, { lit: 0.12, signs: 0.35 }); // far, tall and hazy
-  x.fillStyle = "rgba(20,40,70,.35)"; x.fillRect(0, 0, 2080, 800); // haze over the far layer
-  towers("#0b1428", 720, 140, 330, 60, 130, { lit: 0.3, signs: 0.25, gap: 8, keepClear: true }); // mid
-  // DC, floodlit so it stands out against the neon: the Capitol (dome on its drum, wings either side) and the
-  // Washington Monument with its red beacons, a reflecting pool catching both
-  const lit = (top, bottom) => { const gr = x.createLinearGradient(0, top, 0, bottom); gr.addColorStop(0, "#f2efff"); gr.addColorStop(1, "#9aa3c8"); return gr; };
-  x.shadowColor = "rgba(220,225,255,.8)"; x.shadowBlur = 28;
-  x.fillStyle = lit(560, 700); x.fillRect(540, 600, 460, 100); // the wings
-  x.fillStyle = lit(540, 610); x.fillRect(690, 548, 160, 60); // the centre block and portico
-  x.beginPath(); x.moveTo(680, 552); x.lineTo(770, 520); x.lineTo(860, 552); x.closePath(); x.fill(); // pediment
-  x.fillStyle = lit(450, 560); x.fillRect(705, 470, 130, 82); // the drum
-  x.fillStyle = lit(330, 470); x.beginPath(); x.ellipse(770, 472, 78, 118, 0, Math.PI, 0); x.fill(); // the dome
-  x.fillRect(758, 330, 24, 30); x.beginPath(); x.moveTo(764, 330); x.lineTo(770, 300); x.lineTo(776, 330); x.fill(); // lantern and statue
-  x.shadowBlur = 0;
-  x.fillStyle = "rgba(40,50,90,.55)"; for (let cx = 550; cx < 995; cx += 14) x.fillRect(cx, 612, 5, 80); // columns along the wings
-  for (let cx = 712; cx < 830; cx += 12) x.fillRect(cx, 480, 4, 66); // and round the drum
-  for (const a of [-0.55, -0.25, 0, 0.25, 0.55]) { x.strokeStyle = "rgba(60,70,110,.5)"; x.lineWidth = 2; x.beginPath(); x.ellipse(770, 472, 78 * Math.abs(Math.cos(a * 2)) + 2, 118, 0, Math.PI, 0); x.stroke(); } // dome ribs
-  x.fillStyle = "rgba(255,226,160,.9)"; for (let cx = 556; cx < 990; cx += 28) if (cx < 690 || cx > 850) x.fillRect(cx, 630, 8, 10); // lit windows
-  // the Monument
-  x.shadowColor = "rgba(255,240,215,.75)"; x.shadowBlur = 26;
-  const mg = x.createLinearGradient(0, 250, 0, 700); mg.addColorStop(0, "#fff6e6"); mg.addColorStop(1, "#b8b2a4");
-  x.fillStyle = mg; x.beginPath(); x.moveTo(1290, 232); x.lineTo(1314, 262); x.lineTo(1332, 700); x.lineTo(1248, 700); x.lineTo(1266, 262); x.closePath(); x.fill();
-  x.shadowBlur = 0; x.fillStyle = "rgba(120,110,95,.35)"; x.fillRect(1290, 262, 42, 438); // its shaded side
-  x.fillStyle = "#ff2a6d"; x.shadowColor = "#ff2a6d"; x.shadowBlur = 16; for (const [bx, by] of [[1282, 268], [1298, 268]]) { x.beginPath(); x.arc(bx, by, 4, 0, Math.PI * 2); x.fill(); } x.shadowBlur = 0;
-  // the reflecting pool between them, catching the light
-  const rp = x.createLinearGradient(0, 700, 0, 716); rp.addColorStop(0, "rgba(242,239,255,.55)"); rp.addColorStop(1, "rgba(242,239,255,0)");
-  x.fillStyle = rp; x.fillRect(560, 700, 800, 16);
-  // holo billboards hung on the mid towers
+  // haze between layers: the further back, the more the sky colour swallows it
+  soft(1.6, () => layer(640, 120, 470, 30, 70, 0.05, "rgba(60,36,60,.45)", -40));  // the far city, on the horizon
+  soft(1.0, () => layer(660, 80, 330, 40, 90, 0.2, "rgba(50,30,50,.3)", 0));      // further in
+  soft(0.7, () => layer(690, 40, 220, 50, 120, 0.35, "rgba(40,24,40,.18)", 40));  // the middle distance, low round the Mall
+  { const hz = x.createLinearGradient(0, 420, 0, 720); hz.addColorStop(0, "rgba(90,50,70,0)"); hz.addColorStop(1, "rgba(90,50,70,.3)"); x.fillStyle = hz; x.fillRect(0, 420, W, 300); } // low haze over it all
+
+  // the Mall: lines of dark trees, lamps along the paths, the reflecting pool
+  x.fillStyle = "#070810"; x.fillRect(0, 690, W, 110);
+  for (let px = 0; px < W; px += 9) { const th = 8 + rnd() * 14; x.fillStyle = rgba(8 + rnd() * 6, 12 + rnd() * 6, 14, 1); x.beginPath(); x.ellipse(px, 694, 9, th, 0, 0, Math.PI * 2); x.fill(); }
+  for (let px = 20; px < W; px += 38 + rnd() * 10) glowDot(px, 697 + rnd() * 3, 12, [255, 190, 110], 0.45);
+
+  // DC, floodlit from below so it glows against the city: the Capitol, dome on its drum, wings either side
+  // (painted on its own sheet and softened a touch, then given a stone grain)
+  const stone = (top, bottom, k = 1) => { const gr = x.createLinearGradient(0, top, 0, bottom); gr.addColorStop(0, rgba(120 * k, 122 * k, 150 * k, 1)); gr.addColorStop(0.55, rgba(178 * k, 176 * k, 190 * k, 1)); gr.addColorStop(1, rgba(218 * k, 202 * k, 176 * k, 1)); return gr; };
+  glowDot(770, 560, 330, [230, 225, 255], 0.16); glowDot(1290, 430, 220, [255, 235, 205], 0.12); // the floodlight's glow in the air
+  soft(0.8, () => {
+  x.fillStyle = stone(600, 700, 0.85); x.fillRect(540, 604, 460, 96); // the wings
+  x.fillStyle = stone(560, 700, 0.95); x.fillRect(690, 548, 160, 152); // centre block
+  x.beginPath(); x.moveTo(680, 552); x.lineTo(770, 522); x.lineTo(860, 552); x.closePath(); x.fill(); // pediment
+  x.fillStyle = stone(450, 560); x.fillRect(705, 470, 130, 82); // the drum
+  { const dg = x.createLinearGradient(700, 360, 840, 470); dg.addColorStop(0, "#6f7392"); dg.addColorStop(0.45, "#b9b8c8"); dg.addColorStop(1, "#d8ccb6"); x.fillStyle = dg; x.beginPath(); x.ellipse(770, 472, 78, 118, 0, Math.PI, 0); x.fill(); } // the dome
+  x.fillStyle = stone(330, 360); x.fillRect(759, 328, 22, 30); x.beginPath(); x.moveTo(764, 328); x.lineTo(770, 300); x.lineTo(776, 328); x.fill(); // lantern and statue
+  x.fillStyle = "rgba(50,50,78,.6)";
+  for (let cx = 550; cx < 995; cx += 11) if (cx < 688 || cx > 852) x.fillRect(cx, 616, 4, 76); // columns along the wings
+  for (let cx = 712; cx < 832; cx += 9) x.fillRect(cx, 480, 3, 66); // round the drum
+  for (let cx = 698; cx < 846; cx += 12) x.fillRect(cx, 556, 4, 60); // the portico
+  x.fillStyle = "rgba(70,72,100,.5)"; x.fillRect(540, 604, 460, 3); x.fillRect(690, 548, 160, 3); x.fillRect(705, 470, 130, 3); // cornices in shadow
+  for (const a of [-0.55, -0.28, 0, 0.28, 0.55]) { x.strokeStyle = "rgba(90,95,130,.45)"; x.lineWidth = 1.5; x.beginPath(); x.ellipse(770, 472, 78 * Math.abs(Math.cos(a * 2)) + 1, 118, 0, Math.PI, 0); x.stroke(); } // dome ribs
+  for (let cx = 556; cx < 990; cx += 22) if (cx < 688 || cx > 852) { x.fillStyle = "rgba(255,214,150,.75)"; x.fillRect(cx, 660, 5, 8); } // lit windows
+  x.fillStyle = "rgba(255,214,150,.6)"; for (let k = 0; k < 4; k++) x.fillRect(726 + k * 26, 500, 6, 22); // the drum's windows
+  // the Monument: a pale needle, lit on one face, with its two red beacons
+  x.fillStyle = stone(232, 700, 1); x.beginPath(); x.moveTo(1290, 232); x.lineTo(1312, 262); x.lineTo(1328, 700); x.lineTo(1252, 700); x.lineTo(1268, 262); x.closePath(); x.fill();
+  { const sg = x.createLinearGradient(1290, 0, 1328, 0); sg.addColorStop(0, "rgba(80,70,70,.35)"); sg.addColorStop(1, "rgba(40,36,40,.55)"); x.fillStyle = sg; x.beginPath(); x.moveTo(1290, 232); x.lineTo(1312, 262); x.lineTo(1328, 700); x.lineTo(1290, 700); x.closePath(); x.fill(); } // its shaded face
+  for (const bx of [1282, 1298]) glowDot(bx, 268, 9, [255, 40, 60], 0.95);
+  // the reflecting pool, catching both
+  const rp = x.createLinearGradient(0, 702, 0, 724); rp.addColorStop(0, "rgba(235,230,250,.45)"); rp.addColorStop(1, "rgba(235,230,250,0)");
+  x.fillStyle = rp; x.fillRect(560, 702, 800, 22);
+  x.fillStyle = "rgba(240,235,255,.22)"; x.fillRect(1262, 704, 56, 40); x.fillRect(720, 704, 100, 26); // their reflections
+  // on the stone only: floodlight pools from the lamps at their feet, then a fine grain of weathered marble
+  x.save(); x.globalCompositeOperation = "source-atop";
+  for (const [fx, fy, fr] of [[600, 700, 120], [770, 700, 200], [940, 700, 120], [1290, 700, 160]]) { const fg = x.createRadialGradient(fx, fy, 0, fx, fy, fr); fg.addColorStop(0, "rgba(255,226,180,.3)"); fg.addColorStop(1, "rgba(255,236,200,0)"); x.fillStyle = fg; x.fillRect(fx - fr, fy - fr, fr * 2, fr * 2); }
+  const top = x.createLinearGradient(0, 230, 0, 520); top.addColorStop(0, "rgba(40,40,80,.35)"); top.addColorStop(1, "rgba(40,40,80,0)"); x.fillStyle = top; x.fillRect(500, 230, 900, 290); // tops falling off into the night
+  for (let i = 0; i < 9000; i++) { x.fillStyle = rnd() < 0.5 ? "rgba(0,0,0,.08)" : "rgba(255,255,255,.06)"; x.fillRect(520 + rnd() * 820, 290 + rnd() * 420, 1 + rnd() * 2, 1); }
+  x.restore();
+  });
+
+  // big LED screens on the towers, spilling their colour onto the walls round them
   const board = (bx, by, bw, bh, c1, c2, title, sub) => {
+    const cc = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    glowDot(bx + bw / 2, by + bh / 2, Math.max(bw, bh) * 1.1, cc(c1), 0.22);
+    x.fillStyle = "#06070c"; x.fillRect(bx - 4, by - 4, bw + 8, bh + 8); // its frame
     const gr = x.createLinearGradient(bx, by, bx + bw, by + bh); gr.addColorStop(0, c1); gr.addColorStop(1, c2);
-    x.globalAlpha = 0.85; x.fillStyle = gr; x.shadowColor = c1; x.shadowBlur = 30; x.fillRect(bx, by, bw, bh); x.shadowBlur = 0;
-    x.globalAlpha = 1; x.fillStyle = "rgba(255,255,255,.08)"; for (let y = by; y < by + bh; y += 4) x.fillRect(bx, y, bw, 1);
-    const fit = (font, size, text, max) => { x.font = `${font.replace("{}", size)}`; const w = x.measureText(text).width; if (w > max) { size = Math.floor(size * max / w); x.font = font.replace("{}", size); } return size; };
-    x.fillStyle = "#fff"; fit("700 {}px Rajdhani", Math.round(bh * 0.34), title, bw - 24); x.fillText(title, bx + 12, by + bh * 0.5);
-    x.fillStyle = "rgba(255,255,255,.85)"; fit("500 {}px 'JetBrains Mono'", Math.round(bh * 0.13), sub, bw - 28); x.fillText(sub, bx + 14, by + bh * 0.8); // text shrinks to fit its board
+    x.globalAlpha = 0.8; x.fillStyle = gr; x.fillRect(bx, by, bw, bh); x.globalAlpha = 1;
+    x.fillStyle = "rgba(0,0,0,.18)"; for (let y = by; y < by + bh; y += 3) x.fillRect(bx, y, bw, 1); // LED rows
+    const fit = (font, size, text, max) => { x.font = font.replace("{}", size); const w = x.measureText(text).width; if (w > max) x.font = font.replace("{}", Math.floor(size * max / w)); };
+    x.fillStyle = "rgba(255,255,255,.95)"; fit("700 {}px Rajdhani", Math.round(bh * 0.32), title, bw - 24); x.fillText(title, bx + 12, by + bh * 0.5);
+    x.fillStyle = "rgba(255,255,255,.8)"; fit("500 {}px 'JetBrains Mono'", Math.round(bh * 0.12), sub, bw - 28); x.fillText(sub, bx + 14, by + bh * 0.78);
   };
+
+  // near buildings framing the view at both sides (kept low in the middle, below the landmarks' feet)
+  soft(0.5, () => { for (const [a, b, lo, hi] of [[-20, 470, 280, 560], [470, 560, 90, 130], [1400, 1470, 100, 160], [1470, 2100, 260, 520]]) {
+    for (let px = a; px < b;) { const w = Math.min(b - px, 70 + rnd() * 110); building(px, w, 800 - (lo + rnd() * (hi - lo)), 820, 0.85, null); px += w + 3; }
+  } });
+  // the screens go up after the near buildings, so they're mounted on them rather than hidden behind
   board(140, 330, 210, 110, "#ff2a6d", "#7b2cbf", "NEON NOODLE", "2-FOR-1 AFTER MIDNIGHT");
-  board(1030, 280, 170, 220, "#05d9e8", "#1f3cff", "DREAMLOOP", "MIDNIGHT FEATURE");
+  board(1030, 290, 160, 200, "#05d9e8", "#1f3cff", "DREAMLOOP", "MIDNIGHT FEATURE");
   board(1560, 360, 230, 100, "#f9f002", "#ff7a1a", "SKYDROP", "FOOD IN 4 MIN");
-  // the elevated train line: a viaduct across the city on pillars, its edge lit
-  // (it passes behind the Capitol and the Monument, so it's left off where they stand)
-  for (const [a, b] of [[0, 520], [1010, 1240], [1350, 2080]]) {
-    x.fillStyle = "#070b18"; x.fillRect(a, 600, b - a, 22); for (let px = a + 40; px < b; px += 180) x.fillRect(px, 620, 18, 180);
-    x.fillStyle = "#05d9e8"; x.shadowColor = "#05d9e8"; x.shadowBlur = 10; x.fillRect(a, 620, b - a, 2); x.shadowBlur = 0;
-  }
-  towers("#060a16", 840, 80, 210, 80, 170, { lit: 0.08, signs: 0.15, gap: 10, keepClear: 712 }); // near and dark (kept below the landmarks' feet)
-  const fog = x.createLinearGradient(0, 640, 0, 800); fog.addColorStop(0, "rgba(255,79,139,0)"); fog.addColorStop(1, "rgba(255,79,139,.28)");
-  x.fillStyle = fog; x.fillRect(0, 640, 2080, 160); // street glow coming up through the fog
+  // a few neon signs down the near buildings (small and real, not cartoon strips)
+  const vsign = (sx, sy, word, colH) => {
+    const cc = [parseInt(colH.slice(1, 3), 16), parseInt(colH.slice(3, 5), 16), parseInt(colH.slice(5, 7), 16)];
+    glowDot(sx + 11, sy + word.length * 11, 60, cc, 0.25);
+    x.fillStyle = "rgba(5,5,10,.85)"; x.fillRect(sx, sy, 22, word.length * 22 + 8);
+    x.save(); x.shadowColor = colH; x.shadowBlur = 12; x.fillStyle = colH; x.font = "700 17px 'JetBrains Mono'"; x.textAlign = "center";
+    [...word].forEach((ch, k) => x.fillText(ch, sx + 11, sy + 22 + k * 22)); x.restore();
+  };
+  vsign(60, 330, "HOTEL", "#ff2a6d"); vsign(400, 380, "RAMEN", "#05d9e8"); vsign(1640, 520, "BAR", "#f9f002"); vsign(1960, 320, "OPEN24", "#ff6bd5");
+
+  // the street: sodium lamps and long-exposure traffic (white coming, red going), on wet tarmac
+  x.fillStyle = "#0a0a10"; x.fillRect(0, 760, W, 40);
+  const trail = (y0, y1, col, n, wid) => { for (let i = 0; i < n; i++) { const yy = y0 + (y1 - y0) * rnd(); const gr = x.createLinearGradient(0, 0, W, 0); gr.addColorStop(0, rgba(...col, 0)); gr.addColorStop(0.15 + rnd() * 0.2, rgba(...col, 0.5 + rnd() * 0.4)); gr.addColorStop(0.7 + rnd() * 0.3, rgba(...col, 0.4)); gr.addColorStop(1, rgba(...col, 0)); x.fillStyle = gr; x.fillRect(0, yy, W, wid); } };
+  x.save(); x.filter = "blur(1px)"; trail(768, 776, [255, 240, 215], 10, 2); trail(780, 790, [255, 50, 60], 12, 2); x.restore();
+  for (let px = 30; px < W; px += 120) { glowDot(px, 752, 30, [255, 170, 80], 0.5); glowDot(px, 788, 26, [255, 160, 70], 0.18); } // lamps, and their smear on the wet road
+  // fog at street level, warm from the lamps and pink from the signs
+  const fog = x.createLinearGradient(0, 600, 0, Hh); fog.addColorStop(0, "rgba(255,120,140,0)"); fog.addColorStop(1, "rgba(255,110,120,.16)");
+  x.fillStyle = fog; x.fillRect(0, 600, W, 200);
+  // halation: bright lights bleed softly into the air round them, like they do through a real lens
+  { const hs = document.createElement("canvas"); hs.width = W / 4; hs.height = Hh / 4; const hx = hs.getContext("2d");
+    hx.filter = "contrast(3) brightness(0.6)"; hx.drawImage(c, 0, 0, W / 4, Hh / 4);
+    x.save(); x.globalCompositeOperation = "lighter"; x.globalAlpha = 0.28; x.filter = "blur(5px)"; x.drawImage(hs, 0, 0, W, Hh); x.restore(); }
+  // grain, so it reads as a photo rather than flat paint
+  { const img = x.getImageData(0, 0, W, Hh), d = img.data; for (let i = 0; i < d.length; i += 4) { const n = (rnd() - 0.5) * 10; d[i] += n; d[i + 1] += n; d[i + 2] += n; } x.putImageData(img, 0, 0); }
   skyline = c;
 };
 // The window doubles as a screen. Closed: a small readout in the corner (time + block height).
@@ -1756,7 +1867,7 @@ const drawWindow = () => {
   x.drawImage(skyline, 0, 0);
   if (winApp < 0.35) drawHUD(x, 1 - winApp / 0.35);
   if (winApp > 0) drawApp(x, winApp);
-  if (rainMesh) rainMesh.material.opacity = 0.32 * (1 - winApp); // rain clears off the glass while the app is up
+  if (rainMesh) rainMesh.material.opacity = 0.18 * (1 - winApp); // rain clears off the glass while the app is up
   windowTex.needsUpdate = true;
 };
 const stars = (n) => "★".repeat(Math.floor(n)) + (n % 1 ? "½" : "");
@@ -2673,6 +2784,23 @@ if (!lite) {
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.5, 0.82);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
+// Desktop finish: what a camera adds. A soft vignette, a hint of colour fringing towards the corners,
+// and fine film grain (still, under reduced motion).
+const lens = lite ? null : new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 } },
+  vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float time; varying vec2 vUv;
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec2 d = vUv - 0.5; float r2 = dot(d, d);
+      vec2 off = d * r2 * 0.012;
+      vec3 c = vec3(texture2D(tDiffuse, vUv + off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - off).b);
+      c *= mix(1.0, smoothstep(0.85, 0.15, r2 * 1.6), 0.55);
+      c += (hash(vUv * vec2(1920.0, 1080.0) + time) - 0.5) * 0.035;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+});
+if (lens) composer.addPass(lens);
 const resize = () => {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false); composer.setSize(w, h); gtao?.setSize(w, h);
@@ -2734,6 +2862,7 @@ const frame = (now) => {
     if (t === 1) { if (!winAnim.to) mullion.visible = true; winAnim = null; }
   }
   if (!lite && (flight || Math.abs(doorTo - doorOpen) > 0.002 || now - (frame.shadowT || 0) > 400)) { renderer.shadowMap.needsUpdate = true; frame.shadowT = now; }
+  if (lens && !reduce) lens.uniforms.time.value = (now % 10000) / 1000;
   cv.step(now);
   composer.render();
   cv.render(); // a pulled-out case, on top
@@ -2764,7 +2893,9 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
       o.castShadow = true; o.shadow.mapSize.setScalar(512); o.shadow.bias = -0.004; o.shadow.normalBias = 0.03; o.shadow.radius = 4;
       o.shadow.camera.near = 0.1; o.shadow.camera.far = o.distance || 12;
     }
-    if (o.isMesh && o.material?.isMeshStandardMaterial && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; }
+    if (o.isMesh && o.material?.isMeshStandardMaterial && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true;
+      // big painted surfaces (walls, floors, doors) get relief from their own texture: seams sink, ribs stand up
+      const m = o.material; if (m.map && !m.bumpMap) { o.geometry.computeBoundingBox(); const sz = o.geometry.boundingBox.getSize(V(0, 0, 0)); if (Math.max(sz.x, sz.y, sz.z) > 1.3) { m.bumpMap = m.map; m.bumpScale = 1.4; m.needsUpdate = true; } } }
   });
   drawScreen(null); loadLive();
   resize(); setRoomUI(); aim(VIEWS.outside.pos, VIEWS.outside.look, 0, 0);
