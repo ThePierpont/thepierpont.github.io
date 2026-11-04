@@ -14,7 +14,7 @@ import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793827810";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793829164";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -61,12 +61,18 @@ const loader = new THREE.TextureLoader();
 // images/models: Camera_01 (a vintage 35 mm rangefinder, 2k textures) and desk_lamp_arm_01 (a clamp-on anglepoise, 1k).
 // `fit` runs once the model is in; any glass that asks for refraction is given plain glossy glass instead
 // (refraction would cost a whole extra render of the room every frame).
+/* the scans aren't needed to get in the door: they download quietly once the apartment is up and the page is idle */
+const afterLoad = (fn) => { const go = () => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 800));
+  const t0 = performance.now(), wait = () => (document.getElementById("h-load")?.classList.contains("done") || performance.now() - t0 > 20000 ? setTimeout(go, 1200) : setTimeout(wait, 200)); wait(); };
+/* desktop: wall-sized WebP copies of the site photos (images/house) for the prints and frames; clicking one still opens the full original */
+const wallSrc = (src) => (lite ? src : src.replace(/^images\/([^/]+)\.(jpe?g|png)$/i, "images/house/$1.webp"));
+const loadWall = (src, ok) => loader.load(wallSrc(src), ok, undefined, () => wallSrc(src) !== src && loader.load(src, ok));
 const gltfLoader = new GLTFLoader(), loadedModels = {};
-const scan = (name, url, parent, fit) => gltfLoader.load(url, (g) => {
+const scan = (name, url, parent, fit) => afterLoad(() => gltfLoader.load(url, (g) => {
   const m = g.scene; m.traverse((o) => { if (!o.isMesh) return; o.castShadow = o.receiveShadow = true; const mt = o.material;
     if (mt?.transmission > 0) { mt.transmission = 0; mt.transparent = true; mt.opacity = 0.55; mt.roughness = Math.min(mt.roughness, 0.08); mt.depthWrite = false; } });
-  loadedModels[name] = m; parent.add(m); m.updateMatrixWorld(true); fit(m);
-}, undefined, (e) => console.warn("scan", name, e));
+  loadedModels[name] = m; parent.add(m); m.updateMatrixWorld(true); fit(m); renderer.shadowMap.needsUpdate = true;
+}, undefined, (e) => console.warn("scan", name, e)));
 
 // ---------- materials + building blocks ----------
 const H = 3.4; // ceiling height (metres)
@@ -679,7 +685,7 @@ const buildLiving = () => {
   // neon art: I stack sats
   sign("STACK SATS", 0.42, -5.88, 2.05, -4.8, { color: "#f7931a", rotY: Math.PI / 2, k: 0.92, glow: 0.08, core: 0 }); // just the letters: a tight glow keeps them readable
   tube(11.6, 0.03, 0.06, 0xff2a6d, 0, H - 0.03, -0.25, { k: 1.4 });
-  const winLight = new THREE.PointLight(0x5a8fff, lite ? 4.5 : 2.0, 9); winLight.position.set(0, 2.2, -6.2); winLight.userData.shadow = 1; scene.add(winLight); // cool city light
+  winLight = new THREE.PointLight(0x5a8fff, lite ? 4.5 : 2.0, 9); winLight.position.set(0, 2.2, -6.2); winLight.userData.shadow = 1; scene.add(winLight); // cool city light
   const fill = new THREE.PointLight(0x05d9e8, 1.2, 10); fill.position.set(3.5, 2.6, -2); scene.add(fill);
   // neon caught in the glossy floor: soft pools under the window and the tubes
   const floorGlow = (w, d, x, z, col, o) => { const t = canvasTex(256, 128, (c, cw, ch) => { const gr = c.createRadialGradient(cw / 2, ch / 2, 4, cw / 2, ch / 2, cw / 2); gr.addColorStop(0, col); gr.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = gr; c.fillRect(0, 0, cw, ch); });
@@ -1278,7 +1284,7 @@ const buildGallery = () => {
       c.font = "400 19px Inter"; c.fillStyle = "#555a66"; c.fillText([ph.place, fmtDate(ph.date)].filter(Boolean).join(" · ").slice(0, 40), 14, 80); }), 0, 0, 0.045, { parent: g, k: 0.85 });
     const placeLabel = (hh) => label.position.set(0.0, -hh / 2 - 0.2, 0.045);
     placeLabel(h);
-    loader.load(ph.src, (t) => { t.colorSpace = THREE.SRGBColorSpace; pic.material.map = t; pic.material.color.setScalar(0.88); pic.material.needsUpdate = true; placeLabel(fit(t.image.width / t.image.height)); });
+    loadWall(ph.src, (t) => { t.colorSpace = THREE.SRGBColorSpace; pic.material.map = t; pic.material.color.setScalar(0.88); pic.material.needsUpdate = true; placeLabel(fit(t.image.width / t.image.height)); });
     // a warm wash of light on the wall round it, and a track head aimed at it
     const wash = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9), new THREE.MeshBasicMaterial({ map: glowT, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false })); wash.position.set(0, 0.15, 0.005); wash.raycast = () => {}; g.add(wash);
     const head = new THREE.Group(); head.position.set(0, H - 0.1 - y, 0.95); g.add(head);
@@ -1314,14 +1320,14 @@ const buildGallery = () => {
     x.fillStyle = "#1c1e27"; x.fillRect(540, 28, 180, 392);
     ["EXPOSURE", "CONTRAST", "HIGHLIGHTS", "SHADOWS", "WHITES", "GRAIN"].forEach((k, n) => { x.fillStyle = "#9d9dc0"; x.font = "500 12px 'JetBrains Mono'"; x.fillText(k, 552, 62 + n * 52); x.fillStyle = "#3a3d4a"; x.fillRect(552, 72 + n * 52, 150, 3); x.fillStyle = "#05d9e8"; x.fillRect(552 + 40 + ((n * 37) % 90), 67 + n * 52, 4, 13); });
     edT.needsUpdate = true; };
-  drawEditor(null); if (photos[0]) { const im = new Image(); im.onload = () => drawEditor(im); im.src = photos[0].src; }
+  drawEditor(null); if (photos[0]) { const im = new Image(); im.onload = () => drawEditor(im); im.onerror = () => { if (im.src.includes("/house/")) im.src = photos[0].src; }; im.src = wallSrc(photos[0].src); }
   const screen = panel(0.68, 0.4, edT, 0, 1.22, 0.135, { parent: D, k: 0.85 }); screen.rotation.y = Math.PI;
   if (!lite) { /* the screen lights the desk: a soft cool wash the size of the panel, facing into the room, matched to the editor's dark UI */
     const sl = new THREE.RectAreaLight(0x9fb8d8, 1.1, 0.68, 0.4); sl.position.set(0, 1.22, 0.125); sl.lookAt(0, 0.6, -1.2); D.add(sl); }
   // the film camera: a black body with a silver top plate, the prism hump, a lens, the advance lever and a dial
   const chrome = (c = 0xd4d8e2) => lite ? steelM(c) : new THREE.MeshStandardMaterial({ color: c, metalness: 0.9, roughness: 0.3, roughnessMap: wearTex() }); /* satin chrome: bright, but not a mirror under the track lights */
   const cam = new THREE.Group(); cam.position.set(-0.2, 0.77, -0.1); cam.scale.setScalar(1.25); cam.rotation.y = Math.PI + 0.45; D.add(cam); // lens toward the room
-  if (!lite) scan("camera", "images/models/Camera_01/Camera_01_2k.gltf", D, (m) => { cam.visible = false; cam.traverse((o) => { if (o.isMesh) o.raycast = () => {}; }); m.userData.hot = cam.userData.hot; m.position.set(0.42, 0.77, -0.04); m.rotation.y = Math.PI + 0.45; }); // a real 35 mm rangefinder, scanned
+  if (!lite) scan("camera", "images/models/Camera_01/Camera_01_2k.gltf?w=1", D, (m) => { cam.visible = false; cam.traverse((o) => { if (o.isMesh) o.raycast = () => {}; }); m.userData.hot = cam.userData.hot; m.position.set(0.42, 0.77, -0.04); m.rotation.y = Math.PI + 0.45; }); // a real 35 mm rangefinder, scanned
   block(0.15, 0.085, 0.055, 0x1c1f27, 0, 0.0425, 0, { parent: cam, r: 0.01, ink: false, mat: lite ? undefined : leather(0x1c1f27, plainBump, 0.62, 1.0) }); // pebbled leatherette
   block(0.152, 0.022, 0.057, 0, 0, 0.074, 0, { parent: cam, r: 0.006, mat: chrome(), ink: false });
   if (!lite) { const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.006, 16), chrome()); btn.position.set(0.055, 0.088, 0.012); cam.add(btn); // the shutter button
@@ -1397,7 +1403,7 @@ const buildGallery = () => {
     const pr = new THREE.Mesh(pg, lite ? new THREE.MeshBasicMaterial({ color: 0xffffff }) : new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, roughnessMap: wearTex() }));
     if (!lite) { const border = new THREE.Mesh(pg.clone(), new THREE.MeshStandardMaterial({ color: 0xf4f2ee, roughness: 0.6 })); border.scale.set(1.1, 1.12, 1); border.position.z = -0.0006; pr.add(border); } /* the white border */
     pr.rotation.set(-Math.PI / 2, 0, -0.3 + k * 0.35); pr.position.set(lite ? 0.48 + k * 0.05 : -0.6 - k * 0.03, 0.772 + k * 0.0006, lite ? -0.05 - k * 0.04 : 0.14 - k * 0.04); D.add(pr);
-    loader.load(p.src, (t) => { t.colorSpace = THREE.SRGBColorSpace; pr.material.map = t; pr.material.color.setScalar(0.9); pr.material.needsUpdate = true; }); });
+    loadWall(p.src, (t) => { t.colorSpace = THREE.SRGBColorSpace; pr.material.map = t; pr.material.color.setScalar(0.9); pr.material.needsUpdate = true; }); });
   for (const [cx2, cz2, c, cap] of (lite ? [[-0.45, -0.15, 0xf9d02a, 0x8e929c], [-0.5, -0.2, 0x14161c, 0x2a2d36]] : [[0.6, -0.27, 0xf9d02a, 0x8e929c], [0.66, -0.21, 0x14161c, 0x2a2d36]])) {
     const fc = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.05, lite ? 14 : 32), lite ? toon(c) : new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 })); fc.position.set(cx2, 0.795, cz2); D.add(fc);
     if (!lite) { const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.0152, 0.0152, 0.007, 32), new THREE.MeshStandardMaterial({ color: cap, roughness: 0.75 })); lid.position.set(cx2, 0.8235, cz2); D.add(lid);
@@ -1419,7 +1425,7 @@ const buildGallery = () => {
     if (!lite) { const inner = new THREE.Mesh(new THREE.ConeGeometry(0.046, 0.064, 40, 1, true), new THREE.MeshStandardMaterial({ color: 0xfff3e0, roughness: 0.6, side: THREE.BackSide, emissive: 0xffd9a0, emissiveIntensity: 0.35 })); inner.position.set(-0.45, 1.19, -0.07); lampG.add(inner); // the lit inside of the shade
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.011, 16, 12), glowMat(0xffe7c0, 1.3)); bulb.position.set(-0.45, 1.165, -0.07); lampG.add(bulb); }
     const lt = new THREE.PointLight(lite ? 0xffd9a0 : 0xffb46a, lite ? 0.3 : 0.6, lite ? 1.2 : 1.6); lt.position.set(-0.45, 1.12, -0.08); D.add(lt); // tungsten-warm on desktop
-    if (!lite) scan("lamp", "images/models/desk_lamp_arm_01/desk_lamp_arm_01_1k.gltf", D, (m) => { lampG.visible = false; m.position.set(-0.75, 0.77, -0.1); m.rotation.y = -Math.PI / 2; m.updateMatrixWorld(true); /* clamped on the desk's left end: its springs lean out over open air, the shade swings in over the desk */
+    if (!lite) scan("lamp", "images/models/desk_lamp_arm_01/desk_lamp_arm_01_1k.gltf?w=1", D, (m) => { lampG.visible = false; m.position.set(-0.75, 0.77, -0.1); m.rotation.y = -Math.PI / 2; m.updateMatrixWorld(true); /* clamped on the desk's left end: its springs lean out over open air, the shade swings in over the desk */
       const b = new THREE.Box3().setFromObject(m), dp = D.getWorldPosition(V(0, 0, 0)); lt.intensity = 0.25; lt.position.set(b.max.x - 0.07 - dp.x, b.max.y - 0.16 - dp.y, (b.min.z + b.max.z) / 2 - dp.z); // a faint fill inside the shade; the real light is the cone below
       const sp = new THREE.SpotLight(0xffb46a, 1.6, 2.0, Math.PI / 4.2, 0.7, 1.2); /* soft: a reading pool, not a floodlight */ sp.position.copy(lt.position).add(V(0, -0.05, 0)); sp.target.position.set(lt.position.x + 0.12, 0, lt.position.z + 0.06); D.add(sp); D.add(sp.target);
       sp.castShadow = true; sp.shadow.mapSize.setScalar(1024); sp.shadow.bias = -0.0005; sp.shadow.normalBias = 0.02; sp.shadow.camera.near = 0.05; sp.shadow.camera.far = 2.2; renderer.shadowMap.needsUpdate = true; }); /* a tungsten cone thrown down from the shade onto the desk, the keyboard and mouse casting real shadows in it */ } /* the light moves into the scanned shade */ // a real clamp-on anglepoise, scanned
@@ -2379,6 +2385,51 @@ const buildCats = () => {
       c.scale.setScalar(c.userData.size * (h.show ? 0.6 + t * 0.4 : 1 - t * 0.4));
     }
   });
+  /* desktop: they don't stay put. Every minute or two a cat gets up and moves to another of its spots: a short
+     jump if the spot is close (tree to armchair, couch to bed), or, for the far ones, while you're looking the other
+     way, so you find them somewhere new. Never while you're sitting with them or up close. */
+  if (!lite) {
+    const down = new THREE.Raycaster(), solid = [], hit = (x, z, y0 = 2.2) => { down.set(V(x, y0, z), V(0, -1, 0)); const h = down.intersectObjects(solid, false)[0]; return h ? h.point.y : 0; };
+    const SPOTS = {
+      Phoebe: [{ x: -3.22, z: -6.56, y: tree.perch, r: -1.2 }, { x: -2.35, z: -5.45, r: 0.3 }, { x: 0.62, z: -6.79, r: Math.PI, y: 0.96 }, { x: -0.78, z: -4.72, r: 2.2 }, { x: -2.8, z: -1.5, r: 0.9, y: 0.02 }],
+      Finn: [{ x: 3.2, z: -6.3, y: 0.12, r: -1.9 }, { x: 0.8, z: -4.72, r: 1.2 }, { x: -2.6, z: -1.6, r: -0.4, y: 0.02 }, { x: 1.55, z: -3.35, r: 2.6, y: 0.02 }],
+    };
+    const cats = couchCats.map(([g, , name]) => ({ g, name, at: 0, next: performance.now() + 25000 + Math.random() * 40000, spots: SPOTS[name] }));
+    let ready = false; const fill = () => { /* surface heights under each spot, from the real furniture (once it's all built) */
+      scene.traverse((o) => { if (o.isMesh && o.visible && o.material?.visible !== false && !o.material?.transparent) { let p = o, isCat = false; while (p) { if (cats.some((c) => c.g === p) || p.userData.fromCouch) isCat = true; p = p.parent; } if (!isCat) solid.push(o); } });
+      for (const c of cats) for (const sp of c.spots) if (sp.y == null) sp.y = hit(sp.x, sp.z) + 0.005; solid.length = 0; ready = true; };
+    const fr = new THREE.Frustum(), pm = new THREE.Matrix4(), onScreen = (p) => { pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); fr.setFromProjectionMatrix(pm); return fr.intersectsSphere(new THREE.Sphere(p, 0.45)); };
+    animators.push((now) => {
+      if (!ready) { if (now > 4000) fill(); return; }
+      for (const c of cats) {
+        const g = c.g, m = c.move;
+        if (m) { /* mid-jump: crouch, a parabola there turning toward it, then settle into the new pose */
+          if (g.userData.hop) { g.userData.home.copy(m.to); g.rotation.y = m.r1; g.scale.setScalar(c.size); c.move = null; continue; } /* you sat down mid-jump: land at once */
+          const t = Math.min(1, (now - m.t0) / m.dur), e = t * t * (3 - 2 * t), crouch = t < 0.15 ? Math.sin((t / 0.15) * Math.PI) : 0;
+          g.position.lerpVectors(m.from, m.to, e); g.position.y += Math.sin(t * Math.PI) * m.arc;
+          g.rotation.y = m.r0 + (m.r1 - m.r0) * Math.min(1, t * 1.3);
+          g.scale.set(c.size * (1 + crouch * 0.06), c.size * (1 - crouch * 0.12 + Math.sin(t * Math.PI) * 0.05), c.size);
+          if (t >= 1) { g.scale.setScalar(c.size); g.userData.home.copy(m.to); c.move = null; }
+          continue;
+        }
+        if (now < c.next) continue;
+        const free = spot == null && !flight && g.visible && !g.userData.hop && !(spot?.g === g);
+        if (!free) { c.next = now + 8000; continue; }
+        const other = cats.find((o) => o !== c), taken = (sp) => other && Math.hypot(sp.x - other.g.position.x, sp.z - other.g.position.z) < 0.6;
+        const here = g.position, opts = c.spots.map((sp, i) => ({ sp, i, d: Math.hypot(sp.x - here.x, sp.z - here.z) })).filter((o) => o.i !== c.at && !taken(o.sp));
+        if (!opts.length) { c.next = now + 20000; continue; }
+        const seen = onScreen(here), pickFrom = seen ? opts.filter((o) => o.d < 2.6) : opts;
+        if (!pickFrom.length || (seen && reduce)) { c.next = now + 15000; continue; } /* nowhere close to jump to while watched: wait */
+        const o = pickFrom[Math.floor(Math.random() * pickFrom.length)], to = V(o.sp.x, o.sp.y, o.sp.z);
+        c.size ||= g.scale.x; c.at = o.i; c.next = now + 60000 + Math.random() * 90000;
+        if (!seen) { g.position.copy(to); g.rotation.y = o.sp.r; g.userData.home.copy(to); shadowDirty = now + 200; continue; }
+        let r1 = o.sp.r; while (r1 - g.rotation.y > Math.PI) r1 -= Math.PI * 2; while (g.rotation.y - r1 > Math.PI) r1 += Math.PI * 2;
+        c.move = { t0: now, dur: 700 + o.d * 180, from: here.clone(), to, arc: 0.25 + Math.abs(to.y - here.y) * 0.5 + o.d * 0.08, r0: g.rotation.y, r1 };
+        g.userData.twitch = now; shadowDirty = now + c.move.dur + 300;
+      }
+    });
+    if (location.search.includes("debug")) window.__cats = { cats, nudge: () => cats.forEach((c) => (c.next = 0)) };
+  }
   cactus(2.3, 0, -6.6, 0.4);
   ballTrack(-1.75, -6.45); // out from behind the armchair
   toyMouse(-3.85, 0, -6.4, 0.9);
@@ -2595,7 +2646,7 @@ const drawWindow = () => {
   // phones get the flattened photo; the painted skyline is the fallback if the photos haven't loaded
   if (glassMat) x.clearRect(0, 0, 2080, 800);
   else { if (!cityPhoto && !skyline) drawSkyline(); x.drawImage(cityPhoto || skyline, 0, 0, 2080, 800); }
-  if (glassMat) glassMat.uniforms.rainK.value = 1 - winApp;
+  if (glassMat) glassMat.uniforms.rainK.value = (1 - winApp) * SKY.drops;
   if (winApp < 0.35) drawHUD(x, 1 - winApp / 0.35);
   if (winApp > 0) drawApp(x, winApp);
   if (rainMesh) rainMesh.material.opacity = 0.18 * (1 - winApp); // rain clears off the glass while the app is up
@@ -3605,12 +3656,13 @@ const frame = (now) => {
       else if (fps > 58 && quality < 1 && now > q.up) { quality = Math.min(1, quality + 0.06); q.up = now + 4000; resize(); } } }
   if (lens && !reduce) lens.uniforms.time.value = (now % 10000) / 1000;
   if (glassMat && !reduce) glassMat.uniforms.time.value = now / 1000;
+  if (glassMat) skyStep(now);
   cv.step(now);
   composer.render();
   cv.render(); // a pulled-out case, on top
 };
 
-if (location.search.includes("debug")) window.__house = { camera, scene, go, cv, renderer, get gtao() { return gtao; }, get envOf() { return envOf; }, models: loadedModels, shelfFaces, focus, openWindowApp, closeWindowApp,
+if (location.search.includes("debug")) window.__house = { sky: (s, w) => { skyForce.sky = s; skyForce.wx = w; loadDCSky(); skyApply(SKY.goal = skyGoal(), 1); SKY.t = Infinity; }, camera, scene, go, cv, renderer, get gtao() { return gtao; }, get envOf() { return envOf; }, models: loadedModels, shelfFaces, focus, openWindowApp, closeWindowApp,
   openNode, closeNode,
   peek(p, l) { peekView = p ? { pos: V(...p), look: V(...l), yaw: 0 } : null; }, get room() { return room; }, set yaw(v) { yaw = v; } };
 
@@ -3626,9 +3678,53 @@ if (location.search.includes("debug")) window.__house = { camera, scene, go, cv,
 // Sources (Wikimedia Commons, public domain or CC0): "US Capitol Building at night Jan 2006", "US Navy 040709-N-0295M-004
 // The Washington Monument and Thomas Jefferson Memorial…", "Roppongi at night seen from Shibuya Stream" (CC0),
 // "Hong Kong Island Building" (CC0). Cut out, graded and layered by hand; the screens are drawn on.
+/* ---- DC's real sky, desktop only ----
+   The window's photos are a night shot; the glass shader swaps the photo's sky for a live one and grades the
+   buildings to match DC right now: the sun's height (worked out here, no request needed) sets night / dusk / day,
+   and Open-Meteo's current weather for DC sets cloud, fog, rain (drops on the glass + streaks), snow and lightning.
+   ?sky=night|dusk|day and ?wx=clear|cloud|fog|rain|snow|storm force a look (for testing). */
+const DC = { lat: 38.8895, lon: -77.0353 }; let winLight = null;
+const sunAlt = (d = new Date()) => { const rad = Math.PI / 180, n = (d - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5;
+  const decl = -23.44 * rad * Math.cos((2 * Math.PI * (n + 10)) / 365), B = (2 * Math.PI * (n - 81)) / 364;
+  const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+  const H = (((d.getUTCHours() * 60 + d.getUTCMinutes() + eot + 4 * DC.lon) / 60 - 12) * 15) * rad, la = DC.lat * rad;
+  return Math.asin(Math.sin(la) * Math.sin(decl) + Math.cos(la) * Math.cos(decl) * Math.cos(H)) / rad; };
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const SKY = { u: Object.fromEntries([..."dayK duskK cloudK fogK wetK snowK flash".split(" ").map((k) => [k, { value: 0 }]),
+    ["skyTop", { value: new THREE.Color() }], ["skyBot", { value: new THREE.Color() }], ["haze", { value: new THREE.Color() }]]),
+  wx: { cloud: 0.2, fog: 0, wet: 0, snow: 0, storm: 0 }, goal: null, drops: 1, nextFlash: 0, t: 0 };
+const skyForce = { sky: new URLSearchParams(location.search).get("sky"), wx: new URLSearchParams(location.search).get("wx") };
+const skyGoal = () => {
+  const alt = skyForce.sky === "day" ? 40 : skyForce.sky === "dusk" ? -3 : skyForce.sky === "night" ? -30 : sunAlt();
+  const w = SKY.wx, day = sstep(-4, 10, alt), dusk = sstep(-10, -3, alt) * (1 - sstep(1, 9, alt)) * (1 - w.cloud * 0.6);
+  const C = (r, g, b) => new THREE.Color(r, g, b), grey = C(0.42, 0.43, 0.47);
+  const top = C(0.06, 0.05, 0.16).lerp(C(0.13, 0.3, 0.66), day).lerp(grey, w.cloud * 0.85), bot = C(0.85, 0.36, 0.22).lerp(C(0.55, 0.66, 0.82), day).lerp(grey.clone().multiplyScalar(1.25), w.cloud * 0.8);
+  const haze = C(0.09, 0.07, 0.12).lerp(C(0.6, 0.64, 0.7), day).lerp(C(0.5, 0.36, 0.36), dusk * 0.5);
+  return { dayK: day, duskK: dusk, cloudK: w.cloud, fogK: w.fog, wetK: w.wet, snowK: w.snow, top, bot, haze, drops: w.wet > 0 ? 1 : 0 };
+};
+const skyApply = (g, k) => { const u = SKY.u; for (const n of ["dayK", "duskK", "cloudK", "fogK", "wetK", "snowK"]) u[n].value += (g[n] - u[n].value) * k;
+  u.skyTop.value.lerp(g.top, k); u.skyBot.value.lerp(g.bot, k); u.haze.value.lerp(g.haze, k); SKY.drops += (g.drops - SKY.drops) * k;
+  if (winLight) { const d = u.dayK.value; winLight.intensity = 2.0 + d * 1.6; winLight.color.setRGB(0.35 + 0.45 * d, 0.56 + 0.3 * d, 1); } };
+const skyStep = (now) => {
+  if (!SKY.goal || now > SKY.t) { SKY.goal = skyGoal(); SKY.t = now + 60000; } /* the sun moves: re-aim each minute */
+  skyApply(SKY.goal, 0.02); if (glassMat) glassMat.uniforms.rainK.value = (1 - winApp) * SKY.drops;
+  const f = SKY.u.flash; f.value *= 0.86; /* lightning: a double flicker every 6-20 s in a storm */
+  if (SKY.wx.storm && !reduce && now > SKY.nextFlash) { f.value = 0.9; setTimeout(() => (f.value = 0.6), 110); SKY.nextFlash = now + 6000 + Math.random() * 14000; }
+};
+const loadDCSky = () => {
+  if (skyForce.wx) { const w = skyForce.wx; SKY.wx = { cloud: { clear: 0, cloud: 1, fog: 0.7, rain: 0.9, snow: 0.95, storm: 1 }[w] ?? 0.2, fog: w === "fog" ? 0.8 : 0, wet: w === "rain" || w === "storm" ? 1 : 0, snow: w === "snow" ? 1 : 0, storm: w === "storm" ? 1 : 0 }; SKY.goal = null; return; }
+  const q = new URLSearchParams({ latitude: DC.lat, longitude: DC.lon, current: "weather_code,cloud_cover,precipitation,visibility", timezone: "America/New_York" });
+  fetch(`https://api.open-meteo.com/v1/forecast?${q}`).then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then(({ current: c }) => {
+    const code = c.weather_code, rain = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95, snow = (code >= 71 && code <= 77) || code === 85 || code === 86;
+    SKY.wx = { cloud: Math.min(1, (c.cloud_cover ?? 30) / 100), fog: code === 45 || code === 48 ? 0.8 : sstep(10000, 1500, c.visibility ?? 20000) * 0.7,
+      wet: rain ? Math.min(1, 0.55 + (c.precipitation || 0) * 0.3) : 0, snow: snow ? 1 : 0, storm: code >= 95 ? 1 : 0 };
+    SKY.goal = null;
+  }).catch((e) => console.warn("dc sky:", e));
+};
 const buildCity = () => {
-  const P = "images/city/", CITY_V = "?v=1793827810"; // bump when the pictures change
+  const P = "images/city/", CITY_V = "?v=1793829164"; // bump when the pictures change
   if (lite) { const im = new Image(); im.onload = () => { cityPhoto = im; drawWindow(); }; im.src = P + "flat.jpg" + CITY_V; return; }
+  loadDCSky(); setInterval(loadDCSky, 15 * 60000); SKY.goal = skyGoal(); skyApply(SKY.goal, 1);
   const tex = (n) => new Promise((ok, no) => loader.load(P + n + CITY_V, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = THREE.MirroredRepeatWrapping; ok(t); }, undefined, no));
   // drops: a normal map painted on a canvas (red/green = how the drop bends light, blue = drop or not)
   const drops = (() => { const c = document.createElement("canvas"); c.width = c.height = 512; const x = c.getContext("2d");
@@ -3646,11 +3742,39 @@ const buildCity = () => {
   Promise.all(["L0_sky.webp", "L1_far.webp", "L2_mid.webp", "L3_dc.webp"].map(tex)).then(([sky, far, mid, dc]) => {
     glassMat = new THREE.ShaderMaterial({
       uniforms: { tSky: { value: sky }, tFar: { value: far }, tMid: { value: mid }, tDC: { value: dc }, tHUD: { value: windowTex }, tDrops: { value: drops }, tRoom: { value: cubeRT.texture },
-        eye0: { value: V(0, 1.9, -1.1) }, time: { value: 0 }, rainK: { value: 1 }, reflK: { value: 0.07 }, gain: { value: 0.9 } },
+        eye0: { value: V(0, 1.9, -1.1) }, time: { value: 0 }, rainK: { value: 1 }, reflK: { value: 0.07 }, gain: { value: 0.9 },
+        ...SKY.u },
       vertexShader: `varying vec3 vWorld; varying vec2 vUv;
         void main() { vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
       fragmentShader: `uniform sampler2D tSky, tFar, tMid, tDC, tHUD, tDrops; uniform samplerCube tRoom;
         uniform vec3 eye0; uniform float time, rainK, reflK, gain; varying vec3 vWorld; varying vec2 vUv;
+        // DC's real sky (see SKY): dayK 0 night .. 1 day, duskK the sunset glow, cloudK overcast, fogK haze,
+        // wetK rain (streaks outside), snowK snow, flash a lightning flash; skyTop/skyBot the sky's own colour
+        uniform float dayK, duskK, cloudK, fogK, wetK, snowK, flash; uniform vec3 skyTop, skyBot, haze;
+        float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+        float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+        vec3 skyOf(vec2 u, vec3 night) {
+          float mixK = max(dayK, duskK * 0.9); if (mixK < 0.003 && cloudK < 0.003) return night;
+          vec3 s = mix(skyBot, skyTop, smoothstep(0.35, 1.0, u.y));
+          // clouds: two octaves of soft noise drifting east, thicker when it's overcast
+          vec2 q = u * vec2(4.0, 9.0) + vec2(time * 0.004, 0.0);
+          float cl = vnoise(q) * 0.65 + vnoise(q * 2.3 + 7.1) * 0.35;
+          float cov = smoothstep(0.75 - cloudK * 0.7, 1.05 - cloudK * 0.5, cl);
+          vec3 cloudCol = mix(skyBot * 0.92, vec3(0.62, 0.62, 0.66) * (0.35 + 0.65 * dayK), 0.6);
+          s = mix(s, cloudCol, cov * (0.35 + 0.6 * cloudK));
+          // at night an overcast sky glows dull pink-orange with the city's own light
+          vec3 n = mix(night, vec3(0.13, 0.075, 0.1), cloudK * 0.75);
+          return mix(n, s, mixK);
+        }
+        // the buildings by day: the neon dims against daylight and the dark faces lift toward the sky's light;
+        // the further a layer, the more haze sits in front of it
+        vec4 graded(vec4 l, float far) {
+          vec3 amb = mix(skyBot, vec3(0.5), 0.4) * 0.55;
+          l.rgb = l.rgb * mix(1.0, 0.85, dayK) + amb * dayK * (0.1 + 0.22 * far) + skyBot * duskK * 0.06;
+          float hz = clamp(far * (0.1 * dayK + 0.9 * fogK) + far * cloudK * 0.2, 0.0, 0.92);
+          l.rgb = mix(l.rgb, haze, hz); return l;
+        }
         const float GZ = -7.02; // the glass, 5.2 x 2 m, centred at (0, 1.9)
         // where a layer D metres behind the glass is hit, in the layer's own picture coordinates
         vec2 lay(vec3 v, float D, vec2 off) {
@@ -3663,10 +3787,11 @@ const buildCity = () => {
         }
         vec3 over(vec3 c, vec4 l) { return mix(c, l.rgb, l.a); }
         vec3 city(vec3 v, vec2 off, float b) {
-          vec3 c = texture(tSky, lay(v, 400.0, off * 0.3), b + 0.6).rgb;
-          c = over(c, texture(tFar, lay(v, 120.0, off * 0.5), b));
-          c = over(c, texture(tMid, lay(v, 45.0, off * 0.8), b));
-          c = over(c, texture(tDC, lay(v, 18.0, off), b));
+          vec2 su = lay(v, 400.0, off * 0.3);
+          vec3 c = skyOf(su, texture(tSky, su, b + 0.6).rgb);
+          c = over(c, graded(texture(tFar, lay(v, 120.0, off * 0.5), b), 1.0));
+          c = over(c, graded(texture(tMid, lay(v, 45.0, off * 0.8), b), 0.6));
+          c = over(c, graded(texture(tDC, lay(v, 18.0, off), b), 0.3));
           return c;
         }
         void main() {
@@ -3678,10 +3803,20 @@ const buildCity = () => {
           vec4 dr = d2.b > 0.5 ? d2 : d1; float isDrop = dr.b * rainK;
           vec2 n = (dr.rg - 0.5) * 2.0;
           // each drop is a little lens: a sharp, flipped, shrunk view; between drops the city is soft
-          vec3 sharp = city(v, -n * 0.03, -0.5), soft = city(v, vec2(0.0), 0.8);
+          vec3 sharp = city(v, -n * 0.03, -0.5), soft = city(v, vec2(0.0), mix(-0.2, 0.8, rainK)); /* dry glass is clear, wet glass softens the view */
           float rim = smoothstep(0.45, 1.0, dot(n, n)); // the edge of a drop bends light away: a dark ring
           vec3 drop = sharp * (1.15 - 0.75 * rim) + pow(max(0.0, dot(n, normalize(vec2(-0.5, 0.8)))), 10.0) * 0.5; // and a glint where the room's light catches it
           vec3 col = mix(soft, drop, isDrop);
+          // weather outside the glass: fine rain streaks, or snow drifting down in two depths
+          vec2 wu = vUv * vec2(5.2, 2.0);
+          if (wetK > 0.01) { vec2 p = wu * vec2(70.0, 3.0) + vec2(wu.y * 6.0, time * 5.0); vec2 c0 = floor(p), f = fract(p);
+            float on = step(0.86, h21(c0)), st = smoothstep(0.5, 0.0, abs(f.x - 0.5) * 6.0) * smoothstep(0.0, 0.4, f.y) * smoothstep(1.0, 0.6, f.y);
+            col += vec3(0.55, 0.6, 0.7) * on * st * wetK * 0.12; }
+          if (snowK > 0.01) for (int k = 0; k < 2; k++) { float z = 1.0 + float(k) * 1.7;
+            vec2 p = wu * 9.0 * z + vec2(sin(time * 0.3 + wu.y * 2.0) * 0.6, time * 0.5 / z); vec2 c0 = floor(p), f = fract(p) - 0.5;
+            vec2 o = vec2(h21(c0), h21(c0 + 3.1)) - 0.5; float d = length(f - o * 0.6);
+            col += vec3(0.85, 0.87, 0.95) * smoothstep(0.09 / z, 0.0, d) * step(0.45, h21(c0 + 9.7)) * snowK * (0.55 / z); }
+          col = col * (1.0 + flash * 1.6) + vec3(0.45, 0.5, 0.65) * flash * 0.25;
           col *= gain;
           // the room's faint reflection: stronger at a glancing angle
           vec3 r = reflect(v, vec3(0.0, 0.0, 1.0));
@@ -3725,6 +3860,84 @@ const useRoomEnv = (r) => {
 };
 
 // ---------- start ----------
+/* ---------- baked light on the floors (desktop) ----------
+   Ambient occlusion baked into each room's floor, on the GPU, once, in idle frames after you're in: the room is
+   rendered as a depth map from 64 directions round the sky, and each floor texel counts how many of those
+   directions are blocked within a metre (the couch over it, a wall beside it, a cabinet's foot). The result is a
+   soft dark pool under and around everything, the kind of grounding a lightmap bake gives, at no per-frame cost:
+   it's applied as the floor's aoMap, and also takes some of the direct light, so it shows under the lamps too. */
+const bakeFloors = () => {
+  const floors = []; scene.updateMatrixWorld(true);
+  /* the floors (thin boxes at y = 0) and anything lying flat on them, like the rug, which is where the couch's shadow falls */
+  scene.traverse((o) => { const gp = o.geometry?.parameters, t = o.geometry?.type; if (!o.isMesh || !o.visible || !o.material?.isMeshStandardMaterial || o.material.transparent) return;
+    const box = t === "BoxGeometry" && gp.height <= 0.13 && gp.width * gp.depth >= 3, flat = t === "PlaneGeometry" && gp.width * gp.height >= 2 && V(0, 0, 1).transformDirection(o.matrixWorld).y > 0.99;
+    if (!box && !flat) return; const bb = new THREE.Box3().setFromObject(o); if (bb.max.y > 0.05 || bb.max.y < -0.03) return; floors.push({ o, bb }); });
+  if (!floors.length) return;
+  const R = 1.0, N = 64, depthRT = new THREE.WebGLRenderTarget(1024, 1024, { type: THREE.HalfFloatType, format: THREE.RGBAFormat });
+  /* looking UP from under the floor (everything below it clipped away), so the first surface each floor point sees is what covers it */
+  const depthM = new THREE.ShaderMaterial({ side: THREE.DoubleSide, clipping: true,
+    vertexShader: "#include <common>\n#include <clipping_planes_pars_vertex>\nvarying float vD;\nvoid main() {\n#include <begin_vertex>\n#include <project_vertex>\n#include <clipping_planes_vertex>\nvD = -mvPosition.z; }",
+    fragmentShader: "#include <clipping_planes_pars_fragment>\nvarying float vD; void main() {\n#include <clipping_planes_fragment>\ngl_FragColor = vec4(vD, 0.0, 0.0, 1.0); }" });
+  const clipUp = [new THREE.Plane(V(0, 1, 0), -0.012)];
+  const oc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 60);
+  const quadM = new THREE.ShaderMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false,
+    uniforms: { tDepth: { value: depthRT.texture }, vp: { value: new THREE.Matrix4() }, vm: { value: new THREE.Matrix4() }, uvw: { value: new THREE.Matrix3() }, y0: { value: 0 }, w: { value: 1 / N }, R: { value: R } },
+    vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+    fragmentShader: `uniform sampler2D tDepth; uniform mat4 vp, vm; uniform mat3 uvw; uniform float y0, w, R; varying vec2 vUv;
+      void main() { vec3 xz = uvw * vec3(vUv, 1.0); vec4 p = vec4(xz.x, y0, xz.y, 1.0);
+        vec4 c = vp * p; vec2 s = c.xy / c.w * 0.5 + 0.5; float dP = -(vm * p).z, dO = texture2D(tDepth, s).r;
+        float dist = dO - dP, occ = (dist > 0.03 && dist < R) ? 1.0 - smoothstep(R * 0.35, R, dist) : 0.0;
+        if (s.x < 0.0 || s.y < 0.0 || s.x > 1.0 || s.y > 1.0) occ = 0.0;
+        gl_FragColor = vec4(vec3(w * (1.0 - occ)), 1.0); }` });
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quadM), qScene = new THREE.Scene(), qCam = new THREE.Camera(); quad.frustumCulled = false; qScene.add(quad);
+  // directions: cosine-weighted over the hemisphere, a fixed spiral so every bake is the same
+  const dirs = Array.from({ length: N }, (_, i) => { const u = (i + 0.5) / N, phi = i * 2.39996, r = Math.sqrt(u), y = Math.sqrt(1 - u); return V(Math.cos(phi) * r, y, Math.sin(phi) * r); });
+  const jobs = floors.map(({ o, bb }) => {
+    // the top face's uv, as an affine map of world x,z: found from three of its corners
+    const g = o.geometry, pos = g.attributes.position, uv = g.attributes.uv, nor = g.attributes.normal, top = [];
+    for (let i = 0; i < pos.count && top.length < 3; i++) if (V(nor.getX(i), nor.getY(i), nor.getZ(i)).transformDirection(o.matrixWorld).y > 0.9) { const wp = V(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(o.matrixWorld); top.push([wp.x, wp.z, uv.getX(i), uv.getY(i)]); }
+    const A = new THREE.Matrix3().set(top[0][2], top[1][2], top[2][2], top[0][3], top[1][3], top[2][3], 1, 1, 1), W = new THREE.Matrix3().set(top[0][0], top[1][0], top[2][0], top[0][1], top[1][1], top[2][1], 1, 1, 1);
+    const uvw = W.multiply(A.clone().invert()); /* world (x, z, 1) = uvw * (u, v, 1) */
+    const sx = bb.max.x - bb.min.x, sz = bb.max.z - bb.min.z, k = 56, tw = Math.min(1024, Math.ceil(sx * k)), th = Math.min(1024, Math.ceil(sz * k));
+    const swap = Math.abs(uvw.elements[0]) < Math.abs(uvw.elements[3]); /* u runs along z instead of x */
+    const rt = new THREE.WebGLRenderTarget(swap ? th : tw, swap ? tw : th, { type: THREE.HalfFloatType }); return { o, bb, uvw, rt, i: 0 };
+  });
+  const hideAll = () => { const hidden = []; scene.traverse((o) => { if (!o.visible) return; const m = o.material, cat = o.userData.fromCat || o.userData.fromCouch;
+    if (cat || o.isSprite || o.isPoints || o.isLine || (o.isMesh && (m?.transparent || m?.visible === false || m?.blending === THREE.AdditiveBlending))) { o.visible = false; hidden.push(o); } }); return hidden; };
+  let applied = 0;
+  const apply = (j) => { const m = j.bakedM = j.o.material.clone(); m.aoMap = j.rt.texture; m.aoMapIntensity = 0; m.userData.bakeAO = true;
+    m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace("#include <aomap_fragment>", "#include <aomap_fragment>\n#ifdef USE_AOMAP\n reflectedLight.directDiffuse *= mix(1.0, ambientOcclusion, 0.72);\n#endif"); };
+    m.needsUpdate = true; applied++; };
+  const step = () => {
+    const job = jobs.find((j) => j.i < N); if (!job) { depthRT.dispose();
+      /* all done: build the floors' new shaders in the background (no hitch), then swap them in and fade the bake up */
+      const grp = new THREE.Group(); for (const j of jobs) { const m = new THREE.Mesh(j.o.geometry, j.bakedM); m.receiveShadow = j.o.receiveShadow; m.castShadow = j.o.castShadow; grp.add(m); }
+      const swap = () => { for (const j of jobs) j.o.material = j.bakedM; const t0 = performance.now(); animators.push((now) => { const k = Math.min(1, (now - t0) / 1500); for (const j of jobs) j.bakedM.aoMapIntensity = k; }); };
+      renderer.compileAsync(grp, camera, scene).then(swap, swap); return; }
+    const hidden = hideAll(), prevT = renderer.getRenderTarget(), prevO = scene.overrideMaterial, prevBg = scene.background, cc = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha(), ac = renderer.autoClear;
+    const sNeed = renderer.shadowMap.needsUpdate; renderer.shadowMap.needsUpdate = false; /* don't let the bake's renders eat a pending shadow redraw */
+    const t0 = performance.now();
+    while (job.i < N && performance.now() - t0 < 8) { /* a few directions a frame, about 8 ms' worth */
+      const d = dirs[job.i], c = job.bb.getCenter(V(0, 0, 0)); c.y = 0;
+      oc.position.copy(c).addScaledVector(d, -25); oc.up.set(Math.abs(d.y) > 0.99 ? 1 : 0, Math.abs(d.y) > 0.99 ? 0 : 1, 0); oc.lookAt(c); oc.updateMatrixWorld();
+      /* fit the view to the floor and a metre above it */
+      const inv = oc.matrixWorldInverse, b = job.bb; let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (const px of [b.min.x - R, b.max.x + R]) for (const py of [0, R + 0.5]) for (const pz of [b.min.z - R, b.max.z + R]) { const q = V(px, py, pz).applyMatrix4(inv); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+      Object.assign(oc, { left: x0, right: x1, bottom: y0, top: y1 }); oc.updateProjectionMatrix();
+      scene.overrideMaterial = depthM; scene.background = null;
+      renderer.setRenderTarget(depthRT); renderer.setClearColor(new THREE.Color(1e4, 1e4, 1e4), 1); renderer.clear(); const cp = renderer.clippingPlanes; clipUp[0].constant = -(job.bb.max.y + 0.012); renderer.clippingPlanes = clipUp; floors.forEach((f) => (f.o.visible = false)); renderer.render(scene, oc); floors.forEach((f) => (f.o.visible = true)); renderer.clippingPlanes = cp;
+      scene.overrideMaterial = prevO; scene.background = prevBg;
+      const u = quadM.uniforms; u.vp.value.multiplyMatrices(oc.projectionMatrix, oc.matrixWorldInverse); u.vm.value.copy(oc.matrixWorldInverse); u.uvw.value.copy(job.uvw); u.y0.value = job.bb.max.y;
+      renderer.setRenderTarget(job.rt); if (job.i === 0) { renderer.setClearColor(0x000000, 1); renderer.clear(); } renderer.autoClear = false; renderer.render(qScene, qCam); renderer.autoClear = ac;
+      job.i++;
+    }
+    if (job.i >= N) apply(job);
+    renderer.setRenderTarget(prevT); renderer.setClearColor(cc, ca); hidden.forEach((o) => (o.visible = true)); renderer.shadowMap.needsUpdate = sNeed;
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  if (location.search.includes("debug")) window.__bake = { jobs, get applied() { return applied; } };
+};
 (async () => {
   await Promise.race([
     Promise.all(["700 140px Rajdhani", "500 34px 'JetBrains Mono'", "500 38px Inter", "600 40px Inter", "italic 400 38px Inter"].map((f) => document.fonts.load(f))),
@@ -3759,5 +3972,6 @@ const useRoomEnv = (r) => {
   // renders the whole room six times; the first ones build GPU pipelines too, which would stall the walk in)
   if (envCube) { pmrem.compileCubemapShader(); for (const r of Object.keys(VIEWS)) useRoomEnv(r); useRoomEnv("outside"); }
   renderer.setAnimationLoop(frame);
+  if (!lite && !location.search.includes("nobake")) afterLoad(bakeFloors);
   setTimeout(() => ui.load.classList.add("done"), 250); // the shelf photos stream in after; nothing waits on them
 })();
