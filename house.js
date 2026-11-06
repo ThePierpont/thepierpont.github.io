@@ -14,7 +14,7 @@ import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { createCaseViewer, pick } from "./case-viewer.js?v=1793829164";
+import { createCaseViewer, pick } from "./case-viewer.js?v=1793944054";
 
 const S = window.SITE || {};
 const $ = (s) => document.querySelector(s);
@@ -317,7 +317,7 @@ const buildOutside = () => {
   for (const zz of [0.2, Dp - 0.2]) for (const [dy, r, c] of [[0.12, 0.035, 0x6c7389], [0.2, 0.022, 0xb36b2c]]) {
     const pipe = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 2 * L, lite ? 12 : 28), lite ? steelM(c) : new THREE.MeshStandardMaterial({ color: c, metalness: 0.9, roughness: c === 0xb36b2c ? 0.3 : 0.42, map: steelTex, roughnessMap: wearTex() })); pipe.rotation.z = Math.PI / 2; pipe.position.set(0, H - dy, zz + (zz < 1 ? 0.02 : -0.02)); scene.add(pipe); }
   for (let xx = -L + 1; xx < L; xx += 2.2) for (const zz of [0.17, Dp - 0.17]) block(0.04, 0.14, 0.07, 0x1a1d28, xx, H - 0.15, zz, { r: 0.01, ink: false });
-  for (const xx of [-8, 0, 8]) { const hl = new THREE.PointLight(0xc8d0ff, 2.4, 9); hl.position.set(xx, 3.0, Dp / 2); hl.userData.shadow = xx === 0 ? 2 : 0; scene.add(hl); }
+  for (const xx of [-8, 0, 8]) { const hl = new THREE.PointLight(0xc8d0ff, 2.4, 9); hl.position.set(xx, 3.0, Dp / 2); hl.userData.shadow = xx === 0 ? 2 : 0; scene.add(hl); if (!lite && xx) { hl.userData.borrow = { c: hl.color.getHex(), i: hl.intensity, d: hl.distance, p: hl.position.clone() }; borrowed.push(hl); } }
 };
 
 // the hallway, lived in: windows onto the city at both ends, warm sconces against the cool light,
@@ -347,7 +347,7 @@ const buildHallMore = () => {
       const pts = []; for (let k = 0; k <= 8; k++) { const a = a0 + (k / 8) * (Math.PI / 2); pts.push(V(cx + Math.cos(a) * rr, cy + cy2 + Math.sin(a) * rr, 0.04)); } g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 10, 0.014, 6), glowMat(s > 0 ? 0xff2a6d : 0x05d9e8, 1.4))); }
     g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 64, 0.014, 6), glowMat(s > 0 ? 0xff2a6d : 0x05d9e8, 1.4)));
     pool(3.4, 2.4, s > 0 ? 0xff2a6d : 0x05d9e8, 0.12, s * (L - 1.2), 0.004, Dp / 2, -Math.PI / 2); // the city's colour on the wet floor
-    const l = new THREE.PointLight(s > 0 ? 0xff4f8b : 0x3fd8ff, 1.6, 6); l.position.set(s * (L - 0.8), 1.8, Dp / 2); scene.add(l);
+    const l = new THREE.PointLight(s > 0 ? 0xff4f8b : 0x3fd8ff, 1.6, 6); l.position.set(s * (L - 0.8), 1.8, Dp / 2); scene.add(l); if (!lite) { l.userData.borrow = { c: l.color.getHex(), i: l.intensity, d: l.distance, p: l.position.clone() }; borrowed.push(l); }
     // a big planter under each window
     const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 40), lite ? steelM(0x2a2e3a) : new THREE.MeshStandardMaterial({ color: 0x3a3d46, roughness: 0.9 })); pot.position.set(s * (L - 0.5), 0.25, Dp / 2 + 1.5); scene.add(pot);
     if (!lite) { const soil = new THREE.Mesh(new THREE.CircleGeometry(0.25, 40), new THREE.MeshStandardMaterial({ color: 0x2a1f16, roughness: 1 })); soil.rotation.x = -Math.PI / 2; soil.position.set(s * (L - 0.5), 0.501, Dp / 2 + 1.5); scene.add(soil); }
@@ -426,6 +426,299 @@ const pillow = (w, h, d, n, bump) => {
     v.addScaledVector(q, h * (0.14 * Math.pow(puff, 0.7) * (0.25 + 0.75 * t) + 0.04 * Math.sin(f * Math.PI) * t - 0.06 * crease * t)); p.setXYZ(i, v.x, v.y, v.z); }
   geo.computeVertexNormals(); const m = new THREE.Mesh(geo, bump); m.castShadow = m.receiveShadow = true; return m; };
 
+/* ---------- the two side rooms, desktop only: the Music room and the Closet ----------
+   Each sits behind a steel door that slides into the wall. A room is hidden (no draw calls, no shadows) until you
+   walk in, and borrows the hallway's far lights while you're there, so the number of lights, and with it the cost of
+   every shader in the apartment, stays exactly as it was. */
+const SIDE = {
+  music: { rig: [[0xffb878, 10, 9, 5.5, 2.6, -10.0], [0xff4f8b, 4.5, 7, 7.0, 2.2, -10.8], [0x4fd8ff, 4, 7, 4.0, 2.2, -10.0], [0xffd2a0, 7, 6, 5.5, 2.3, -12.0]] },
+  closet: { rig: [[0xfff0dc, 3.2, 6, -8.1, 2.9, -3.9], [0xffe2c0, 2.4, 6, -9.2, 2.7, -2.0], [0x9a7bff, 1.2, 5, -7.0, 2.6, -1.0], [0xfff6e8, 1.6, 7, -8.0, 3.0, -1.6]] },
+};
+const borrowed = [];
+const sideShow = (key) => { if (lite) return;
+  for (const k in SIDE) if (SIDE[k].group) SIDE[k].group.visible = k === key;
+  const rig = key && SIDE[key].rig;
+  borrowed.forEach((l, i) => { const h = l.userData.borrow, r = rig?.[i];
+    if (r) { l.color.setHex(r[0]); l.intensity = r[1]; l.distance = r[2]; l.position.set(r[3], r[4], r[5]); }
+    else { l.color.setHex(h.c); l.intensity = h.i; l.distance = h.d; l.position.copy(h.p); } }); };
+const sideActive = () => { for (const k in SIDE) if (SIDE[k].group?.visible) return k; return null; };
+let sideT = 0;
+/* the door: frames it in neon, slides along the wall (hidden inside its thickness) */
+const sideDoor = (key, name, x, z, rotY, slide, color, sub, inPos, inRot) => {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+  const d = block(1.38, 2.38, 0.07, 0, 0, 1.19, 0, { parent: g, r: 0.02, mat: steelM(0x5c6378) });
+  const kick = steelM(0x3a3f4a); kick.roughnessMap = wearTex(); kick.roughness = 0.5;
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < 3; i++) block(1.06, 0.035, 0.012, 0, 0, 0.5 + i * 0.12, s * 0.04, { parent: g, r: 0.005, mat: steelM(0xc4cad8) });
+    block(1.3, 0.2, 0.01, 0, 0, 0.12, s * 0.04, { parent: g, r: 0.004, mat: kick }); }
+  const n = V(Math.sin(rotY), 0, Math.cos(rotY)), t = V(Math.cos(rotY), 0, -Math.sin(rotY)), f = V(x, 0, z).addScaledVector(n, 0.12);
+  /* a neon frame on the living room's side, and the room's name above it */
+  const glowT = (w, h, along, y) => { const off = f.clone().addScaledVector(t, along); return Math.abs(n.x) > 0.5 ? tube(0.04, h, w, color, off.x, y, off.z, { k: 1.2 }) : tube(w, h, 0.04, color, off.x, y, off.z, { k: 1.2 }); };
+  for (const s of [-1, 1]) glowT(0.04, 2.44, s * 0.72, 1.22); glowT(1.48, 0.04, 0, 2.44);
+  const label = sign(name, 0.3, f.x, 2.8, f.z, { color: "#b98cff", rotY, k: 1.3 });
+  const hit = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.5), new THREE.MeshBasicMaterial({ visible: false })); hit.position.set(f.x, 1.25, f.z); hit.rotation.y = rotY; scene.add(hit);
+  addHot(hit, "living", name.charAt(0) + name.slice(1).toLowerCase(), sub, () => go(key)); hit.userData.glow = [label]; hit.userData.fromCat = true;
+  Object.assign(SIDE[key], { door: g, base: g.position.clone(), slide: V(...slide), open: 0, to: 0 });
+  const out = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.5), new THREE.MeshBasicMaterial({ visible: false })); out.position.set(inPos[0], 1.25, inPos[1]); out.rotation.y = inRot; scene.add(out);
+  addHot(out, key, "Living room", touch ? "Tap to head back" : "Click to head back", () => go("living"));
+};
+const sideGroup = (key, build) => { const n = scene.children.length; build(); const g = new THREE.Group(); for (const o of scene.children.slice(n)) g.add(o); scene.add(g); g.visible = false; SIDE[key].group = g; };
+const std = (color, roughness = 0.6, metalness = 0, o = {}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, ...o });
+const boxWall = (tex, w, h, d, x, y, z, len) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toon(0xffffff, { map: tex(len) })); m.position.set(x, y, z); scene.add(m); return m; };
+const panelTex = (base, seam, band) => (len) => { const t = canvasTex(512, 1160, (x, w, h) => { x.fillStyle = base; x.fillRect(0, 0, w, h); x.fillStyle = seam; x.fillRect(0, 0, 3, h); for (const yy of [h * 0.3, h * 0.66]) x.fillRect(0, yy, w, 2);
+    let sd = 11; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647); for (let i = 0; i < 2400; i++) { x.fillStyle = `rgba(${r() < 0.5 ? "255,255,255" : "0,0,0"},${r() * 0.03})`; x.fillRect(r() * w, r() * h, 2, 2); }
+    x.fillStyle = band; x.fillRect(0, h - 28, w, 28); }); t.wrapS = THREE.RepeatWrapping; t.repeat.set(len / 1.4, 1); return t; };
+const stoneFloor = (sx, sz, base) => { const t = canvasTex(512, 512, (x, w) => { x.fillStyle = base; x.fillRect(0, 0, w, w); let sd = 3; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 1400; i++) { x.fillStyle = `rgba(${r() < 0.5 ? "255,255,255" : "0,0,0"},${0.012 + r() * 0.025})`; x.fillRect(r() * w, r() * w, 1 + r() * 4, 1 + r() * 4); } x.fillStyle = "rgba(0,0,0,.45)"; x.fillRect(0, 0, w, 3); x.fillRect(0, 0, 3, w); });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(sx / 1.4, sz / 1.4); return t; };
+const flatRug = (w, d, x, z, draw, bump = 3) => { const t = canvasTex(1024, Math.round((1024 * d) / w), draw), b = softTex(noise(51, 0.6, 30, 230, 1), 20, 14);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), std(0xffffff, 1, 0, { map: t, bumpMap: b, bumpScale: bump })); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.014, z); m.receiveShadow = true; scene.add(m); return m; };
+
+/* ---- what's in the closet: each piece from content.js, drawn as a hanging garment ----
+   Painted on a canvas (the alpha is its silhouette), then the sheet is bulged and rippled so light falls across the
+   folds. The prints are cut from the real product photos. */
+const GARB = [
+  [/manners-hoodie/, { kind: "hoodie", c: "#1b1b20", edge: "#0d0d11", print: ["images/house/closet-pubkey-manners-hoodie-studio.webp", 0.41, 0.46, 0.18, 0.12, "lighten", 0.42] }],
+  [/you-lose/, { kind: "long", c: "#e6e5e0", edge: "#bdbcb6", print: ["images/house/closet-pubkey-you-lose-tee-studio.webp", 0.375, 0.27, 0.25, 0.53, "multiply", 0.3] }],
+  [/lived-in/, { kind: "tee", c: "#efeeea", edge: "#c6c5bf" }],
+  [/rustico/, { kind: "jacket", c: "#26365a", edge: "#141d33" }],
+  [/seafarer/, { kind: "knit", c: "#2a3a58", edge: "#172238" }],
+];
+const garment = (fit) => { const o = GARB.find(([re]) => re.test(fit.src))?.[1] || { kind: "tee", c: "#8a8d99", edge: "#5c5e68" }, W = 512, H0 = 768;
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H0; const x = cv.getContext("2d"); let sd = 17; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  const short = o.kind === "tee", broad = o.kind === "jacket" ? 8 : 0, hem = o.kind === "jacket" ? 668 : short ? 610 : 640;
+  const shape = () => { x.beginPath(); x.moveTo(206, 66); x.quadraticCurveTo(150, 84, 106 - broad, 128);
+    if (short) { x.lineTo(84, 268); x.quadraticCurveTo(116, 288, 146, 276); x.lineTo(156, 232); }
+    else { x.bezierCurveTo(78 - broad, 280, 62 - broad, 440, 60 - broad, 590); x.quadraticCurveTo(90, 608, 122, 594); x.bezierCurveTo(128, 450, 146, 330, 156, 240); }
+    x.lineTo(150, hem); x.quadraticCurveTo(256, hem + 12, 362, hem); x.lineTo(356, 240);
+    if (short) { x.lineTo(366, 276); x.quadraticCurveTo(396, 288, 428, 268); x.lineTo(406 + broad, 128); }
+    else { x.bezierCurveTo(366, 330, 384, 450, 390, 594); x.quadraticCurveTo(422, 608, 452 + broad, 590); x.bezierCurveTo(450 + broad, 440, 434 + broad, 280, 406 + broad, 128); }
+    x.quadraticCurveTo(362, 84, 306, 66); x.quadraticCurveTo(256, 96, 206, 66); x.closePath(); };
+  const paint = () => { x.clearRect(0, 0, W, H0);
+    if (o.kind === "hoodie") { x.fillStyle = "#101014"; x.beginPath(); x.ellipse(256, 74, 86, 54, 0, 0, 6.3); x.fill(); } /* the hood, fallen behind the neck */
+    x.save(); shape(); x.fillStyle = o.c; x.fill(); x.clip();
+    /* weave or knit, the part a bump map catches */
+    if (o.kind === "knit") { for (let i = 0; i < W; i += 7) { x.fillStyle = "rgba(255,255,255,.07)"; x.fillRect(i, 0, 3, H0); x.fillStyle = "rgba(0,0,0,.22)"; x.fillRect(i + 4, 0, 2, H0); } }
+    else if (o.kind === "jacket") { for (let i = 0; i < 9000; i++) { x.fillStyle = r() < 0.5 ? "rgba(120,150,210,.05)" : "rgba(0,0,0,.08)"; x.fillRect(r() * W, r() * H0, 2, 1); } }
+    else for (let i = 0; i < 7000; i++) { x.fillStyle = r() < 0.5 ? "rgba(255,255,255,.03)" : "rgba(0,0,0,.035)"; x.fillRect(r() * W, r() * H0, 1, 2); }
+    /* soft shade down the sides, and the drape hanging from the shoulders */
+    const g = x.createLinearGradient(150, 0, 362, 0); g.addColorStop(0, "rgba(0,0,0,.2)"); g.addColorStop(0.22, "rgba(0,0,0,0)"); g.addColorStop(0.78, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.2)"); x.fillStyle = g; x.fillRect(150, 0, 212, H0);
+    x.filter = "blur(6px)"; x.lineCap = "round"; for (let i = 0; i < 12; i++) { const px = 170 + r() * 172, top = 150 + r() * 140; x.strokeStyle = r() < 0.55 ? "rgba(0,0,0,.1)" : "rgba(255,255,255,.05)"; x.lineWidth = 5 + r() * 10; x.beginPath(); x.moveTo(px, top); x.bezierCurveTo(px + (r() - 0.5) * 30, top + 120, px + (r() - 0.5) * 40, top + 240, px + (r() - 0.5) * 24, hem); x.stroke(); } x.filter = "none";
+    /* where the sleeves lie against the body */
+    if (!short) { x.strokeStyle = "rgba(0,0,0,.5)"; x.lineWidth = 3; x.beginPath(); x.moveTo(156, 236); x.lineTo(152, hem); x.moveTo(356, 236); x.lineTo(360, hem); x.stroke(); }
+    x.strokeStyle = "rgba(0,0,0,.28)"; x.lineWidth = 2; x.beginPath(); x.moveTo(114, 134); x.quadraticCurveTo(150, 190, 156, 240); x.moveTo(398, 134); x.quadraticCurveTo(362, 190, 356, 240); x.stroke();
+    const rib = (y0, y1, x0, x1) => { x.fillStyle = "rgba(0,0,0,.14)"; x.fillRect(x0, y0, x1 - x0, y1 - y0); x.fillStyle = "rgba(255,255,255,.07)"; for (let i = x0; i < x1; i += 5) x.fillRect(i, y0, 2, y1 - y0); x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(x0, y0, x1 - x0, 2); };
+    if (o.kind === "knit" || o.kind === "hoodie") { rib(hem - 40, hem + 12, 140, 372); rib(556, 612, 50, 130); rib(556, 612, 382, 462); }
+    if (o.kind === "long") { rib(hem - 8, hem + 12, 140, 372); rib(570, 612, 50, 130); rib(570, 612, 382, 462); }
+    if (short) { x.strokeStyle = "rgba(0,0,0,.16)"; x.lineWidth = 2; x.beginPath(); x.moveTo(150, hem - 14); x.lineTo(362, hem - 14); x.moveTo(86, 256); x.quadraticCurveTo(116, 274, 146, 262); x.moveTo(366, 262); x.quadraticCurveTo(396, 274, 426, 256); x.stroke(); }
+    if (o.kind === "hoodie") { x.fillStyle = "rgba(255,255,255,.04)"; x.strokeStyle = "rgba(0,0,0,.65)"; x.lineWidth = 3; x.beginPath(); x.moveTo(176, 590); x.lineTo(196, 470); x.lineTo(316, 470); x.lineTo(336, 590); x.closePath(); x.fill(); x.stroke();
+      x.strokeStyle = "#d8d8dc"; x.lineWidth = 4; for (const s of [-1, 1]) { x.beginPath(); x.moveTo(256 + s * 22, 96); x.bezierCurveTo(256 + s * 24, 150, 256 + s * 16, 180, 256 + s * 20, 216); x.stroke(); } }
+    if (o.kind === "jacket") { /* lapels over a dark shirt front, two buttons, pocket flaps */
+      x.fillStyle = "#c9d3e6"; x.beginPath(); x.moveTo(218, 64); x.lineTo(294, 64); x.lineTo(262, 330); x.lineTo(250, 330); x.closePath(); x.fill();
+      x.fillStyle = "#1d2a4a"; for (const s of [-1, 1]) { x.beginPath(); x.moveTo(256 + s * 42, 62); x.lineTo(256 + s * 92, 192); x.lineTo(256 + s * 66, 214); x.lineTo(256 + s * 4, 372); x.lineTo(256 + s * 2, 330); x.closePath(); x.fill(); x.strokeStyle = "rgba(0,0,0,.6)"; x.lineWidth = 2; x.stroke(); }
+      x.strokeStyle = "rgba(0,0,0,.55)"; x.lineWidth = 3; x.beginPath(); x.moveTo(256, 372); x.quadraticCurveTo(262, 520, 300, hem); x.stroke();
+      x.fillStyle = "#0e1424"; for (const y of [392, 452]) { x.beginPath(); x.arc(264, y, 8, 0, 6.3); x.fill(); }
+      x.strokeStyle = "rgba(0,0,0,.5)"; x.lineWidth = 3; for (const [a, b, c] of [[172, 236, 500], [290, 346, 500], [302, 344, 248]]) { x.beginPath(); x.moveTo(a, c); x.lineTo(b, c - 2); x.stroke(); } }
+    /* the neck: a shadowed opening with a ribbed collar */
+    x.restore(); if (o.kind !== "jacket") { x.strokeStyle = o.edge; x.lineWidth = 14; x.beginPath(); x.moveTo(206, 66); x.quadraticCurveTo(256, 102, 306, 66); x.stroke(); x.fillStyle = "#08080b"; x.beginPath(); x.moveTo(214, 62); x.quadraticCurveTo(256, 90, 298, 62); x.quadraticCurveTo(256, 50, 214, 62); x.fill(); } };
+  paint();
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  if (o.print) { const [src, u, v, uw, vh, mode, wid] = o.print, im = new Image(); im.onload = () => { const sw = uw * im.width, sh = vh * im.height, dw = W * wid, dh = (dw * sh) / sw; const pc = document.createElement("canvas"); pc.width = Math.round(sw); pc.height = Math.round(sh); const px = pc.getContext("2d"); px.drawImage(im, u * im.width, v * im.height, sw, sh, 0, 0, pc.width, pc.height);
+      /* lift just the ink off the photo: the coloured print from the pale tee, the white letters from the black hoodie */
+      const dt = px.getImageData(0, 0, pc.width, pc.height), a = dt.data; for (let i = 0; i < a.length; i += 4) { const mx = Math.max(a[i], a[i + 1], a[i + 2]), mn = Math.min(a[i], a[i + 1], a[i + 2]); a[i + 3] = mode === "lighten" ? Math.min(255, Math.max(0, (mx - 90) * 2.2)) : Math.min(255, Math.max(0, (mx - mn - 14) * 3.2)); } px.putImageData(dt, 0, 0);
+      x.save(); shape(); x.clip(); x.drawImage(pc, 256 - dw / 2, o.kind === "hoodie" ? 240 : 158, dw, dh); x.restore(); t.needsUpdate = true; }; im.src = src; }
+  const G = new THREE.PlaneGeometry(0.74, 0.88, 28, 40), p = G.attributes.position, sw = o.kind === "jacket" ? 0.055 : 0.04;
+  for (let i = 0; i < p.count; i++) { const px = p.getX(i), py = p.getY(i), u = px / 0.36, k = Math.max(0, 1 - u * u);
+    p.setZ(i, sw * 1.15 * Math.pow(k, 0.6) * (0.8 + 0.2 * Math.sin(py * 3)) + 0.006 * Math.sin(px * 34 + py * 5) + 0.004 * Math.sin(px * 61 - py * 9) * (0.44 - py)); }
+  G.computeVertexNormals();
+  const M = new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: o.kind === "knit" ? 2.5 : 1, roughness: o.kind === "jacket" ? 0.72 : 0.92, alphaTest: 0.5, side: THREE.DoubleSide });
+  const m = new THREE.Mesh(G, M); m.castShadow = true; return m; };
+const hanger = (parent) => { const steel = steelM(0xb8bfcc), hook = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.0035, 8, 24, Math.PI * 1.4), steel); hook.position.set(0, 0.075, 0); hook.rotation.z = -0.3; parent.add(hook);
+  const pts = [[-0.19, -0.03], [-0.06, 0.03], [0, 0.05], [0.06, 0.03], [0.19, -0.03]].map(([a, b]) => V(a, b, 0)), bar = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.006, 8), steel); parent.add(bar); };
+const stack = (x, y, z, n, w, d, c) => { for (let i = 0; i < n; i++) { const b = block(w, 0.045, d, 0, x + (i % 2 ? 0.004 : -0.004), y + 0.024 + i * 0.047, z, { r: 0.02, mat: fabricM(c) }); b.rotation.y = (i % 3 - 1) * 0.012; } };
+
+const buildCloset = () => {
+  const X0 = -10.4, X1 = -6.1, Z0 = -0.25, Z1 = -5.25, CX = (X0 + X1) / 2, CZ = (Z0 + Z1) / 2, fits = (S.fits || []).filter((f) => f.src).slice(0, 5);
+  const tex = panelTex("#20222e", "#151620", "#101118");
+  { const f = new THREE.Mesh(new THREE.BoxGeometry(X1 - X0 + 0.1, 0.1, Z0 - Z1 + 0.2), toon(0xffffff, { map: stoneFloor(4.4, 5.2, "#17181f"), roughness: 0.34 })); f.position.set(CX + 0.05, -0.05, CZ); scene.add(f); }
+  slab(X1 - X0 + 0.1, 0.1, Z0 - Z1 + 0.2, 0x0d0e14, CX + 0.05, H + 0.05, CZ);
+  boxWall(tex, X1 - X0, H, 0.1, CX, H / 2, Z0 + 0.05, X1 - X0); boxWall(tex, X1 - X0, H, 0.1, CX, H / 2, Z1 - 0.05, X1 - X0); boxWall(tex, 0.1, H, Z0 - Z1, X0 - 0.05, H / 2, CZ, Z0 - Z1);
+  /* the door wall, seen from in here */
+  boxWall(tex, 0.06, H, 0.95, -6.13, H / 2, -0.725, 0.95); boxWall(tex, 0.06, H, 2.65, -6.13, H / 2, -3.925, 2.65); slab(0.06, H - 2.4, 1.4, 0x20222e, -6.13, 2.4 + (H - 2.4) / 2, -1.9);
+  /* cove light all round, warm */
+  for (const z of [Z0 - 0.02, Z1 + 0.02]) tube(X1 - X0, 0.025, 0.025, 0xffb066, CX, H - 0.07, z, { k: 0.9 });
+  for (const x of [X0 + 0.02, X1 - 0.05]) tube(0.025, 0.025, Z0 - Z1, 0xb98cff, x, H - 0.07, CZ, { k: 0.85 });
+  flatRug(2.7, 3.4, CX - 0.2, CZ, (x, w, h) => { x.fillStyle = "#3a3c48"; x.fillRect(0, 0, w, h); x.strokeStyle = "#5c5f70"; x.lineWidth = 10; x.strokeRect(34, 34, w - 68, h - 68); x.strokeStyle = "#2a2c36"; x.lineWidth = 3; x.strokeRect(54, 54, w - 108, h - 108); });
+
+  /* the back wall: five lit bays, each piece hanging face-out over steel drawers */
+  const carbon = std(0x101116, 0.32, 0.2, { roughnessMap: wearTex() });
+  block(X1 - X0 - 0.1, 0.72, 0.46, 0, CX, 0.36, Z1 + 0.23, { r: 0.012, mat: steelM(0x3c414e) });
+  block(X1 - X0 - 0.1, 0.03, 0.5, 0, CX, 0.735, Z1 + 0.25, { r: 0.01, mat: carbon }); tube(X1 - X0 - 0.2, 0.012, 0.012, 0xffc98a, CX, 0.712, Z1 + 0.49, { k: 1.05 });
+  for (let i = 0; i < 5; i++) { const bx = -9.6 + i * 0.75; for (const y of [0.2, 0.52]) { block(0.68, 0.28, 0.012, 0, bx, y, Z1 + 0.466, { r: 0.004, mat: steelM(0x565c6b) }); block(0.3, 0.012, 0.018, 0, bx, y + 0.1, Z1 + 0.478, { r: 0.004, mat: steelM(0xc4cad8) }); } }
+  block(X1 - X0 - 0.1, 0.03, 0.46, 0, CX, 2.66, Z1 + 0.23, { r: 0.01, mat: carbon }); tube(X1 - X0 - 0.2, 0.012, 0.012, 0xffd9a8, CX, 2.636, Z1 + 0.42, { k: 1.25 });
+  for (let i = 0; i <= 5; i++) block(0.025, 1.92, 0.44, 0, -9.975 + i * 0.75, 1.71, Z1 + 0.22, { r: 0.006, mat: steelM(0x4a5060) });
+  const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, X1 - X0 - 0.2, 16), steelM(0xd2d8e2)); rail.rotation.z = Math.PI / 2; rail.position.set(CX, 2.42, Z1 + 0.24); scene.add(rail);
+  /* a warm wash down each bay's back panel */
+  const washT = canvasTex(64, 256, (x, w, h) => { const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, "rgba(255,206,158,.3)"); g.addColorStop(0.55, "rgba(255,180,120,.08)"); g.addColorStop(1, "rgba(255,180,120,.015)"); x.fillStyle = g; x.fillRect(0, 0, w, h); });
+  for (let i = 0; i < 5; i++) { const w = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 1.9), new THREE.MeshBasicMaterial({ map: washT, transparent: true, depthWrite: false, toneMapped: false })); w.position.set(-9.6 + i * 0.75, 1.7, Z1 + 0.012); scene.add(w); }
+  /* storage up top: labelled steel bins */
+  ["KNITS", "DENIM", "TEES", "BELTS", "SHOES"].forEach((t, i) => { const bx = -9.6 + i * 0.75; block(0.6, 0.34, 0.36, 0, bx, 2.85, Z1 + 0.22, { r: 0.012, mat: steelM(0x2f333e) });
+    panel(0.3, 0.09, canvasTex(192, 58, (x, w, h) => { x.fillStyle = "#e8e6dc"; x.fillRect(0, 0, w, h); x.fillStyle = "#14141c"; x.font = "700 38px Rajdhani"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(t, w / 2, h / 2 + 2); }), bx, 2.85, Z1 + 0.402, { k: 0.8 }); });
+  const stepTo = (obj, name, fit, pos, look) => { const open = () => fit.link && window.open(fit.link, "_blank", "noopener");
+    if (spot?.g === obj) return open();
+    openSpot(obj, name, { pos, look }, { hint: `${tapWord} it again for the product page · ${tapWord.toLowerCase()} away to step back`, self: true, only: (o) => o === obj, hover: (h) => (h?.obj === obj ? { label: fit.item, sub: `${fit.brand} · ${tapWord} for the product page` } : null), click: (h) => (h?.obj === obj ? open() : closeSpot()) }); };
+  fits.forEach((fit, i) => { const bx = -9.6 + i * 0.75, g = new THREE.Group(); g.position.set(bx, 2.36, Z1 + 0.24); scene.add(g); hanger(g);
+    const m = garment(fit); m.position.y = -0.37; g.add(m);
+    addHot(g, "closet", fit.item, `${fit.brand}${fit.tag ? " · " + fit.tag : ""}`, () => stepTo(g, fit.item, fit, V(bx, 1.8, Z1 + 1.55), V(bx, 1.82, Z1 + 0.2))); });
+  /* the far wall: the same pieces as lit product cards */
+  const fmt = (d) => (d ? new Date(`${d}T12:00`).toLocaleDateString(undefined, { month: "short", year: "numeric" }).toUpperCase() : "");
+  fits.forEach((fit, i) => { const z = -0.95 - i * 0.84, g = new THREE.Group(); g.position.set(X0 + 0.02, 0, z); g.rotation.y = Math.PI / 2; scene.add(g);
+    block(0.68, 1.14, 0.05, 0, 0, 1.56, 0.01, { parent: g, r: 0.012, mat: steelM(0x3a3f4c) });
+    const pic = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.82), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.74, 0.74, 0.72), toneMapped: false })); pic.position.set(0, 1.67, 0.04); g.add(pic);
+    const src = wallSrc(fit.src); loader.load(src, (t) => { t.colorSpace = THREE.SRGBColorSpace; const im = t.image, c = document.createElement("canvas"); c.width = 620; c.height = 820; const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, 620, 820);
+      const k = Math.min(600 / im.width, 800 / im.height), w = im.width * k, h = im.height * k; x.drawImage(im, 310 - w / 2, 410 - h / 2, w, h); const ct = new THREE.CanvasTexture(c); ct.colorSpace = THREE.SRGBColorSpace; ct.anisotropy = 8; pic.material.map = ct; pic.material.needsUpdate = true; t.dispose(); });
+    const tag = panel(0.62, 0.2, canvasTex(620, 200, (x, w, h) => { x.fillStyle = "#101119"; x.fillRect(0, 0, w, h); x.fillStyle = "#f4f3ff"; x.font = "700 38px Rajdhani"; let s = fit.item; while (x.measureText(s).width > w - 40 && s.length > 8) s = s.slice(0, -2); x.fillText(s === fit.item ? s : `${s}…`, 20, 62);
+      x.font = "500 22px 'JetBrains Mono'"; x.fillStyle = "#b98cff"; x.fillText(fit.brand.toUpperCase(), 20, 106); x.fillStyle = "#9d9dc0"; x.fillText(`${fit.tag ? fit.tag.toUpperCase() + " · " : ""}${fmt(fit.date)}`, 20, 150); }), 0, 1.13, 0.04, { parent: g, k: 0.95 });
+    tube(0.62, 0.012, 0.012, 0xfff0dc, 0, 2.14, 0.06, { parent: g, k: 1.1 });
+    addHot(g, "closet", fit.item, `${fit.brand} · ${tapWord} to look closer`, () => stepTo(g, fit.item, fit, V(X0 + 1.45, 1.56, z), V(X0, 1.56, z))); });
+  /* the island: drawers, a glass top with a light under it, and what's lying out */
+  const IX = -8.45, IZ = -2.75;
+  block(0.86, 0.84, 1.46, 0, IX, 0.42, IZ, { r: 0.015, mat: steelM(0x424753) });
+  for (const s of [-1, 1]) for (const y of [0.2, 0.56]) for (const z of [-0.36, 0.36]) { block(0.012, 0.3, 0.66, 0, IX + s * 0.436, y, IZ + z, { r: 0.004, mat: steelM(0x5a606f) }); block(0.018, 0.012, 0.26, 0, IX + s * 0.446, y + 0.1, IZ + z, { r: 0.004, mat: steelM(0xc4cad8) }); }
+  block(0.92, 0.018, 1.52, 0, IX, 0.86, IZ, { r: 0.008, mat: std(0x07080c, 0.08, 0.1) }); tube(0.9, 0.012, 1.5, 0x4a3a7a, IX, 0.845, IZ, { k: 0.8 });
+  stack(IX - 0.1, 0.87, IZ - 0.42, 5, 0.34, 0.27, 0xefeeea); stack(IX + 0.14, 0.87, IZ + 0.42, 2, 0.34, 0.27, 0x2a3a58); stack(IX + 0.14, 0.964, IZ + 0.42, 1, 0.34, 0.27, 0x1b1b20);
+  /* a lint roller: two cats live here */
+  { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.11, 24), std(0xe9e6da, 0.75)); r.rotation.x = Math.PI / 2; r.position.set(IX - 0.16, 0.9, IZ + 0.3); scene.add(r); const hd = block(0.018, 0.018, 0.16, 0, IX - 0.28, 0.894, IZ + 0.3, { r: 0.006, mat: std(0x1b1d24, 0.4) }); hd.rotation.y = Math.PI / 2; }
+  /* a tall steel mirror by the door, lit down both sides */
+  { const mx = -7.2, mz = Z0 - 0.03; block(1.06, 2.56, 0.04, 0, mx, 1.3, mz, { r: 0.01, mat: steelM(0x2c303a) }); /* a real mirror, cheaply: the room captured once into a cube map and looked up with its reflection corrected to the room's box, so it stays put as you move (a glossy metal would just show a blinding spot of ceiling light) */
+    const cubeRT = new THREE.WebGLCubeRenderTarget(512, { type: THREE.HalfFloatType }), cubeC = new THREE.CubeCamera(0.05, 12, cubeRT); cubeC.position.set(CX, 1.6, CZ); scene.add(cubeC);
+    const mirM = new THREE.ShaderMaterial({ uniforms: { tRoom: { value: cubeRT.texture }, bMin: { value: V(X0, 0, Z1) }, bMax: { value: V(X1 - 0.03, H, Z0) }, c0: { value: cubeC.position } },
+      vertexShader: "varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }",
+      fragmentShader: `uniform samplerCube tRoom; uniform vec3 bMin, bMax, c0; varying vec3 vW;
+        void main() { vec3 v = normalize(vW - cameraPosition), r = reflect(v, vec3(0.0, 0.0, -1.0)); vec3 t1 = (bMax - vW) / r, t2 = (bMin - vW) / r, tm = max(t1, t2); float d = min(min(tm.x, tm.y), tm.z); vec3 hit = vW + r * d - c0;
+          gl_FragColor = vec4(textureCube(tRoom, hit).rgb * vec3(0.86, 0.88, 0.9), 1.0); }` });
+    const mir = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 2.4), mirM); mir.rotation.y = Math.PI; mir.position.set(mx, 1.3, mz - 0.024); scene.add(mir);
+    let snapped = false; animators.push(() => { if (snapped || room !== "closet" || flight) return; snapped = true; mir.visible = false; SIDE.closet.door.position.copy(SIDE.closet.base); /* shut, in the reflection */ cubeC.update(renderer, scene); mir.visible = true; });
+    for (const s of [-1, 1]) tube(0.012, 2.4, 0.012, 0xfff0dc, mx + s * 0.5, 1.3, mz - 0.03, { k: 0.85 }); }
+  /* the other side wall: the rest of the wardrobe, hung side-on, with a chunky seat in front of it to put your boots on */
+  const cloths = [0x1c1e27, 0x2c3140, 0x4a4f5e, 0x161721, 0x35405a, 0x5c4a3e, 0x20242f].map((c) => fabricM(c)); const rx0 = -10.15, rx1 = -8.15, rz = Z0 - 0.3;
+  /* a coat seen edge-on: shoulders sloping from the hanger, the cloth falling in soft waves */
+  const hungG = [3.1, 5.3, 7.7].map((ph) => { const g = new THREE.BoxGeometry(0.05, 1, 0.5, 2, 16, 14), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i) - 0.5, z = p.getZ(i), top = Math.max(0, 1 + y / 0.16), sl = 1 - 0.5 * top * top; p.setXYZ(i, p.getX(i) * (0.55 + 0.45 * Math.min(1, -y * 4)) + Math.sin(z * 15 + y * 4 + ph) * 0.016 * Math.min(1, -y * 3), y, z * sl); } g.computeVertexNormals(); return g; });
+  const sRail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, rx1 - rx0, 16), steelM(0xd2d8e2)); sRail.rotation.z = Math.PI / 2; sRail.position.set((rx0 + rx1) / 2, 2.3, rz); scene.add(sRail);
+  { let sd = 7; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647); for (let px = rx0 + 0.08; px < rx1 - 0.05; px += 0.085 + r() * 0.05) { const h = 0.75 + r() * 0.45, c = new THREE.Mesh(hungG[Math.floor(r() * 3)], cloths[Math.floor(r() * cloths.length)]); c.scale.set(0.8 + r() * 0.6, h, 1); c.position.set(px, 2.26, rz); c.castShadow = true; c.rotation.x = (r() - 0.5) * 0.03; scene.add(c); const hk = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.003, 6, 16, Math.PI * 1.4), steelM(0xb8bfcc)); hk.rotation.y = Math.PI / 2; hk.position.set(px, 2.3, rz); scene.add(hk); } }
+  block(2.05, 0.03, 0.5, 0, (rx0 + rx1) / 2, 2.52, rz, { r: 0.01, mat: carbon }); tube(1.95, 0.012, 0.012, 0xffd9a8, (rx0 + rx1) / 2, 2.5, rz - 0.2, { k: 1.1 });
+  { const seat = pillow(1.05, 0.2, 0.5, 2, leather(0x8a5230, seatBump, 0.42, 1)); seat.position.set(-9.15, 0.42, -1.25); seat.rotation.y = 0.04; scene.add(seat); block(0.96, 0.3, 0.42, 0, -9.15, 0.16, -1.25, { r: 0.02, mat: steelM(0x2c303a) }); }
+  catBed(-6.72, -4.32, 0.36);
+  /* a plant in the corner, and the wardrobe's little controller on the wall */
+  { const p = new THREE.Group(); p.position.set(-10.08, 0, -4.42); scene.add(p); const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.36, 28), std(0x3a3d46, 0.9)); pot.position.y = 0.18; p.add(pot); leafy(p, 0, 0.35, 0, { n: 18, len: 0.75, wid: 0.08, bend: 0.5, tilt: 0.6, seed: 23 }); }
+  { block(0.03, 0.2, 0.3, 0, -6.15, 1.42, -0.8, { r: 0.008, mat: std(0x0b0c12, 0.18) }); panel(0.26, 0.16, canvasTex(260, 160, (x, w, h) => { x.fillStyle = "#061018"; x.fillRect(0, 0, w, h); x.font = "500 18px 'JetBrains Mono'"; x.fillStyle = "#7ff6ff"; x.fillText("WARDROBE // OK", 14, 30); x.fillStyle = "#9d9dc0"; x.fillText("HUM 46%   21.0C", 14, 62); x.fillText("LINT: CRITICAL", 14, 92); x.fillStyle = "#ff2a6d"; x.fillText("2 CATS DETECTED", 14, 124); }), -6.17, 1.42, -0.8, { rotY: -Math.PI / 2, k: 0.9 }); }
+};
+
+/* the record room: what I've really been playing, from Last.fm. Sleeves on the wall are my top albums; the screen and the turntable follow the current track */
+const MUSIC = { spin: false, live: false, track: null, sleeves: [], loaded: false, draw: null, label: null };
+const lfmCall = (method, params = "") => fetch(`https://ws.audioscrobbler.com/2.0/?method=${method}&user=${encodeURIComponent(S.lastfm.user)}&api_key=${S.lastfm.apiKey}&format=json${params}`).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
+const lfmArt = (imgs) => { const u = (imgs || []).slice(-1)[0]?.["#text"] || ""; return u.includes("2a96cbd8b46e442fc41c2b86b821562f") ? "" : u; };
+const loadMusic = () => { if (!S.lastfm?.user) return;
+  const coverLoader = new THREE.TextureLoader(); coverLoader.setCrossOrigin("anonymous");
+  if (!MUSIC.loaded) { MUSIC.loaded = true;
+    lfmCall("user.gettopalbums", "&period=6month&limit=40").then((d) => { const seen = new Set(), list = [].concat(d.topalbums?.album || []).filter((a) => { const u = lfmArt(a.image); if (!u || seen.has(u)) return false; seen.add(u); return true; }).slice(0, MUSIC.sleeves.length);
+      if (list.length) MUSIC.layout(list.length);
+      MUSIC.sleeves.forEach((sl, i) => { const a = list[i]; if (!a) return; const h = hot[sl.userData.hot]; h.label = a.name; h.sub = `${a.artist?.name || ""} · ${a.playcount} plays`; h.act = () => window.open(a.url, "_blank", "noopener");
+        coverLoader.load(lfmArt(a.image), (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; sl.material.map = t; sl.material.color.setScalar(1); sl.material.needsUpdate = true; }); }); }).catch((e) => console.warn("last.fm albums:", e)); }
+  lfmCall("user.getrecenttracks", "&limit=6").then((d) => { const list = [].concat(d.recenttracks?.track || []), t = list[0]; if (!t) return; const live = t["@attr"]?.nowplaying === "true"; MUSIC.live = live; if (live) MUSIC.spin = true; const changed = MUSIC.track?.url !== t.url || MUSIC.wasLive !== live; MUSIC.track = t; MUSIC.recent = list.slice(1, 5); MUSIC.wasLive = live; if (!changed) return; MUSIC.draw?.(null);
+    const u = lfmArt(t.image); if (u) { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => { MUSIC.draw?.(im); if (MUSIC.label) { const ct = new THREE.CanvasTexture((() => { const c = document.createElement("canvas"); c.width = c.height = 256; const x = c.getContext("2d"); x.drawImage(im, 0, 0, 256, 256); return c; })()); ct.colorSpace = THREE.SRGBColorSpace; MUSIC.label.material.map = ct; MUSIC.label.material.needsUpdate = true; } }; im.src = u; } }).catch((e) => console.warn("last.fm tracks:", e)); };
+const buildMusic = () => {
+  const X0 = 1.7, X1 = 9.3, Z0 = -7.11, Z1 = -13.7, CX = (X0 + X1) / 2, CZ = (Z0 + Z1) / 2;
+  const tex = panelTex("#1e1a28", "#120f1a", "#0c0a12");
+  { const f = new THREE.Mesh(new THREE.BoxGeometry(X1 - X0, 0.1, Z0 - Z1 + 0.11), toon(0xffffff, { map: stoneFloor(7.6, 6.7, "#14131b"), roughness: 0.3 })); f.position.set(CX, -0.05, (-7 + Z1) / 2); scene.add(f); }
+  slab(X1 - X0, 0.1, Z0 - Z1 + 0.11, 0x0a0a10, CX, H + 0.05, (-7 + Z1) / 2);
+  boxWall(tex, 2.1, H, 0.1, 2.75, H / 2, Z0 - 0.05, 2.1); boxWall(tex, 4.1, H, 0.1, 7.25, H / 2, Z0 - 0.05, 4.1); slab(1.4, H - 2.4, 0.1, 0x1e1a28, 4.5, 2.4 + (H - 2.4) / 2, Z0 - 0.05);
+  boxWall(tex, X1 - X0, H, 0.1, CX, H / 2, Z1 - 0.05, X1 - X0); boxWall(tex, 0.1, H, Z0 - Z1, X0 - 0.05, H / 2, CZ, Z0 - Z1); boxWall(tex, 0.1, H, Z0 - Z1, X1 + 0.05, H / 2, CZ, Z0 - Z1);
+  /* magenta down the sides and amber across the ends, like the living room next door */
+  for (const x of [X0 + 0.02, X1 - 0.02]) tube(0.025, 0.025, Z0 - Z1, 0xff2a6d, x, H - 0.07, CZ, { k: 1.0 });
+  for (const z of [Z0 - 0.12, Z1 + 0.02]) tube(X1 - X0, 0.025, 0.025, 0xffa040, CX, H - 0.07, z, { k: 1.0 });
+  flatRug(3.9, 3.0, CX, -10.4, (x, w, h) => { x.fillStyle = "#22202c"; x.fillRect(0, 0, w, h); x.strokeStyle = "#8f4a2c"; x.lineWidth = 7; for (let i = 0; i < 9; i++) { x.globalAlpha = 0.25 + i * 0.07; x.beginPath(); for (let px = 0; px <= w; px += 8) { const y = h / 2 + Math.sin(px * 0.012 + i * 0.5) * (30 + i * 26) * Math.sin(px / w * Math.PI); px ? x.lineTo(px, y) : x.moveTo(px, y); } x.stroke(); } x.globalAlpha = 1; x.fillStyle = "#111016"; x.fillRect(0, 0, w, 16); x.fillRect(0, h - 16, w, 16); }, 4);
+  /* acoustic felt panels on the far wall behind the speakers */
+  const felt = [fabricM(0x2c2738), fabricM(0x37304a), fabricM(0x231f2e)];
+  for (let i = 0; i < 12; i++) for (let j = 0; j < 2; j++) if (i < 3 || i > 8 || j === 0 && false) block(0.56, 1.46, 0.05, 0, 2.2 + i * 0.6, 0.86 + j * 1.5, Z1 + 0.03, { r: 0.018, mat: felt[(i * 3 + j) % 3] });
+  /* the screen: what's playing */
+  const sc = document.createElement("canvas"); sc.width = 1280; sc.height = 720; const scT = new THREE.CanvasTexture(sc); scT.colorSpace = THREE.SRGBColorSpace; scT.anisotropy = 8;
+  block(3.08, 1.76, 0.06, 0, CX, 2.24, Z1 + 0.04, { r: 0.012, mat: std(0x0a0a0e, 0.22, 0.4) });
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 1.6875), new THREE.MeshBasicMaterial({ map: scT, toneMapped: false, color: new THREE.Color(0.9, 0.9, 0.9) })); screen.position.set(CX, 2.24, Z1 + 0.075); scene.add(screen);
+  MUSIC.draw = (im) => { const x = sc.getContext("2d"), t = MUSIC.track, w = 1280, h = 720, g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, "#150c26"); g.addColorStop(1, "#08070f"); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.strokeStyle = "rgba(255,255,255,.04)"; x.lineWidth = 1; for (let i = 0; i < w; i += 40) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); } for (let i = 0; i < h; i += 40) { x.beginPath(); x.moveTo(0, i); x.lineTo(w, i); x.stroke(); }
+    if (im) x.drawImage(im, 60, 60, 420, 420); else { x.fillStyle = "#1b1630"; x.fillRect(60, 60, 420, 420); x.strokeStyle = "#ff2a6d"; x.lineWidth = 2; x.beginPath(); x.arc(270, 270, 120, 0, 6.3); x.stroke(); x.beginPath(); x.arc(270, 270, 24, 0, 6.3); x.stroke(); }
+    x.textBaseline = "top"; x.font = "500 26px 'JetBrains Mono'"; x.fillStyle = MUSIC.live ? "#2bff88" : "#9d9dc0"; x.fillText(t ? (MUSIC.live ? ">> NOW PLAYING" : ">> LAST PLAYED") : ">> STANDBY", 530, 66);
+    const fit = (s, f, mw) => { x.font = f; let o = s; while (x.measureText(o).width > mw && o.length > 4) o = o.slice(0, -2); return o === s ? s : `${o}…`; };
+    if (t) { x.fillStyle = "#f4f3ff"; x.shadowColor = "#ff2a6d"; x.shadowBlur = 14; x.fillText(fit(t.name, "700 74px Rajdhani", 700), 530, 112); x.shadowBlur = 0; x.fillStyle = "#7ff6ff"; x.fillText(fit(t.artist["#text"], "600 46px Rajdhani", 700), 530, 202); x.fillStyle = "#b5b3cc"; const al = t.album?.["#text"]; if (al) x.fillText(fit(al, "500 34px Rajdhani", 700), 530, 262); }
+    else { x.fillStyle = "#f4f3ff"; x.font = "700 74px Rajdhani"; x.fillText("Warming up", 530, 112); }
+    x.font = "500 20px 'JetBrains Mono'"; x.fillStyle = "#6d6b88"; x.fillText("BEFORE THAT", 530, 332); x.font = "500 30px Rajdhani"; (MUSIC.recent || []).slice(0, 3).forEach((r, i) => { x.fillStyle = "#d6d6e7"; x.fillText(fit(`${r.name}  —  ${r.artist["#text"]}`, "500 30px Rajdhani", 700), 530, 366 + i * 40); });
+    x.fillStyle = "#6d6b88"; x.font = "500 20px 'JetBrains Mono'"; x.fillText("LAST.FM // THEPIERPONT", 60, 520); for (let i = 0; i < 58; i++) { const v = 18 + 110 * Math.abs(Math.sin(i * 0.41) * Math.cos(i * 0.13 + (t ? t.name.length : 1))); x.fillStyle = `hsl(${320 - i * 2.4},90%,62%)`; x.fillRect(60 + i * 20, 684 - v, 12, v); }
+    scT.needsUpdate = true; };
+  MUSIC.draw(null);
+  addHot(screen, "music", "Now playing", "Open it on Last.fm", () => { const u = MUSIC.track?.url; if (u) window.open(u, "_blank", "noopener"); });
+  /* the speakers: tall gloss monoliths with real cones and a phase plug, up on steel feet */
+  const gloss = std(0x09090c, 0.14, 0.15, { roughnessMap: wearTex() }), coneG = new THREE.LatheGeometry([[0.015, 0], [0.04, 0.0015], [0.09, 0.016], [0.102, 0.03], [0.112, 0.033], [0.118, 0.03]].map(([a, b]) => new THREE.Vector2(a, b)), 48), coneM = std(0x34343c, 0.6), woofers = [];
+  for (const sx of [3.05, 7.95]) { const sp = new THREE.Group(); sp.position.set(sx, 0, -13.05); sp.rotation.y = (sx < CX ? 1 : -1) * 0.14; scene.add(sp);
+    block(0.5, 1.5, 0.46, 0, 0, 0.87, 0, { parent: sp, r: 0.03, mat: gloss }); block(0.56, 0.06, 0.52, 0, 0, 0.03, 0, { parent: sp, r: 0.01, mat: steelM(0x7c8392) }); for (const a of [-1, 1]) for (const b of [-1, 1]) { const ft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.008, 0.09, 12), steelM(0xc4cad8)); ft.position.set(a * 0.2, 0.08, b * 0.17); sp.add(ft); }
+    for (const [y, k] of [[0.42, 1.65], [0.86, 1.2], [1.28, 0.42]]) { const cn = new THREE.Mesh(coneG, k < 0.5 ? steelM(0xc4cad8) : coneM); cn.rotation.x = Math.PI / 2; cn.scale.set(k, k, k); cn.position.set(0, y, 0.228); sp.add(cn); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.122 * k, 0.006, 8, 48), steelM(0xa8afbc)); ring.position.set(0, y, 0.232); sp.add(ring); if (k > 1.5) woofers.push(cn); }
+    tube(0.3, 0.008, 0.008, sx < CX ? 0x4fd8ff : 0xff2a6d, 0, 1.56, 0.234, { parent: sp, k: 1.2 }); }
+  /* the credenza: steel with a carbon top and a warm strip beneath */
+  const CZn = -13.25, carbon = std(0x101116, 0.28, 0.2, { roughnessMap: wearTex() });
+  block(3.0, 0.5, 0.56, 0, CX, 0.31, CZn, { r: 0.015, mat: steelM(0x3e4350) }); block(3.06, 0.03, 0.62, 0, CX, 0.575, CZn, { r: 0.01, mat: carbon }); tube(2.9, 0.012, 0.012, 0xffa040, CX, 0.05, CZn + 0.28, { k: 1.1 });
+  for (let i = 0; i < 4; i++) block(0.7, 0.42, 0.012, 0, CX - 1.08 + i * 0.72, 0.31, CZn + 0.284, { r: 0.004, mat: steelM(0x565c6b) });
+  /* the turntable, a real one: gloss plinth, weighted platter, grooved vinyl with the current album on its label, an S-less straight arm */
+  const TT = new THREE.Group(); TT.position.set(CX - 0.62, 0.59, CZn + 0.02); scene.add(TT);
+  block(0.5, 0.075, 0.4, 0, 0, 0.0375, 0, { parent: TT, r: 0.012, mat: gloss });
+  for (const a of [-1, 1]) for (const b of [-1, 1]) { const ft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 0.016, 16), steelM(0x8a91a0)); ft.position.set(a * 0.21, -0.002, b * 0.16); TT.add(ft); }
+  const platter = new THREE.Group(); platter.position.set(-0.06, 0.08, 0); TT.add(platter);
+  platter.add(new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.018, 64), steelM(0xb8bfcc))); platter.children[0].position.y = 0.009;
+  const grooves = canvasTex(1024, 1024, (x, w) => { x.fillStyle = "#050507"; x.beginPath(); x.arc(w / 2, w / 2, w / 2, 0, 6.3); x.fill(); for (let r0 = 170; r0 < 505; r0 += 1.6) { x.strokeStyle = `rgba(255,255,255,${0.018 + Math.random() * 0.03})`; x.lineWidth = 0.7; x.beginPath(); x.arc(w / 2, w / 2, r0, 0, 6.3); x.stroke(); } x.fillStyle = "#050507"; for (const r0 of [260, 345, 420]) { x.strokeStyle = "rgba(0,0,0,.9)"; x.lineWidth = 5; x.beginPath(); x.arc(w / 2, w / 2, r0, 0, 6.3); x.stroke(); }
+    const sh = x.createConicGradient(0.7, w / 2, w / 2); sh.addColorStop(0, "rgba(255,255,255,.2)"); sh.addColorStop(0.09, "rgba(255,255,255,0)"); sh.addColorStop(0.5, "rgba(255,255,255,.18)"); sh.addColorStop(0.59, "rgba(255,255,255,0)"); sh.addColorStop(1, "rgba(255,255,255,.2)"); x.globalCompositeOperation = "source-atop"; x.fillStyle = sh; x.fillRect(0, 0, w, w); });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.15, 96), std(0xffffff, 0.3, 0.1, { map: grooves })); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; platter.add(disc);
+  MUSIC.label = new THREE.Mesh(new THREE.CircleGeometry(0.05, 48), std(0xff2a6d, 0.5)); MUSIC.label.rotation.x = -Math.PI / 2; MUSIC.label.position.y = 0.0205; platter.add(MUSIC.label);
+  { const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.028, 12), steelM(0xe0e4ec)); sp.position.y = 0.032; platter.add(sp); }
+  const arm = new THREE.Group(); arm.position.set(0.19, 0.11, -0.13); TT.add(arm);
+  { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.02, 0.06, 20), steelM(0x9aa1b0)); post.position.y = -0.012; arm.add(post); const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.0038, 0.0038, 0.26, 12), steelM(0xd8dce4)); beam.rotation.x = Math.PI / 2; beam.position.z = 0.13; arm.add(beam);
+    const cw = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 20), steelM(0x6c7389)); cw.rotation.x = Math.PI / 2; cw.position.z = -0.03; arm.add(cw); block(0.018, 0.01, 0.04, 0, 0, -0.004, 0.27, { parent: arm, r: 0.003, mat: std(0x15151a, 0.4) }); }
+  tube(0.008, 0.008, 0.008, 0x2bff88, 0.2, 0.08, 0.17, { parent: TT, k: 1.6 });
+  addHot(TT, "music", "Turntable", touch ? "Tap to drop the needle" : "Click to drop the needle", () => { MUSIC.spin = !MUSIC.spin; });
+  /* the amp: brushed face, two amber VU meters whose needles ride the music, big knobs */
+  const AX = CX + 0.42, AZ = CZn + 0.03; block(0.72, 0.17, 0.42, 0, AX, 0.676, AZ, { r: 0.01, mat: steelM(0x8f96a5) });
+  const vuT = canvasTex(256, 128, (x, w, h) => { const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, "#ffcf7a"); g.addColorStop(1, "#d9892e"); x.fillStyle = g; x.fillRect(0, 0, w, h); x.strokeStyle = "#2a1605"; x.lineWidth = 2; x.beginPath(); x.arc(w / 2, 170, 120, -2.4, -0.74); x.stroke(); for (let i = 0; i <= 10; i++) { const a = -2.4 + i * 0.166; x.beginPath(); x.moveTo(w / 2 + Math.cos(a) * 120, 170 + Math.sin(a) * 120); x.lineTo(w / 2 + Math.cos(a) * 132, 170 + Math.sin(a) * 132); x.strokeStyle = i > 7 ? "#a4140c" : "#2a1605"; x.stroke(); } x.fillStyle = "#2a1605"; x.font = "700 18px 'JetBrains Mono'"; x.textAlign = "center"; x.fillText("VU", w / 2, 108); });
+  const needles = [-0.15, 0.03].map((dx) => { panel(0.14, 0.07, vuT, AX + dx, 0.692, AZ + 0.212, { k: 0.95 }); const n = new THREE.Group(); n.position.set(AX + dx, 0.664, AZ + 0.214); scene.add(n); const b = block(0.002, 0.066, 0.001, 0, 0, 0.033, 0, { parent: n, r: 0.0005, mat: new THREE.MeshBasicMaterial({ color: 0x170b02 }) }); b.castShadow = false; n.rotation.z = 0.7; return n; });
+  for (const dx of [0.22, 0.3]) { const kn = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.027, 0.03, 32), steelM(0xd8dce4)); kn.rotation.x = Math.PI / 2; kn.position.set(AX + dx, 0.676, AZ + 0.222); scene.add(kn); }
+  /* headphones on a steel stand, for the late-night shift */
+  { const hx = CX + 1.18, hz = CZn; const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.012, 32), steelM(0x6c7389)); ped.position.set(hx, 0.596, hz); scene.add(ped); const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.22, 12), steelM(0xc4cad8)); rod.position.set(hx, 0.70, hz); scene.add(rod);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.009, 10, 48, Math.PI), std(0x18181d, 0.5)); band.position.set(hx, 0.76, hz); scene.add(band); for (const s of [-1, 1]) { const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.03, 32), leather(0x24232b, plainBump, 0.5, 0.5)); cup.rotation.z = Math.PI / 2; cup.position.set(hx + s * 0.075, 0.742, hz); scene.add(cup); } }
+  /* the wall of records: my top albums, each on a small steel ledge, backlit */
+  const SZ = 0.54, COLS = 6, ROWS = 3, wallZ = -10.4; const wallGlow = tube(0.012, 0.012, 1, 0xffb066, X0 + 0.05, 2.78, wallZ, { k: 1.0 });
+  for (let i = 0; i < COLS * ROWS; i++) { const g = new THREE.Group(); scene.add(g);
+    const sl = new THREE.Mesh(new THREE.PlaneGeometry(SZ, SZ), new THREE.MeshStandardMaterial({ color: 0x15151c, roughness: 0.42 })); sl.rotation.y = Math.PI / 2; sl.position.x = 0.018; g.add(sl);
+    block(0.014, SZ + 0.03, SZ + 0.03, 0, 0, 0, 0, { parent: g, r: 0.004, mat: std(0x0a0a0e, 0.35) }); block(0.05, 0.008, SZ + 0.02, 0, 0.002, -SZ / 2 - 0.02, 0, { parent: g, r: 0.003, mat: steelM(0xa8afbc) });
+    addHot(sl, "music", "From the record wall", "Loading…", () => {}); sl.userData.slot = g; MUSIC.sleeves.push(sl); }
+  /* the wall is as big as the collection: covers centred, three rows, more columns as more albums turn up */
+  MUSIC.layout = (n) => { const cols = Math.max(1, Math.ceil(n / ROWS)); MUSIC.sleeves.forEach((sl, i) => { const g = sl.userData.slot; g.visible = i < n; if (i >= n) return; const c = Math.floor(i / ROWS), r = i % ROWS; g.position.set(X0 + 0.04, 2.3 - r * 0.66, wallZ + ((cols - 1) / 2 - c) * 0.72); }); wallGlow.scale.z = cols * 0.72 + 0.1; };
+  MUSIC.layout(12);
+  /* the chair: one huge, soft, cognac leather lounge, facing the sound */
+  { const ch = new THREE.Group(); ch.position.set(CX, 0, -10.2); scene.add(ch); const cog = leather(0x8e4f2a, seatBump, 0.38, 1), cogB = leather(0x8e4f2a, backBump, 0.38, 1), cogP = leather(0x7a4323, plainBump, 0.42, 0.8);
+    block(1.14, 0.1, 0.98, 0, 0, 0.11, 0, { parent: ch, r: 0.03, mat: steelM(0x2c303a) }); tube(1.0, 0.012, 0.012, 0xffa040, 0, 0.05, -0.47, { parent: ch, k: 1.0 });
+    const seat = pillow(0.92, 0.26, 0.86, 1, cog); seat.position.set(0, 0.32, -0.04); ch.add(seat); const back = pillow(0.92, 0.2, 0.68, 1, cogB); back.rotation.x = -Math.PI / 2 + 0.2; back.position.set(0, 0.74, 0.38); ch.add(back);
+    for (const s of [-1, 1]) { const armC = pillow(0.74, 0.3, 0.2, 1, cogP); armC.rotation.y = Math.PI / 2; armC.rotation.x = 0; armC.position.set(s * 0.56, 0.5, 0.02); ch.add(armC); } const hd = pillow(0.56, 0.12, 0.2, 1, cogP); hd.rotation.x = -Math.PI / 2 + 0.2; hd.position.set(0, 1.08, 0.3); ch.add(hd);
+    const tb = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.022, 48), std(0x0a0a0e, 0.12)); tb.position.set(1.1, 0.5, 0.0); ch.add(tb); const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.5, 16), steelM(0xc4cad8)); leg.position.set(1.1, 0.25, 0); ch.add(leg); const ft = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.17, 0.014, 32), steelM(0x6c7389)); ft.position.set(1.1, 0.008, 0); ch.add(ft);
+    const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.033, 0.085, 24), std(0xe0ddd2, 0.3)); mug.position.set(1.14, 0.555, -0.05); ch.add(mug); }
+  /* crates of records on the floor by the wall */
+  { let sd = 9; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647); for (const [cx, cz] of [[2.38, -12.75], [2.38, -7.85]]) { const cr = steelM(0x4a5060); block(0.42, 0.34, 0.42, 0, cx, 0.17, cz, { r: 0.012, mat: std(0x1c1d24, 0.5, 0.2) }); for (let i = 0; i < 12; i++) { const s = block(0.34, 0.34, 0.012, 0, cx, 0.3, cz - 0.16 + i * 0.029, { r: 0.003, mat: std(new THREE.Color().setHSL(r(), 0.45, 0.28), 0.5) }); s.rotation.x = -0.14; } } }
+  /* the right-hand wall: a long neon waveform, over felt panels */
+  { for (let i = 0; i < 7; i++) block(0.05, 1.7, 0.74, 0, X1 - 0.03, 1.0 + 0 * i, -8.0 - i * 0.82, { r: 0.016, mat: felt[i % 3] }); const pts = []; for (let i = 0; i <= 220; i++) { const u = i / 220, z = -7.9 - u * 5.0, env = Math.sin(u * Math.PI); pts.push(V(X1 - 0.09, 2.3 + Math.sin(u * 44) * Math.sin(u * 11) * 0.26 * env, z)); } scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 480, 0.0085, 6), glowMat(0xff2a6d, 1.25))); }
+  /* tall plants either side of the door, where the light falls */
+  for (const [px, pz, sd] of [[8.72, -7.72, 31], [2.28, -13.15, 37]]) { const p = new THREE.Group(); p.position.set(px, 0, pz); scene.add(p); const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.42, 28), std(0x3a3d46, 0.9)); pot.position.y = 0.21; p.add(pot); leafy(p, 0, 0.4, 0, { n: 22, len: 0.95, wid: 0.09, bend: 0.5, tilt: 0.6, seed: sd }); }
+  animators.push((now, dt) => { if (!SIDE.music.group?.visible || reduce && !MUSIC.spin) return; const k = (MUSIC.armK = (MUSIC.armK || 0) + ((MUSIC.spin ? 1 : 0) - (MUSIC.armK || 0)) * 0.03);
+    if (k > 0.02) platter.rotation.y -= (dt || 16) * 0.00349 * Math.min(1, k * 1.3); arm.rotation.y = 0.05 - k * 0.42; /* the arm crosses onto the record */
+    const beat = MUSIC.spin ? Math.abs(Math.sin(now / 230)) * Math.pow(Math.abs(Math.sin(now / 1840)), 0.6) : 0; needles.forEach((n, i) => { const v = 0.7 - k * (0.5 + beat * (i ? 0.64 : 0.76) + Math.sin(now / (i ? 96 : 73)) * 0.06); n.rotation.z = v; }); woofers.forEach((w) => { const s = 1.65 + beat * 0.012 * k; w.scale.z = s; }); });
+  animators.push((now) => { if (!SIDE.music.group?.visible || now < (MUSIC.pollT || 0)) return; MUSIC.pollT = now + 30000; loadMusic(); });
+};
+
 const buildLiving = () => {
   // Dark gunmetal wall panels (seams, a lower band, a few rivets), a dark glossy floor, a dark ceiling.
   // Neon does the outlining: cove light round the ceiling, a rounded frame round the window, tubes either side of it.
@@ -443,7 +736,8 @@ const buildLiving = () => {
   floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(12 / 1.5, 7 / 1.5);
   { const f = new THREE.Mesh(new THREE.BoxGeometry(12, 0.1, 7), toon(0xffffff, { map: floorTex, roughness: 0.28 })); f.position.set(0, -0.05, -3.5); scene.add(f); }
   slab(12, 0.1, 7, 0x0b0c12, 0, H + 0.05, -3.5);
-  wall(0.2, H, 7, -6, H / 2, -3.5, 7);
+  if (lite) wall(0.2, H, 7, -6, H / 2, -3.5, 7);
+  else { wall(0.2, H, 1.2, -6, H / 2, -0.6, 1.2); wall(0.2, H, 4.4, -6, H / 2, -4.8, 4.4); slab(0.2, H - 2.4, 1.4, plain, -6, 2.4 + (H - 2.4) / 2, -1.9); } // on desktop, with the closet's doorway
   wall(0.2, H, 2.9, 6, H / 2, -1.45, 2.9); wall(0.2, H, 2.7, 6, H / 2, -5.65, 2.7); slab(0.2, H - 2.4, 1.4, plain, 6, 2.4 + (H - 2.4) / 2, -3.6); // the right wall, with the gallery doorway
   // back wall: theater doorway | wall | window | wall | music door
   wall(0.8, H, 0.2, -5.6, H / 2, -7, 0.8);
@@ -500,8 +794,9 @@ const buildLiving = () => {
     g.userData.glow = [label];
     return g;
   };
-  soon("MUSIC", 4.5, -6.92, 0, 4.5, -6.88);
-  soon("CLOSET", -5.86, -1.9, Math.PI / 2, -5.88, -1.9);
+  if (lite) { soon("MUSIC", 4.5, -6.92, 0, 4.5, -6.88); soon("CLOSET", -5.86, -1.9, Math.PI / 2, -5.88, -1.9); }
+  else { sideDoor("music", "MUSIC", 4.5, -7.0, 0, [1.42, 0, 0], 0xff2a6d, "Records, and what I'm playing right now", [4.5, -7.12], Math.PI);
+    sideDoor("closet", "CLOSET", -6.0, -1.9, Math.PI / 2, [0, 0, -1.42], 0xb98cff, "Recent pickups, hung up properly", [-6.11, -1.9], -Math.PI / 2); }
   // the gallery doorway (open, framed in neon like the theater's), on the right wall
   for (const s of [-1, 1]) tube(0.04, 2.44, 0.04, 0xf9f002, 5.88, 1.22, -3.6 + s * 0.72, { k: 1.2 });
   tube(0.04, 0.04, 1.48, 0xf9f002, 5.88, 2.44, -3.6, { k: 1.2 });
@@ -2723,7 +3018,11 @@ const VIEWS = {
     hint: touch ? "Tap a shelf to look closer" : "Click a shelf to look closer" },
 };
 // the rooms as a tree (each room's way back), so a walk can go up from one room and down to another
-const PARENT = { living: "outside", theater: "living", shelf: "theater", gallery: "living" };
+const PARENT = { living: "outside", theater: "living", shelf: "theater", gallery: "living", music: "living", closet: "living" };
+if (!lite) Object.assign(VIEWS, {
+  music: { pos: V(4.5, 1.64, -8.25), look: V(5.5, 1.5, -13.7), name: "Music room", hint: "Click a record, the screen or the turntable · drag to look around" },
+  closet: { pos: V(-7.0, 1.62, -2.0), look: V(-10.4, 1.45, -3.1), name: "Closet", hint: "Click a piece to look closer · drag to look around" },
+});
 const lineage = (r) => { const c = [r]; while (PARENT[c[0]]) c.unshift(PARENT[c[0]]); return c; };
 const routeTo = (from, to) => {
   const a = lineage(from), b = lineage(to); let k = 0; while (k < a.length && k < b.length && a[k] === b[k]) k++;
@@ -2731,6 +3030,8 @@ const routeTo = (from, to) => {
 };
 const PATHS = { // waypoints for position and where the camera looks, from → to
   "living>gallery": { pos: [V(0, 1.72, -1.1), V(2.4, 1.72, -3.9), V(5.2, 1.66, -3.6), V(6.4, 1.65, -3.6), V(7.3, 1.65, -3.6)], look: [V(0, 1.45, -7), V(5.9, 1.5, -3.6), V(9, 1.5, -3.6), V(13.1, 1.55, -3.6), V(13.1, 1.55, -3.6)] },
+  "living>music": { pos: [V(0, 1.72, -1.1), V(3.0, 1.72, -4.0), V(4.5, 1.68, -6.0), V(4.5, 1.66, -7.3), V(4.5, 1.64, -8.25)], look: [V(0, 1.45, -7), V(4.5, 1.6, -7), V(4.6, 1.55, -9.4), V(5.2, 1.5, -12.5), V(5.5, 1.5, -13.7)] },
+  "living>closet": { pos: [V(0, 1.72, -1.1), V(-3.2, 1.7, -1.6), V(-5.1, 1.66, -1.9), V(-6.4, 1.63, -1.9), V(-7.0, 1.62, -2.0)], look: [V(0, 1.45, -7), V(-6, 1.5, -1.9), V(-8, 1.5, -1.9), V(-10.4, 1.45, -2.6), V(-10.4, 1.45, -3.1)] },
   "outside>living": { pos: [V(1.9, 1.65, 4.75), V(0.5, 1.62, 2.1), V(0, 1.66, 0.35), V(0, 1.72, -0.6)], look: [V(-0.6, 1.45, 0), V(0, 1.5, -3), V(0, 1.45, -6), V(0, 1.45, -7)] },
   "theater>shelf": { pos: [V(-4.5, 2.15, -8.2), V(-5.6, 1.95, -10.1), V(-5.0, 1.78, -12.6), V(-4.6, 1.72, -13.7)], look: [V(-4.5, 1.85, -17), V(-7.2, 1.7, -14.8), V(-8.75, 1.65, -13.9), V(-8.75, 1.65, -13.7)] },
   "living>theater": { pos: [V(0, 1.72, -0.6), V(-2.4, 1.72, -3.6), V(-4.5, 1.76, -6.1), V(-4.5, 1.95, -7.5), V(-4.5, 2.15, -8.2)], look: [V(0, 1.45, -7), V(-4.5, 1.6, -7.5), V(-4.5, 1.7, -10), V(-4.5, 1.8, -14), V(-4.5, 1.85, -17)] },
@@ -2779,12 +3080,15 @@ const go = (to) => {
     const nxt = route[i];
     // the door slides up to let you through and shuts behind you (and locks, once you're back outside)
     const through = (cur === "outside" && nxt === "living") || (cur === "living" && nxt === "outside");
-    const launch = () => fly(cur, nxt, () => { room = nxt; setRoomUI(); if (through) doorTo = 0; if (nxt === "outside") lockDoor(); if (nxt === "shelf" || cur === "shelf") hopCats(seatCats, nxt === "shelf"); step(i + 1, nxt); });
-    if (through && doorOpen < 0.99) { doorTo = 1; setTimeout(launch, reduce ? 0 : 650); } else launch();
+    const sd = !lite && (SIDE[nxt] || SIDE[cur]), sdKey = sd && (SIDE[nxt] ? nxt : cur);
+    if (sd) { clearTimeout(sideT); sideShow(sdKey); sd.to = 1; if (SIDE[nxt]) loadMusicOnce(nxt); }
+    const launch = () => fly(cur, nxt, () => { room = nxt; setRoomUI(); if (through) doorTo = 0; if (sd) { sd.to = 0; if (!SIDE[nxt]) sideT = setTimeout(() => { if (!SIDE[room]) sideShow(null); }, 700); } if (nxt === "outside") lockDoor(); if (nxt === "shelf" || cur === "shelf") hopCats(seatCats, nxt === "shelf"); step(i + 1, nxt); });
+    if (through && doorOpen < 0.99) { doorTo = 1; setTimeout(launch, reduce ? 0 : 650); } else if (sd) setTimeout(launch, reduce ? 0 : 480); else launch();
   };
   ui.hint.textContent = "";
   step(0, from);
 };
+const loadMusicOnce = (k) => { if (k === "music") loadMusic(); };
 const back = () => {
   if (cv.active) return cv.close();
   if (focusRow) return unfocus();
@@ -3722,7 +4026,7 @@ const loadDCSky = () => {
   }).catch((e) => console.warn("dc sky:", e));
 };
 const buildCity = () => {
-  const P = "images/city/", CITY_V = "?v=1793829164"; // bump when the pictures change
+  const P = "images/city/", CITY_V = "?v=1793944054"; // bump when the pictures change
   if (lite) { const im = new Image(); im.onload = () => { cityPhoto = im; drawWindow(); }; im.src = P + "flat.jpg" + CITY_V; return; }
   loadDCSky(); setInterval(loadDCSky, 15 * 60000); SKY.goal = skyGoal(); skyApply(SKY.goal, 1);
   const tex = (n) => new Promise((ok, no) => loader.load(P + n + CITY_V, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = THREE.MirroredRepeatWrapping; ok(t); }, undefined, no));
@@ -3855,7 +4159,7 @@ const pmrem = lite ? null : new THREE.PMREMGenerator(renderer); // one, kept: a 
 const envOf = {}; let envRoom = null;
 const useRoomEnv = (r) => {
   if (!envCube || !VIEWS[r]) return;
-  if (!envOf[r]) { const v = VIEWS[r]; envCube.position.copy(v.pos); envCube.update(renderer, scene); envOf[r] = pmrem.fromCubemap(envCube.renderTarget.texture).texture; }
+  if (!envOf[r]) { const v = VIEWS[r], was = sideActive(); sideShow(SIDE[r] ? r : null); envCube.position.copy(v.pos); envCube.update(renderer, scene); envOf[r] = pmrem.fromCubemap(envCube.renderTarget.texture).texture; sideShow(was); }
   scene.environment = envOf[r]; envRoom = r;
 };
 
@@ -3914,6 +4218,7 @@ const bakeFloors = () => {
       const grp = new THREE.Group(); for (const j of jobs) { const m = new THREE.Mesh(j.o.geometry, j.bakedM); m.receiveShadow = j.o.receiveShadow; m.castShadow = j.o.castShadow; grp.add(m); }
       const swap = () => { for (const j of jobs) j.o.material = j.bakedM; const t0 = performance.now(); animators.push((now) => { const k = Math.min(1, (now - t0) / 1500); for (const j of jobs) j.bakedM.aoMapIntensity = k; }); };
       renderer.compileAsync(grp, camera, scene).then(swap, swap); return; }
+    const sideWas = sideActive(); for (const k in SIDE) if (SIDE[k].group) SIDE[k].group.visible = true; /* the side rooms' furniture counts, even while they're shut */
     const hidden = hideAll(), prevT = renderer.getRenderTarget(), prevO = scene.overrideMaterial, prevBg = scene.background, cc = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha(), ac = renderer.autoClear;
     const sNeed = renderer.shadowMap.needsUpdate; renderer.shadowMap.needsUpdate = false; /* don't let the bake's renders eat a pending shadow redraw */
     const t0 = performance.now();
@@ -3932,7 +4237,7 @@ const bakeFloors = () => {
       job.i++;
     }
     if (job.i >= N) apply(job);
-    renderer.setRenderTarget(prevT); renderer.setClearColor(cc, ca); hidden.forEach((o) => (o.visible = true)); renderer.shadowMap.needsUpdate = sNeed;
+    renderer.setRenderTarget(prevT); renderer.setClearColor(cc, ca); hidden.forEach((o) => (o.visible = true)); for (const k in SIDE) if (SIDE[k].group) SIDE[k].group.visible = k === sideWas; renderer.shadowMap.needsUpdate = sNeed;
     requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -3943,7 +4248,7 @@ const bakeFloors = () => {
     Promise.all(["700 140px Rajdhani", "500 34px 'JetBrains Mono'", "500 38px Inter", "600 40px Inter", "italic 400 38px Inter"].map((f) => document.fonts.load(f))),
     new Promise((r) => setTimeout(r, 2500)),
   ]);
-  buildOutside(); buildLiving(); buildTheater(); buildKitchen(); buildKitchenMore(); buildGallery(); buildDecor(); buildHallMore(); buildCats(); buildHolo(); buildCity();
+  buildOutside(); buildLiving(); buildTheater(); buildKitchen(); buildKitchenMore(); buildGallery(); buildDecor(); buildHallMore(); buildCats(); buildHolo(); buildCity(); if (!lite) { sideGroup("closet", buildCloset); sideGroup("music", buildMusic); animators.push((now, dt) => { for (const k in SIDE) { const d = SIDE[k]; if (!d.door) continue; d.open += (d.to - d.open) * (reduce ? 1 : 1 - Math.exp(-(dt || 16) / 110)); d.door.position.copy(d.base).addScaledVector(d.slide, d.open); } }); for (const [k, t] of [["music", "Go to the music room"], ["closet", "Go to the closet"]]) { const b = document.createElement("button"); b.type = "button"; b.textContent = t; b.addEventListener("click", () => go(k)); document.querySelector(".h-nav")?.append(b); } }
   if (!lite) buildAreaLights();
   scene.add(new THREE.AmbientLight(0x5b4a9a, 0.3)); // low: the room's light comes from its lamps, neon and the city
   scene.add(new THREE.HemisphereLight(0x9d8cff, 0x1a0f30, 0.45));
