@@ -1,9 +1,21 @@
 {
-  "updated": "2026-11-08T16:53:52+00:00",
+  "updated": "2026-11-08T19:56:32+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
     "diary": [
+      {
+        "title": "Wild Horse Nine",
+        "year": "2026",
+        "rating": 4.5,
+        "liked": true,
+        "rewatch": false,
+        "watched": "2026-11-08",
+        "poster": "https://a.ltrbxd.com/resized/film-poster/8/0/2/6/3/2/802632-wild-horse-nine-0-600-0-900-crop.jpg?v=eade7a541c",
+        "review": "I should write a memoir \n\nI think about death more than the average person. Grappling ideas of what you believe in, coming to terms with the fairness of it, and trying to keep everything neat. \nI also love conspiracy theories. \nSo battling the themes of guilt and coming to terms with who you are, while blending it in the story of a person with such massive ramifications from their past, was a beautiful peace that spoke to me more than it will the average person\nThe story is very light, but the characters are massive",
+        "link": "https://letterboxd.com/thepierpont/film/wild-horse-nine/",
+        "published": "2026-11-08T19:38:14+00:00"
+      },
       {
         "title": "Godzilla Minus Zero",
         "year": "2026",
@@ -591,18 +603,6 @@
         "review": "It’s buried in there, misremembered, destroying you",
         "link": "https://letterboxd.com/thepierpont/film/backrooms-2026/",
         "published": "2026-05-31T00:05:32+00:00"
-      },
-      {
-        "title": "Obsession",
-        "year": "2025",
-        "rating": 5.0,
-        "liked": true,
-        "rewatch": false,
-        "watched": "2026-05-25",
-        "poster": "https://a.ltrbxd.com/resized/film-poster/1/2/3/4/4/7/2/1234472-obsession-2025-2-0-600-0-900-crop.jpg?v=cff6fc00b6",
-        "review": "Dude",
-        "link": "https://letterboxd.com/thepierpont/film/obsession-2025/",
-        "published": "2026-05-26T01:55:33+00:00"
       }
     ],
     "lists": [
@@ -975,44 +975,44 @@
     "source": "Citadel Wire",
     "items": [
       {
-        "title": "House Republicans Brace for Hegseth Impeachment Vote Over Iran War",
-        "link": "https://citadelwire.com/posts/2026-11-08-140011",
-        "published": "2026-11-08T14:00:11+00:00"
+        "title": "Two Trains Collide South of Cairo, Killing Seven and Injuring More Than 100",
+        "link": "https://citadelwire.com/posts/2026-11-08-190011",
+        "published": "2026-11-08T19:00:11+00:00"
       },
       {
-        "title": "Iran Says Three Tankers Burn in Hormuz as US Disables a Blockade Runner",
-        "link": "https://citadelwire.com/posts/2026-11-08-140011",
-        "published": "2026-11-08T14:00:11+00:00"
+        "title": "Poland Opens Terror Investigation Into Kraków Shooting as Both Wounded Officers Wake",
+        "link": "https://citadelwire.com/posts/2026-11-08-190011",
+        "published": "2026-11-08T19:00:11+00:00"
       },
       {
-        "title": "Anthropic Buys $3.4bn of Gas-Fired Power to Bypass Grid Queue",
-        "link": "https://citadelwire.com/posts/2026-11-08-130011",
-        "published": "2026-11-08T13:00:11+00:00"
+        "title": "JLR Bailiffs Seize Records From BYD's Dutch Offices Before Defender Clone Trial",
+        "link": "https://citadelwire.com/posts/2026-11-08-190011",
+        "published": "2026-11-08T19:00:11+00:00"
       },
       {
-        "title": "Democrats Set Healthcare and Tariff Votes as Senate Filibuster Blocks the Path",
-        "link": "https://citadelwire.com/posts/2026-11-08-130011",
-        "published": "2026-11-08T13:00:11+00:00"
+        "title": "UK Prepares to Cut Its 2030 Electric-Vehicle Mandate by a Quarter",
+        "link": "https://citadelwire.com/posts/2026-11-08-190011",
+        "published": "2026-11-08T19:00:11+00:00"
       },
       {
-        "title": "Democrats' Win Could Strengthen Ukraine's Hand, Kyiv Hopes",
-        "link": "https://citadelwire.com/posts/2026-11-08-130011",
-        "published": "2026-11-08T13:00:11+00:00"
+        "title": "Attorney General Won't Rule Out Prosecuting Democrats Who Investigate Trump Officials",
+        "link": "https://citadelwire.com/posts/2026-11-08-180011",
+        "published": "2026-11-08T18:00:11+00:00"
       },
       {
-        "title": "Russia's Weekly Troop Losses Set War Record as Missile Barrage Hammers Ukraine's Grid",
-        "link": "https://citadelwire.com/posts/2026-11-08-120011",
-        "published": "2026-11-08T12:00:11+00:00"
+        "title": "Sanders Warns Democrats Not to Let Investigations Crowd Out Cost of Living",
+        "link": "https://citadelwire.com/posts/2026-11-08-180011",
+        "published": "2026-11-08T18:00:11+00:00"
       },
       {
-        "title": "UK Weighs Extending Under-16 Social Media Ban to Vinted and eBay",
-        "link": "https://citadelwire.com/posts/2026-11-08-120011",
-        "published": "2026-11-08T12:00:11+00:00"
+        "title": "Migrant Boat Sinks Off Senegal, Killing at Least 21",
+        "link": "https://citadelwire.com/posts/2026-11-08-170011",
+        "published": "2026-11-08T17:00:11+00:00"
       },
       {
-        "title": "Zaporizhzhia Plant Falls Back on Diesel Generators After Losing Grid Power",
-        "link": "https://citadelwire.com/posts/2026-11-08-110011",
-        "published": "2026-11-08T11:00:11+00:00"
+        "title": "Egypt Reopens Tripoli Embassy After 12-Year Closure",
+        "link": "https://citadelwire.com/posts/2026-11-08-170011",
+        "published": "2026-11-08T17:00:11+00:00"
       }
     ]
   }
