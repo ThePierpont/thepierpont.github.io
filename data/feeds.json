@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-08T14:52:59+00:00",
+  "updated": "2026-11-08T16:53:52+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
@@ -607,6 +607,36 @@
     ],
     "lists": [
       {
+        "title": "2026 Ranked",
+        "link": "https://letterboxd.com/thepierpont/list/2026-ranked/",
+        "published": "2026-01-09T02:25:06+00:00",
+        "description": "",
+        "ranked": true,
+        "count": 50,
+        "films": [
+          {
+            "title": "The Invite",
+            "link": "https://letterboxd.com/film/the-invite-2026/"
+          },
+          {
+            "title": "The Drama",
+            "link": "https://letterboxd.com/film/the-drama/"
+          },
+          {
+            "title": "Obsession",
+            "link": "https://letterboxd.com/film/obsession-2025/"
+          },
+          {
+            "title": "Project Hail Mary",
+            "link": "https://letterboxd.com/film/project-hail-mary/"
+          },
+          {
+            "title": "You Can See Everything",
+            "link": "https://letterboxd.com/film/you-can-see-everything/"
+          }
+        ]
+      },
+      {
         "title": "2000s",
         "link": "https://letterboxd.com/thepierpont/list/2000s/",
         "published": "2026-02-22T05:47:46+00:00",
@@ -633,36 +663,6 @@
           {
             "title": "Mamma Mia!",
             "link": "https://letterboxd.com/film/mamma-mia/"
-          }
-        ]
-      },
-      {
-        "title": "2026 Ranked",
-        "link": "https://letterboxd.com/thepierpont/list/2026-ranked/",
-        "published": "2026-01-09T02:25:06+00:00",
-        "description": "",
-        "ranked": true,
-        "count": 48,
-        "films": [
-          {
-            "title": "The Invite",
-            "link": "https://letterboxd.com/film/the-invite-2026/"
-          },
-          {
-            "title": "The Drama",
-            "link": "https://letterboxd.com/film/the-drama/"
-          },
-          {
-            "title": "Obsession",
-            "link": "https://letterboxd.com/film/obsession-2025/"
-          },
-          {
-            "title": "Project Hail Mary",
-            "link": "https://letterboxd.com/film/project-hail-mary/"
-          },
-          {
-            "title": "You Can See Everything",
-            "link": "https://letterboxd.com/film/you-can-see-everything/"
           }
         ]
       },
@@ -792,7 +792,7 @@
         "slug": "2026-ranked",
         "title": "2026 Ranked",
         "link": "https://letterboxd.com/ThePierpont/list/2026-ranked/",
-        "count": 48,
+        "count": 50,
         "top": [
           {
             "title": "The Invite",
