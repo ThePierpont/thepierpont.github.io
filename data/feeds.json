@@ -1,9 +1,21 @@
 {
-  "updated": "2026-11-09T03:03:18+00:00",
+  "updated": "2026-11-09T05:26:23+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
     "diary": [
+      {
+        "title": "Dawn of the Planet of the Apes",
+        "year": "2014",
+        "rating": 4.5,
+        "liked": true,
+        "rewatch": true,
+        "watched": "2026-11-08",
+        "poster": "https://a.ltrbxd.com/resized/film-poster/9/4/3/9/4/94394-dawn-of-the-planet-of-the-apes-0-600-0-900-crop.jpg?v=29a00ba752",
+        "review": "I am so grateful this way made before every movie had a comedy relief.\n\nCaesar is the leader everyone wants to be, but a lot of them end up just being Koba pretending to be Caesar",
+        "link": "https://letterboxd.com/thepierpont/film/dawn-of-the-planet-of-the-apes/",
+        "published": "2026-11-09T05:01:22+00:00"
+      },
       {
         "title": "Wild Horse Nine",
         "year": "2026",
@@ -591,18 +603,6 @@
         "review": "Idk how I’d feel showing my kids this much death , but like in a good way ?",
         "link": "https://letterboxd.com/thepierpont/film/the-sheep-detectives/",
         "published": "2026-06-02T20:17:38+00:00"
-      },
-      {
-        "title": "Backrooms",
-        "year": "2026",
-        "rating": 4.0,
-        "liked": true,
-        "rewatch": false,
-        "watched": "2026-05-30",
-        "poster": "https://a.ltrbxd.com/resized/film-poster/9/7/6/4/1/9/976419-backrooms-2026-0-600-0-900-crop.jpg?v=f7a99e3fc8",
-        "review": "It’s buried in there, misremembered, destroying you",
-        "link": "https://letterboxd.com/thepierpont/film/backrooms-2026/",
-        "published": "2026-05-31T00:05:32+00:00"
       }
     ],
     "lists": [
@@ -619,20 +619,50 @@
             "link": "https://letterboxd.com/film/the-invite-2026/"
           },
           {
+            "title": "Wild Horse Nine",
+            "link": "https://letterboxd.com/film/wild-horse-nine/"
+          },
+          {
             "title": "The Drama",
             "link": "https://letterboxd.com/film/the-drama/"
           },
           {
-            "title": "Obsession",
-            "link": "https://letterboxd.com/film/obsession-2025/"
-          },
-          {
-            "title": "Project Hail Mary",
-            "link": "https://letterboxd.com/film/project-hail-mary/"
-          },
-          {
             "title": "You Can See Everything",
             "link": "https://letterboxd.com/film/you-can-see-everything/"
+          },
+          {
+            "title": "Obsession",
+            "link": "https://letterboxd.com/film/obsession-2025/"
+          }
+        ]
+      },
+      {
+        "title": "2010s",
+        "link": "https://letterboxd.com/thepierpont/list/2010s/",
+        "published": "2026-02-22T05:50:41+00:00",
+        "description": "2011-2020",
+        "ranked": false,
+        "count": 39,
+        "films": [
+          {
+            "title": "Crazy, Stupid, Love.",
+            "link": "https://letterboxd.com/film/crazy-stupid-love/"
+          },
+          {
+            "title": "Steve Jobs",
+            "link": "https://letterboxd.com/film/steve-jobs/"
+          },
+          {
+            "title": "La La Land",
+            "link": "https://letterboxd.com/film/la-la-land/"
+          },
+          {
+            "title": "The Social Network",
+            "link": "https://letterboxd.com/film/the-social-network/"
+          },
+          {
+            "title": "Dawn of the Planet of the Apes",
+            "link": "https://letterboxd.com/film/dawn-of-the-planet-of-the-apes/"
           }
         ]
       },
@@ -727,36 +757,6 @@
         ]
       },
       {
-        "title": "2010s",
-        "link": "https://letterboxd.com/thepierpont/list/2010s/",
-        "published": "2026-02-22T05:50:41+00:00",
-        "description": "2011-2020",
-        "ranked": false,
-        "count": 38,
-        "films": [
-          {
-            "title": "Crazy, Stupid, Love.",
-            "link": "https://letterboxd.com/film/crazy-stupid-love/"
-          },
-          {
-            "title": "Steve Jobs",
-            "link": "https://letterboxd.com/film/steve-jobs/"
-          },
-          {
-            "title": "How Do You Know",
-            "link": "https://letterboxd.com/film/how-do-you-know/"
-          },
-          {
-            "title": "The Social Network",
-            "link": "https://letterboxd.com/film/the-social-network/"
-          },
-          {
-            "title": "Sex Tape",
-            "link": "https://letterboxd.com/film/sex-tape/"
-          }
-        ]
-      },
-      {
         "title": "Favorite Horror Movies",
         "link": "https://letterboxd.com/thepierpont/list/favorite-horror-movies/",
         "published": "2026-10-16T04:59:31+00:00",
@@ -800,24 +800,24 @@
             "link": "https://letterboxd.com/film/the-invite-2026/"
           },
           {
+            "title": "Wild Horse Nine",
+            "year": "2026",
+            "link": "https://letterboxd.com/film/wild-horse-nine/"
+          },
+          {
             "title": "The Drama",
             "year": "2026",
             "link": "https://letterboxd.com/film/the-drama/"
           },
           {
-            "title": "Obsession",
-            "year": "2025",
-            "link": "https://letterboxd.com/film/obsession-2025/"
-          },
-          {
-            "title": "Project Hail Mary",
-            "year": "2026",
-            "link": "https://letterboxd.com/film/project-hail-mary/"
-          },
-          {
             "title": "You Can See Everything",
             "year": "2026",
             "link": "https://letterboxd.com/film/you-can-see-everything/"
+          },
+          {
+            "title": "Obsession",
+            "year": "2025",
+            "link": "https://letterboxd.com/film/obsession-2025/"
           }
         ],
         "poster": "data/list-posters/2026-ranked.jpg"
