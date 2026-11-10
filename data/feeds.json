@@ -1,9 +1,21 @@
 {
-  "updated": "2026-11-10T05:08:29+00:00",
+  "updated": "2026-11-10T06:07:42+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
     "diary": [
+      {
+        "title": "Killer's Kiss",
+        "year": "1955",
+        "rating": 2.0,
+        "liked": false,
+        "rewatch": false,
+        "watched": "2026-11-09",
+        "poster": "https://a.ltrbxd.com/resized/film-poster/4/6/5/8/8/46588-killer-s-kiss-0-600-0-900-crop.jpg?v=29d1ed4b21",
+        "review": "Yes, it’s because I bought the collection, now I feel obligated to watch all of them, even the ones I know I’m not remotely interested in.\nLoved the shot where they broke the camera tho",
+        "link": "https://letterboxd.com/thepierpont/film/killers-kiss/",
+        "published": "2026-11-10T05:44:59+00:00"
+      },
       {
         "title": "Dawn of the Planet of the Apes",
         "year": "2014",
@@ -591,21 +603,39 @@
         "review": "Maybe I am unc",
         "link": "https://letterboxd.com/thepierpont/film/scary-movie-2026/",
         "published": "2026-06-09T20:37:01+00:00"
-      },
-      {
-        "title": "The Sheep Detectives",
-        "year": "2026",
-        "rating": 4.0,
-        "liked": true,
-        "rewatch": false,
-        "watched": "2026-06-02",
-        "poster": "https://a.ltrbxd.com/resized/film-poster/1/1/8/3/1/3/5/1183135-the-sheep-detectives-0-600-0-900-crop.jpg?v=c7b622176e",
-        "review": "Idk how I’d feel showing my kids this much death , but like in a good way ?",
-        "link": "https://letterboxd.com/thepierpont/film/the-sheep-detectives/",
-        "published": "2026-06-02T20:17:38+00:00"
       }
     ],
     "lists": [
+      {
+        "title": "My Criterion Collection",
+        "link": "https://letterboxd.com/thepierpont/list/my-criterion-collection/",
+        "published": "2025-11-04T23:32:21+00:00",
+        "description": "Most my criterion buys are first watches",
+        "ranked": false,
+        "count": 13,
+        "films": [
+          {
+            "title": "Barry Lyndon",
+            "link": "https://letterboxd.com/film/barry-lyndon/"
+          },
+          {
+            "title": "Punch-Drunk Love",
+            "link": "https://letterboxd.com/film/punch-drunk-love/"
+          },
+          {
+            "title": "Eyes Wide Shut",
+            "link": "https://letterboxd.com/film/eyes-wide-shut/"
+          },
+          {
+            "title": "Anora",
+            "link": "https://letterboxd.com/film/anora/"
+          },
+          {
+            "title": "Uncut Gems",
+            "link": "https://letterboxd.com/film/uncut-gems/"
+          }
+        ]
+      },
       {
         "title": "2026 Ranked",
         "link": "https://letterboxd.com/thepierpont/list/2026-ranked/",
@@ -753,36 +783,6 @@
           {
             "title": "Se7en",
             "link": "https://letterboxd.com/film/se7en/"
-          }
-        ]
-      },
-      {
-        "title": "Favorite Horror Movies",
-        "link": "https://letterboxd.com/thepierpont/list/favorite-horror-movies/",
-        "published": "2026-10-16T04:59:31+00:00",
-        "description": "",
-        "ranked": true,
-        "count": 13,
-        "films": [
-          {
-            "title": "Grave Encounters",
-            "link": "https://letterboxd.com/film/grave-encounters/"
-          },
-          {
-            "title": "Climax",
-            "link": "https://letterboxd.com/film/climax-2018/"
-          },
-          {
-            "title": "Hereditary",
-            "link": "https://letterboxd.com/film/hereditary/"
-          },
-          {
-            "title": "Oddity",
-            "link": "https://letterboxd.com/film/oddity-2024/"
-          },
-          {
-            "title": "It Follows",
-            "link": "https://letterboxd.com/film/it-follows/"
           }
         ]
       }
