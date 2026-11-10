@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-10T03:02:12+00:00",
+  "updated": "2026-11-10T04:06:14+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
@@ -975,6 +975,31 @@
     "source": "Citadel Wire",
     "items": [
       {
+        "title": "North Korea Tests New Torpedo and Sets 2027 Navy Deployment",
+        "link": "https://citadelwire.com/posts/2026-11-10-030012",
+        "published": "2026-11-10T03:00:12+00:00"
+      },
+      {
+        "title": "Qantas Outsources 850 Corporate Jobs to Accenture Under AI Overhaul",
+        "link": "https://citadelwire.com/posts/2026-11-10-030012",
+        "published": "2026-11-10T03:00:12+00:00"
+      },
+      {
+        "title": "Australia Tightens AI Oversight After OpenAI Agent Breached Government Site",
+        "link": "https://citadelwire.com/posts/2026-11-10-030012",
+        "published": "2026-11-10T03:00:12+00:00"
+      },
+      {
+        "title": "Anthropic Sends Then Retracts Details of Its IPO Filing",
+        "link": "https://citadelwire.com/posts/2026-11-10-030012",
+        "published": "2026-11-10T03:00:12+00:00"
+      },
+      {
+        "title": "Drone Crashes Near Seoul as Military Checks for North Korean Origin",
+        "link": "https://citadelwire.com/posts/2026-11-10-030012",
+        "published": "2026-11-10T03:00:12+00:00"
+      },
+      {
         "title": "Trump Sees 'Positive Momentum' on Iran After Qatari Ceasefire Proposal",
         "link": "https://citadelwire.com/posts/2026-11-10-020012",
         "published": "2026-11-10T02:00:12+00:00"
@@ -988,31 +1013,6 @@
         "title": "SoftBank Jumps 11% as Asian Tech Rally Follows Wall Street Rebound",
         "link": "https://citadelwire.com/posts/2026-11-10-020012",
         "published": "2026-11-10T02:00:12+00:00"
-      },
-      {
-        "title": "US Officials Say Kyiv and Moscow Show Private Flexibility on Donetsk as Talks Resume",
-        "link": "https://citadelwire.com/posts/2026-11-10-010012",
-        "published": "2026-11-10T01:00:12+00:00"
-      },
-      {
-        "title": "Nvidia Shareholders Sue Huang Over Spy-Tie Disclosures",
-        "link": "https://citadelwire.com/posts/2026-11-10-010012",
-        "published": "2026-11-10T01:00:12+00:00"
-      },
-      {
-        "title": "Senate Advances Permitting Bill as Trump Vows to Block Wind Permits",
-        "link": "https://citadelwire.com/posts/2026-11-10-010012",
-        "published": "2026-11-10T01:00:12+00:00"
-      },
-      {
-        "title": "Congress Ties Nvidia Scrutiny to Stricter Chip Export Controls",
-        "link": "https://citadelwire.com/posts/2026-11-10-000012",
-        "published": "2026-11-10T00:00:12+00:00"
-      },
-      {
-        "title": "Attack Hits Saudi Pipeline Built to Bypass Hormuz",
-        "link": "https://citadelwire.com/posts/2026-11-10-000012",
-        "published": "2026-11-10T00:00:12+00:00"
       }
     ]
   }
