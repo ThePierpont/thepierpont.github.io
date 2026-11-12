@@ -1,9 +1,21 @@
 {
-  "updated": "2026-11-11T23:59:22+00:00",
+  "updated": "2026-11-12T03:05:26+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
     "diary": [
+      {
+        "title": "Club Kid",
+        "year": "2026",
+        "rating": 4.5,
+        "liked": true,
+        "rewatch": false,
+        "watched": "2026-11-11",
+        "poster": "https://a.ltrbxd.com/resized/film-poster/1/4/5/6/2/4/2/1456242-club-kid-0-600-0-900-crop.jpg?v=b2d52aad9d",
+        "review": "What if a good dad was forced down the dead beat dad life? \n\nA heartwarming movie that makes having a kid seem way too easy.",
+        "link": "https://letterboxd.com/thepierpont/film/club-kid/",
+        "published": "2026-11-12T02:41:06+00:00"
+      },
       {
         "title": "Killer's Kiss",
         "year": "1955",
@@ -591,21 +603,39 @@
         "review": "First movie on my projector",
         "link": "https://letterboxd.com/thepierpont/film/one-battle-after-another/1/",
         "published": "2026-06-09T20:59:52+00:00"
-      },
-      {
-        "title": "Scary Movie",
-        "year": "2026",
-        "rating": 2.0,
-        "liked": true,
-        "rewatch": false,
-        "watched": "2026-06-09",
-        "poster": "https://a.ltrbxd.com/resized/film-poster/1/1/5/6/9/1/0/1156910-scary-movie-2026-0-600-0-900-crop.jpg?v=4714559ea7",
-        "review": "Maybe I am unc",
-        "link": "https://letterboxd.com/thepierpont/film/scary-movie-2026/",
-        "published": "2026-06-09T20:37:01+00:00"
       }
     ],
     "lists": [
+      {
+        "title": "2026 Ranked",
+        "link": "https://letterboxd.com/thepierpont/list/2026-ranked/",
+        "published": "2026-01-09T02:25:06+00:00",
+        "description": "",
+        "ranked": true,
+        "count": 52,
+        "films": [
+          {
+            "title": "The Invite",
+            "link": "https://letterboxd.com/film/the-invite-2026/"
+          },
+          {
+            "title": "Wild Horse Nine",
+            "link": "https://letterboxd.com/film/wild-horse-nine/"
+          },
+          {
+            "title": "The Drama",
+            "link": "https://letterboxd.com/film/the-drama/"
+          },
+          {
+            "title": "You Can See Everything",
+            "link": "https://letterboxd.com/film/you-can-see-everything/"
+          },
+          {
+            "title": "Obsession",
+            "link": "https://letterboxd.com/film/obsession-2025/"
+          }
+        ]
+      },
       {
         "title": "My Criterion Collection",
         "link": "https://letterboxd.com/thepierpont/list/my-criterion-collection/",
@@ -633,36 +663,6 @@
           {
             "title": "Uncut Gems",
             "link": "https://letterboxd.com/film/uncut-gems/"
-          }
-        ]
-      },
-      {
-        "title": "2026 Ranked",
-        "link": "https://letterboxd.com/thepierpont/list/2026-ranked/",
-        "published": "2026-01-09T02:25:06+00:00",
-        "description": "",
-        "ranked": true,
-        "count": 51,
-        "films": [
-          {
-            "title": "The Invite",
-            "link": "https://letterboxd.com/film/the-invite-2026/"
-          },
-          {
-            "title": "Wild Horse Nine",
-            "link": "https://letterboxd.com/film/wild-horse-nine/"
-          },
-          {
-            "title": "The Drama",
-            "link": "https://letterboxd.com/film/the-drama/"
-          },
-          {
-            "title": "You Can See Everything",
-            "link": "https://letterboxd.com/film/you-can-see-everything/"
-          },
-          {
-            "title": "Obsession",
-            "link": "https://letterboxd.com/film/obsession-2025/"
           }
         ]
       },
@@ -792,7 +792,7 @@
         "slug": "2026-ranked",
         "title": "2026 Ranked",
         "link": "https://letterboxd.com/ThePierpont/list/2026-ranked/",
-        "count": 51,
+        "count": 52,
         "top": [
           {
             "title": "The Invite",
