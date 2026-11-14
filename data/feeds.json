@@ -1,9 +1,33 @@
 {
-  "updated": "2026-11-14T03:03:34+00:00",
+  "updated": "2026-11-14T06:02:12+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
     "diary": [
+      {
+        "title": "Dune: Part Two",
+        "year": "2024",
+        "rating": 5.0,
+        "liked": true,
+        "rewatch": true,
+        "watched": "2026-11-13",
+        "poster": "https://a.ltrbxd.com/resized/film-poster/6/1/7/4/4/3/617443-dune-part-two-0-600-0-900-crop.jpg?v=cc533700f8",
+        "review": "WHY IS THE ONLY RELEASE OF THIS MOVIE WIDESCREEN\n\nPissed about how amazing this looked on imax",
+        "link": "https://letterboxd.com/thepierpont/film/dune-part-two/1/",
+        "published": "2026-11-14T05:26:53+00:00"
+      },
+      {
+        "title": "Dune",
+        "year": "2021",
+        "rating": 4.5,
+        "liked": true,
+        "rewatch": true,
+        "watched": "2026-11-13",
+        "poster": "https://a.ltrbxd.com/resized/sm/upload/nx/8b/vs/gc/cDbNAY0KM84cxXhmj8f0dLWza3t-0-600-0-900-crop.jpg?v=49eed12751",
+        "review": "Can you really be a Messiah if you’re not constantly aura farming \n\nThis is what Batman Begins wishes it was. Crazy how fast it skims through the book",
+        "link": "https://letterboxd.com/thepierpont/film/dune-2021/",
+        "published": "2026-11-14T05:26:07+00:00"
+      },
       {
         "title": "Club Kid",
         "year": "2026",
@@ -579,30 +603,6 @@
         "review": "Oh so dating girls is like that for everybody? \nCute coming of age, great ending",
         "link": "https://letterboxd.com/thepierpont/film/girls-like-girls/",
         "published": "2026-06-21T19:54:13+00:00"
-      },
-      {
-        "title": "Disclosure Day",
-        "year": "2026",
-        "rating": 4.0,
-        "liked": true,
-        "rewatch": false,
-        "watched": "2026-06-11",
-        "poster": "https://a.ltrbxd.com/resized/film-poster/1/1/5/9/2/5/1/1159251-disclosure-day-0-600-0-900-crop.jpg?v=9ae810e4bb",
-        "review": "First Spielberg, did have lower expectations",
-        "link": "https://letterboxd.com/thepierpont/film/disclosure-day/",
-        "published": "2026-06-11T21:25:56+00:00"
-      },
-      {
-        "title": "One Battle After Another",
-        "year": "2025",
-        "rating": 5.0,
-        "liked": true,
-        "rewatch": true,
-        "watched": "2026-06-08",
-        "poster": "https://a.ltrbxd.com/resized/film-poster/9/5/1/2/7/7/951277-one-battle-after-another-0-600-0-900-crop.jpg?v=d27c4cc662",
-        "review": "First movie on my projector",
-        "link": "https://letterboxd.com/thepierpont/film/one-battle-after-another/1/",
-        "published": "2026-06-09T20:59:52+00:00"
       }
     ],
     "lists": [
