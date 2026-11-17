@@ -1,9 +1,21 @@
 {
-  "updated": "2026-11-17T21:07:23+00:00",
+  "updated": "2026-11-17T23:09:18+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
     "diary": [
+      {
+        "title": "How to Rob a Bank",
+        "year": "2026",
+        "rating": 2.5,
+        "liked": true,
+        "rewatch": false,
+        "watched": "2026-11-17",
+        "poster": "https://a.ltrbxd.com/resized/film-poster/1/3/1/5/2/9/3/1315293-how-to-rob-a-bank-2026-0-600-0-900-crop.jpg?v=0a5382a9dc",
+        "review": "Look, I’m pro-class warfare but this wasn’t it\nIt’s just off putting watching an Amazon movie about how the economy is bias towards people with money \nNone of it hits , the emotion seems forced, but it does have some of the best YouTube editing kids would love.",
+        "link": "https://letterboxd.com/thepierpont/film/how-to-rob-a-bank-2026/",
+        "published": "2026-11-17T22:21:45+00:00"
+      },
       {
         "title": "Dune: Part Two",
         "year": "2024",
@@ -591,18 +603,6 @@
         "review": "Tense, dreamy, confusing \nBest way to ever bring back a show",
         "link": "https://letterboxd.com/thepierpont/film/i-saw-the-tv-glow/",
         "published": "2026-06-22T04:12:21+00:00"
-      },
-      {
-        "title": "Girls Like Girls",
-        "year": "2026",
-        "rating": 3.0,
-        "liked": true,
-        "rewatch": false,
-        "watched": "2026-06-21",
-        "poster": "https://a.ltrbxd.com/resized/film-poster/1/2/8/1/2/3/0/1281230-girls-like-girls-0-600-0-900-crop.jpg?v=81265f1a60",
-        "review": "Oh so dating girls is like that for everybody? \nCute coming of age, great ending",
-        "link": "https://letterboxd.com/thepierpont/film/girls-like-girls/",
-        "published": "2026-06-21T19:54:13+00:00"
       }
     ],
     "lists": [
@@ -612,7 +612,7 @@
         "published": "2026-01-09T02:25:06+00:00",
         "description": "",
         "ranked": true,
-        "count": 52,
+        "count": 53,
         "films": [
           {
             "title": "The Invite",
@@ -792,7 +792,7 @@
         "slug": "2026-ranked",
         "title": "2026 Ranked",
         "link": "https://letterboxd.com/ThePierpont/list/2026-ranked/",
-        "count": 52,
+        "count": 53,
         "top": [
           {
             "title": "The Invite",
