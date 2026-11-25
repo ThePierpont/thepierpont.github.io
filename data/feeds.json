@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-24T23:11:53+00:00",
+  "updated": "2026-11-25T00:00:04+00:00",
   "letterboxd": {
     "username": "ThePierpont",
     "profile": "https://letterboxd.com/ThePierpont/",
@@ -975,6 +975,21 @@
     "source": "Citadel Wire",
     "items": [
       {
+        "title": "Dell Doubles Quarterly Revenue on AI Server Demand and Sets $25 Billion Buyback",
+        "link": "https://citadelwire.com/posts/2026-11-24-230017",
+        "published": "2026-11-24T23:00:17+00:00"
+      },
+      {
+        "title": "Over 120 Climate Scientists Urge House to Block Fast-Track Energy and Data-Center Bill",
+        "link": "https://citadelwire.com/posts/2026-11-24-230017",
+        "published": "2026-11-24T23:00:17+00:00"
+      },
+      {
+        "title": "Rackspace Shuts Down Spot Cloud Platform After Kubernetes Breach",
+        "link": "https://citadelwire.com/posts/2026-11-24-230017",
+        "published": "2026-11-24T23:00:17+00:00"
+      },
+      {
         "title": "U.S. Jury Convicts Huawei of Trade-Secret Theft and Sanctions Violations",
         "link": "https://citadelwire.com/posts/2026-11-24-220017",
         "published": "2026-11-24T22:00:17+00:00"
@@ -996,21 +1011,6 @@
       },
       {
         "title": "Iran Rules Out U.S. Talks Until Seven Demands Are Met",
-        "link": "https://citadelwire.com/posts/2026-11-24-213017",
-        "published": "2026-11-24T21:30:17+00:00"
-      },
-      {
-        "title": "Putin Vows Retaliation After Ukrainian Strikes on Russian Oil Plants",
-        "link": "https://citadelwire.com/posts/2026-11-24-213017",
-        "published": "2026-11-24T21:30:17+00:00"
-      },
-      {
-        "title": "Nvidia Falls 7% as Lawmakers Challenge Trump-Backed Huang Return",
-        "link": "https://citadelwire.com/posts/2026-11-24-213017",
-        "published": "2026-11-24T21:30:17+00:00"
-      },
-      {
-        "title": "China Places Shanghai Party Chief Chen Jining Under Investigation",
         "link": "https://citadelwire.com/posts/2026-11-24-213017",
         "published": "2026-11-24T21:30:17+00:00"
       }
